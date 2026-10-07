@@ -123,6 +123,9 @@ the operator can see and resolve.
   - the context switcher: the operator's own contexts (ADR-ORG-005), offered in every scope;
   - projection health: the consumers, with a stale consumer marked inline;
   - `unresolved`: the latest provisioning request on the Tenant read, offering no retry.
+- ✅ **The reconciliation age on projection health (TDD-organization-experience-002 1.4.0):** each
+  consumer shows when Organization Control last reconciled it, how long ago, and how many findings
+  the run reported, or "never reconciled" before its first run.
 
 ## Week 4 · Bulk, freshness, and offboarding
 
