@@ -104,6 +104,64 @@ describe('projection health', () => {
     expect(within(identity).queryByRole('status')).not.toBeInTheDocument();
     expect(identity).toHaveTextContent('when stale: fail closed');
   });
+
+  // TDD-organization-experience-002 1.4.0: the consumer's last reconciliation, as Organization Control
+  // serves it, and "never reconciled" while the fields are absent.
+  it('shows when each consumer was last reconciled and how many findings it reported', async () => {
+    visit('/projections');
+    stub(signedInto(null, providerScope(inForce)), (url) =>
+      url === '/api/v1/projections/consumers'
+        ? json({
+            consumers: [
+              {
+                consumer_id: 'billing',
+                state: 'active',
+                max_accepted_age_seconds: 30,
+                stale_behavior: 'use_with_marker',
+                last_reported_at: '2026-10-07T10:00:00Z',
+                stale: false,
+                last_reconciled_at: '2026-10-07T09:45:00Z',
+                last_reconciled_mark: 42,
+                last_reconciled_findings: 3,
+                reconciliation_age_seconds: 900,
+              },
+              {
+                consumer_id: 'audit',
+                state: 'active',
+                max_accepted_age_seconds: 60,
+                stale_behavior: 'revalidate',
+                last_reported_at: '2026-10-07T10:00:00Z',
+                stale: false,
+                last_reconciled_at: '2026-10-07T09:59:30Z',
+                last_reconciled_mark: 7,
+                last_reconciled_findings: 0,
+                reconciliation_age_seconds: 30,
+              },
+              {
+                consumer_id: 'identity-control',
+                state: 'active',
+                max_accepted_age_seconds: 10,
+                stale_behavior: 'fail_closed',
+                last_reported_at: '2026-10-07T10:00:00Z',
+                stale: false,
+              },
+            ],
+            next: null,
+          })
+        : undefined,
+    );
+    render(<App />);
+    const billing = (await screen.findByText('billing')).closest('li') as HTMLElement;
+    expect(billing).toHaveTextContent(
+      `reconciled 15 min ago (${new Date('2026-10-07T09:45:00Z').toLocaleString()}), 3 findings`,
+    );
+    const audit = screen.getByText('audit').closest('li') as HTMLElement;
+    expect(audit).toHaveTextContent('reconciled 30 s ago');
+    expect(audit).toHaveTextContent('no findings');
+    const identity = screen.getByText('identity-control').closest('li') as HTMLElement;
+    expect(identity).toHaveTextContent('never reconciled');
+    expect(identity).not.toHaveTextContent('findings');
+  });
 });
 
 describe('provisioning', () => {
