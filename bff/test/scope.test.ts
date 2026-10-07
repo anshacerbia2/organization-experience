@@ -25,7 +25,7 @@ const json = (status: number, body: unknown): Answer => ({
 });
 
 beforeAll(async () => {
-  harness = await startHarness({ tenantSignIn: true });
+  harness = await startHarness({ tenantSignIn: true, scopeGuard: true });
   Object.defineProperty(harness.upstream, 'answer', {
     get: (): Answer => {
       const last = harness.upstream.last();

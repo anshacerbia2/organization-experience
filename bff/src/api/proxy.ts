@@ -15,6 +15,8 @@ export interface ProxyOptions {
   // windows and now give the scope guard the session's provider window, and the time it is judged at.
   readonly windows: ProviderWindows;
   readonly now: () => Date;
+  // scopeGuard is Config.scopeGuard: always on outside the pattern's own test suites.
+  readonly scopeGuard: boolean;
 }
 
 // The request headers forwarded upstream. Everything else is dropped, and above all anything the
@@ -89,17 +91,19 @@ export function apiProxy(app: FastifyInstance, options: ProxyOptions, done: () =
         ? { kind: 'tenant', tenantId: session.tenantId }
         : { kind: 'provider', window: await options.windows.find(session.idHash) };
     const reasonHeader = request.headers['x-administrative-reason'];
-    const decision = guard(
-      scope,
-      {
-        method: request.method,
-        path: rest,
-        contentType: request.headers['content-type'],
-        body: hasBody ? (request.body as Buffer) : undefined,
-        reason: typeof reasonHeader === 'string' ? reasonHeader : undefined,
-      },
-      options.now(),
-    );
+    const decision = !options.scopeGuard
+      ? ({ allowed: true, headers: {} } as const)
+      : guard(
+          scope,
+          {
+            method: request.method,
+            path: rest,
+            contentType: request.headers['content-type'],
+            body: hasBody ? (request.body as Buffer) : undefined,
+            reason: typeof reasonHeader === 'string' ? reasonHeader : undefined,
+          },
+          options.now(),
+        );
     if (!decision.allowed) {
       request.log.warn({ scope: scope.kind, path: target.pathname }, 'scope guard refused a request');
       return sendProblem(request, reply, 'forbidden', decision.detail);

@@ -60,6 +60,9 @@ export function testConfig(overrides: Partial<Config> & Pick<Config, 'oidc' | 'd
     upstreamTimeoutMs: 5_000,
     tenantSignIn: false,
     provider: { maxDurationMs: minutes(60), defaultDurationMs: minutes(15), stepUpAgeMs: minutes(5) },
+    // Off for the identity pattern's suites, which test the proxy as the pattern defines it;
+    // scope.test.ts turns it on.
+    scopeGuard: false,
     ...overrides,
   };
 }

@@ -96,11 +96,11 @@
     },
     {
       "path": "bff/test/server.test.ts",
-      "why": "Developer Console and account experience suites replaced by one test that their paths get this application's shell; configuration tests use the ORGANIZATION_EXPERIENCE_* names and organizationControlBaseUrl."
+      "why": "Developer Console and account experience suites replaced by one test that their paths get this application's shell; configuration tests use the ORGANIZATION_EXPERIENCE_* names and organizationControlBaseUrl. The defaults test asserts tenantSignIn, the scope guard on, and the provider mode bounds."
     },
     {
       "path": "bff/test/support/harness.ts",
-      "why": "testConfig and startHarness set organizationControlBaseUrl and no developer or account web roots, following Config. startHarness takes Config overrides and signIn a Tenant, as identity-experience's does; testConfig carries the provider mode bounds."
+      "why": "testConfig and startHarness set organizationControlBaseUrl and no developer or account web roots, following Config. startHarness takes Config overrides and signIn a Tenant, as identity-experience's does; testConfig carries the provider mode bounds. The scope guard is off by default, so the pattern's suites test the proxy as the pattern defines it; scope.test.ts turns it on."
     }
   ]
 }

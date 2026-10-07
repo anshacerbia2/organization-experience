@@ -109,6 +109,7 @@ export async function buildServer(
     timeoutMs: config.upstreamTimeoutMs,
     windows,
     now,
+    scopeGuard: config.scopeGuard,
   });
 
   app.get('/healthz', async (_request, reply) =>

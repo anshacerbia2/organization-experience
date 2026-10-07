@@ -34,6 +34,12 @@ export interface Config {
 
   readonly provider: ProviderModeConfig;
 
+  // scopeGuard runs the scope guard in the proxy (TDD-organization-experience-001 1.2.0). It is
+  // true wherever the configuration comes from the environment, which offers no way to turn it off.
+  // Only the identity pattern's own test suites, which test the proxy as the pattern defines it,
+  // build a server without it.
+  readonly scopeGuard: boolean;
+
   readonly databaseUrl: string;
 }
 
@@ -258,6 +264,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     upstreamTimeoutMs,
     tenantSignIn: true,
     provider: { maxDurationMs, defaultDurationMs, stepUpAgeMs },
+    scopeGuard: true,
     databaseUrl,
   };
 }
