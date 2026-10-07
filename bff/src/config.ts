@@ -28,7 +28,23 @@ export interface Config {
   readonly organizationControlBaseUrl: string;
   readonly upstreamTimeoutMs: number;
 
+  // tenantSignIn lets a sign-in ask for one Tenant (ADR-IAM-008): this BFF's client is registered
+  // for the per-sign-in form, so Tenant administration and provider administration share it.
+  readonly tenantSignIn: boolean;
+
+  readonly provider: ProviderModeConfig;
+
   readonly databaseUrl: string;
+}
+
+// ProviderModeConfig bounds a provider window (TDD-organization-experience-001 §Configuration).
+export interface ProviderModeConfig {
+  // maxDurationMs is the longest window an operator may ask for; the API has a ceiling of its own.
+  readonly maxDurationMs: number;
+  // defaultDurationMs is the duration the entry form offers.
+  readonly defaultDurationMs: number;
+  // stepUpAgeMs is how recent the provider sign-in must be for a window to be requested.
+  readonly stepUpAgeMs: number;
 }
 
 export interface OidcConfig {
@@ -206,6 +222,24 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
   url('ORGANIZATION_EXPERIENCE_ORGANIZATION_CONTROL_URL', organizationControlBaseUrl);
   const upstreamTimeoutMs = duration('ORGANIZATION_EXPERIENCE_UPSTREAM_TIMEOUT', '10s');
 
+  const maxDurationMs = duration('ORGANIZATION_EXPERIENCE_PROVIDER_MAX_DURATION', '60m');
+  const defaultDurationMs = duration('ORGANIZATION_EXPERIENCE_PROVIDER_DEFAULT_DURATION', '15m');
+  const stepUpAgeMs = duration('ORGANIZATION_EXPERIENCE_PROVIDER_STEP_UP_AGE', '5m');
+  if (defaultDurationMs > maxDurationMs) {
+    problems.push(
+      'ORGANIZATION_EXPERIENCE_PROVIDER_DEFAULT_DURATION must not exceed ORGANIZATION_EXPERIENCE_PROVIDER_MAX_DURATION',
+    );
+  }
+  // A window is asked for in whole minutes, so the bounds are too.
+  for (const [name, value] of [
+    ['ORGANIZATION_EXPERIENCE_PROVIDER_MAX_DURATION', maxDurationMs],
+    ['ORGANIZATION_EXPERIENCE_PROVIDER_DEFAULT_DURATION', defaultDurationMs],
+  ] as const) {
+    if (value > 0 && value % 60_000 !== 0) {
+      problems.push(`${name} must be a whole number of minutes`);
+    }
+  }
+
   const databaseUrl = required('ORGANIZATION_EXPERIENCE_DATABASE_URL');
 
   if (problems.length > 0) {
@@ -222,6 +256,8 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     session: { idleMs, absoluteMs, refreshSkewMs, key },
     organizationControlBaseUrl: organizationControlBaseUrl.replace(/\/+$/, ''),
     upstreamTimeoutMs,
+    tenantSignIn: true,
+    provider: { maxDurationMs, defaultDurationMs, stepUpAgeMs },
     databaseUrl,
   };
 }

@@ -3,6 +3,8 @@ import type { FastifyInstance } from 'fastify';
 import { authenticate } from '../http/authenticate.js';
 import { clearSessionCookie } from '../http/cookies.js';
 import { sendProblem } from '../http/problem.js';
+import { guard, type ActiveScope } from '../scope/guard.js';
+import type { ProviderWindows } from '../scope/windows.js';
 import type { Sessions } from '../session/sessions.js';
 
 export interface ProxyOptions {
@@ -10,6 +12,9 @@ export interface ProxyOptions {
   readonly sessions: Sessions;
   readonly organizationControlBaseUrl: string;
   readonly timeoutMs: number;
+  // windows and now give the scope guard the session's provider window, and the time it is judged at.
+  readonly windows: ProviderWindows;
+  readonly now: () => Date;
 }
 
 // The request headers forwarded upstream. Everything else is dropped, and above all anything the
@@ -48,7 +53,8 @@ function plainSegments(pathAndQuery: string): boolean {
 
 // apiProxy forwards /api/v1/* to the Organization Control API with the session's access token
 // (TDD-identity-experience-001 §BFF Endpoints). It makes no authorization decision: every command
-// is reauthorized upstream.
+// is reauthorized upstream. The scope guard runs first, and refuses a request outside the active
+// scope before it leaves (TDD-organization-experience-001 1.2.0 §The Scope Guard).
 export function apiProxy(app: FastifyInstance, options: ProxyOptions, done: () => void): void {
   const apiRoot = new URL(`${options.organizationControlBaseUrl}/v1/`).href;
 
@@ -77,6 +83,28 @@ export function apiProxy(app: FastifyInstance, options: ProxyOptions, done: () =
       return reply;
     }
 
+    const hasBody = request.method !== 'GET' && request.method !== 'HEAD' && Buffer.isBuffer(request.body);
+    const scope: ActiveScope =
+      session.tenantId !== null
+        ? { kind: 'tenant', tenantId: session.tenantId }
+        : { kind: 'provider', window: await options.windows.find(session.idHash) };
+    const reasonHeader = request.headers['x-administrative-reason'];
+    const decision = guard(
+      scope,
+      {
+        method: request.method,
+        path: rest,
+        contentType: request.headers['content-type'],
+        body: hasBody ? (request.body as Buffer) : undefined,
+        reason: typeof reasonHeader === 'string' ? reasonHeader : undefined,
+      },
+      options.now(),
+    );
+    if (!decision.allowed) {
+      request.log.warn({ scope: scope.kind, path: target.pathname }, 'scope guard refused a request');
+      return sendProblem(request, reply, 'forbidden', decision.detail);
+    }
+
     const headers = new Headers({ authorization: `Bearer ${session.tokens.accessToken}` });
     for (const name of forwardedRequestHeaders) {
       const value = request.headers[name];
@@ -84,7 +112,9 @@ export function apiProxy(app: FastifyInstance, options: ProxyOptions, done: () =
         headers.set(name, value);
       }
     }
-    const hasBody = request.method !== 'GET' && request.method !== 'HEAD' && Buffer.isBuffer(request.body);
+    for (const [name, value] of Object.entries(decision.headers)) {
+      headers.set(name, value);
+    }
 
     let response: Response;
     try {

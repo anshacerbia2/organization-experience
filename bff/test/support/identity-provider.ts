@@ -24,6 +24,9 @@ export interface User {
   readonly sub: string;
   readonly principalId: string;
   readonly name: string;
+  // tenants are the Tenants the user is a member of: the kernel issues organization:<tenant_id> only
+  // for one of them (ADR-IAM-006 §5.2).
+  readonly tenants?: readonly string[];
 }
 
 export const defaultUser: User = { sub: 'kc-user-1', principalId: 'prn_01TESTPRINCIPAL', name: 'Ada Admin' };
@@ -43,6 +46,8 @@ interface PendingCode {
   readonly sid: string;
   // acr is the level the request asked for, which the kernel's flow reaches; aal1 otherwise.
   readonly acr: string;
+  // tenantId is the Tenant organization:<tenant_id> asked for; null for none.
+  readonly tenantId: string | null;
   readonly nonce: string;
   readonly challenge: string;
   readonly redirectUri: string;
@@ -52,6 +57,7 @@ interface Grant {
   readonly user: User;
   readonly sid: string;
   readonly acr: string;
+  readonly tenantId: string | null;
 }
 
 const base64url = (buffer: Buffer): string => buffer.toString('base64url');
@@ -157,12 +163,21 @@ export class IdentityProvider {
     ) {
       throw new Error(`authorization request refused: ${params.toString()}`);
     }
+    // The kernel refuses organization:<alias> for a non-member, and a request mixing formats.
+    const tenants = (params.get('scope') ?? '')
+      .split(' ')
+      .filter((scope) => scope.startsWith('organization'))
+      .map((scope) => scope.slice('organization:'.length));
+    if (tenants.length > 1 || (tenants[0] !== undefined && !(user.tenants ?? []).includes(tenants[0]))) {
+      throw new Error(`authorization request refused: ${params.toString()}`);
+    }
     const code = randomUUID();
     this.lastAuthorization = params;
     this.#codes.set(code, {
       user,
       sid: randomUUID(),
       acr: params.get('acr_values') ?? 'aal1',
+      tenantId: tenants[0] ?? null,
       nonce: params.get('nonce') ?? '',
       challenge: params.get('code_challenge') ?? '',
       redirectUri: params.get('redirect_uri') ?? '',
@@ -291,7 +306,10 @@ export class IdentityProvider {
       }
       return {
         status: 200,
-        body: await this.#tokens({ user: pending.user, sid: pending.sid, acr: pending.acr }, pending.nonce),
+        body: await this.#tokens(
+          { user: pending.user, sid: pending.sid, acr: pending.acr, tenantId: pending.tenantId },
+          pending.nonce,
+        ),
       };
     }
 
@@ -332,6 +350,7 @@ export class IdentityProvider {
         sid: grant.sid,
         principal_id: grant.user.principalId,
         provider_scope: 'platform',
+        ...(grant.tenantId === null ? {} : { tenant_id: grant.tenantId }),
         name: grant.user.name,
         ...(nonce === null ? {} : { nonce }),
         ...tamper?.claims,
@@ -347,6 +366,7 @@ export class IdentityProvider {
         exp: now + this.accessTokenLifetimeSeconds,
         principal_id: grant.user.principalId,
         provider_scope: 'platform',
+        ...(grant.tenantId === null ? {} : { tenant_id: grant.tenantId }),
         sid: grant.sid,
       },
       'realm',
@@ -362,7 +382,10 @@ export class IdentityProvider {
       expires_in: this.accessTokenLifetimeSeconds,
       refresh_token: refreshToken,
       id_token: idToken,
-      scope: 'openid scnehaux-provider',
+      scope:
+        grant.tenantId === null
+          ? 'openid scnehaux-provider'
+          : `openid scnehaux-privileged organization:${grant.tenantId}`,
     };
   }
 

@@ -26,6 +26,9 @@ export interface AuthRoutesOptions {
   readonly sessions: Sessions;
   readonly store: SessionStore;
   readonly now: () => Date;
+  // tenantSignIn lets a sign-in ask for one Tenant with ?tenant= (ADR-IAM-008). An application whose
+  // client is registered for one form leaves it off, and a sign-in naming a Tenant is refused.
+  readonly tenantSignIn: boolean;
 }
 
 // Where a sign-in that did not complete lands: the root of the application it started from, with
@@ -85,6 +88,20 @@ export function stepUpMaxAge(value: unknown): number | null {
   return seconds <= 86_400 ? seconds : null;
 }
 
+// A Tenant identifier as the Organization Control API issues it: a UUID, lowercase. It selects the
+// Tenant a sign-in asks for and is never authority: the kernel issues it only for a member, and the
+// callback holds the ID token to it (OWASP: client-supplied tenant identifiers are selectors only).
+const tenantPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+
+// tenantSelector reads a sign-in's ?tenant=: null when absent, the identifier when well formed, and
+// undefined when present but unusable, which refuses the sign-in rather than signing in without it.
+export function tenantSelector(value: unknown, enabled: boolean): string | null | undefined {
+  if (value === undefined) {
+    return null;
+  }
+  return enabled && typeof value === 'string' && tenantPattern.test(value) ? value : undefined;
+}
+
 const queryOf = (request: FastifyRequest): string => {
   const index = request.url.indexOf('?');
   return index === -1 ? '' : request.url.slice(index);
@@ -93,7 +110,7 @@ const queryOf = (request: FastifyRequest): string => {
 // authRoutes are the BFF's own endpoints (TDD-identity-experience-001 §BFF Endpoints). Step-up is a
 // sign-in with max_age; the context switch arrives with the screen that needs it.
 export function authRoutes(app: FastifyInstance, options: AuthRoutesOptions, done: () => void): void {
-  const { publicOrigin, oidc, sessions, store, now } = options;
+  const { publicOrigin, oidc, sessions, store, now, tenantSignIn } = options;
 
   // A back-channel logout is a form post from the identity kernel. The parser is registered in
   // this plugin's scope only, so no other route accepts a form body.
@@ -105,40 +122,54 @@ export function authRoutes(app: FastifyInstance, options: AuthRoutesOptions, don
     },
   );
 
-  app.get<{ Querystring: { return_to?: string; max_age?: string; acr_values?: string; kc_action?: string } }>(
-    '/auth/login',
-    async (request, reply) => {
-      const binding = randomToken();
-      const codeVerifier = client.randomPKCECodeVerifier();
-      const state = client.randomState();
-      const nonce = client.randomNonce();
-      const maxAge = stepUpMaxAge(request.query.max_age);
-      const returnTo = safeReturnTo(request.query.return_to, publicOrigin);
-      // The Admin Portal signs in at aal2: every provider route requires it (ADR-IAM-004 §5.3). The
-      // BFF decides that by where the sign-in returns; a level the request names is its own.
-      const acrValues =
-        requestedLevel(request.query.acr_values) ?? (applicationRoot(returnTo) === '/' ? 'aal2' : null);
-      await store.putLoginState(digest(binding), {
-        state,
-        nonce,
-        codeVerifier,
-        returnTo,
-        expiresAt: new Date(now().getTime() + loginLifetimeSeconds * 1_000),
-        maxAge,
-        acrValues,
-      });
-      const location = oidc.authorizationUrl({
-        state,
-        nonce,
-        codeChallenge: await client.calculatePKCECodeChallenge(codeVerifier),
-        maxAge,
-        acrValues,
-        kcAction: kernelAction(request.query.kc_action),
-      });
-      setLoginCookie(reply, binding);
-      return noStore(reply).redirect(location.href, 302);
-    },
-  );
+  app.get<{
+    Querystring: {
+      return_to?: string;
+      max_age?: string;
+      acr_values?: string;
+      kc_action?: string;
+      tenant?: string;
+    };
+  }>('/auth/login', async (request, reply) => {
+    const binding = randomToken();
+    const codeVerifier = client.randomPKCECodeVerifier();
+    const state = client.randomState();
+    const nonce = client.randomNonce();
+    const maxAge = stepUpMaxAge(request.query.max_age);
+    const returnTo = safeReturnTo(request.query.return_to, publicOrigin);
+    // A Tenant the sign-in cannot ask for is refused, not dropped: dropping it would sign in to
+    // the provider-scope form instead of the Tenant the operator chose (ADR-IAM-008 §5.2).
+    const tenantId = tenantSelector(request.query.tenant, tenantSignIn);
+    if (tenantId === undefined) {
+      request.log.warn('sign-in refused: a Tenant this application cannot ask for');
+      return noStore(reply).redirect(signInLanding(returnTo, 'failed'), 302);
+    }
+    // The Admin Portal signs in at aal2: every provider route requires it (ADR-IAM-004 §5.3). The
+    // BFF decides that by where the sign-in returns; a level the request names is its own.
+    const acrValues =
+      requestedLevel(request.query.acr_values) ?? (applicationRoot(returnTo) === '/' ? 'aal2' : null);
+    await store.putLoginState(digest(binding), {
+      state,
+      nonce,
+      codeVerifier,
+      returnTo,
+      expiresAt: new Date(now().getTime() + loginLifetimeSeconds * 1_000),
+      maxAge,
+      acrValues,
+      tenantId,
+    });
+    const location = oidc.authorizationUrl({
+      state,
+      nonce,
+      codeChallenge: await client.calculatePKCECodeChallenge(codeVerifier),
+      maxAge,
+      acrValues,
+      kcAction: kernelAction(request.query.kc_action),
+      tenantId,
+    });
+    setLoginCookie(reply, binding);
+    return noStore(reply).redirect(location.href, 302);
+  });
 
   app.get('/auth/callback', async (request, reply) => {
     clearLoginCookie(reply);
@@ -200,6 +231,15 @@ export function authRoutes(app: FastifyInstance, options: AuthRoutesOptions, don
     if (asked !== null && !meets(identity.acr, asked)) {
       return fail(`the authentication reached acr ${identity.acr ?? 'none'}, below the ${asked} asked for`);
     }
+    // The form is checked like the level: a Tenant sign-in must return that Tenant, and a provider
+    // sign-in none (ADR-IAM-008 §5.3, as Auth0 validates org_id on the callback).
+    if (identity.tenantId !== login.tenantId) {
+      return fail(
+        login.tenantId === null
+          ? 'a provider sign-in returned a Tenant'
+          : 'the sign-in returned another Tenant than the one asked for, or none',
+      );
+    }
 
     // A sign-in always issues a new session identifier, and the one the browser held before, if
     // any, is ended: an identifier planted before sign-in never becomes an authenticated one.
@@ -230,6 +270,7 @@ export function authRoutes(app: FastifyInstance, options: AuthRoutesOptions, don
       displayName: session.displayName,
       acr: session.acr,
       authTime: session.authTime?.toISOString() ?? null,
+      tenantId: session.tenantId,
       idleExpiresAt: session.idleExpiresAt.toISOString(),
       absoluteExpiresAt: session.absoluteExpiresAt.toISOString(),
       csrfToken: session.csrfToken,

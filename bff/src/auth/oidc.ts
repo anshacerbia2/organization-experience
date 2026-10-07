@@ -7,10 +7,16 @@ import type { OidcConfig } from '../config.js';
 import type { TokenSet } from '../session/store.js';
 
 // The scopes a sign-in asks for. `scnehaux-provider` is the identity kernel's privileged
-// provider-scope profile (STD-IAM-002 §3.1): principal_id, provider_scope, acr and auth_time, and
+// provider-scope profile (STD-IAM-002 §3.1.1): principal_id, subject_type, acr and auth_time, and
 // never tenant_id. It is what the Identity Control API accepts. `scnehaux-profile` gives the ID token
 // the name shown in the application, and never writes it into the access token (STD-IAM-002 §3.2).
 export const signInScope = 'openid scnehaux-provider scnehaux-profile';
+
+// tenantSignInScope asks for the tenant-scoped form instead, for one Tenant (ADR-IAM-008 §5.2): the
+// same claims, and tenant_id, which the kernel issues only for a member (ADR-IAM-006 §5.2). Exactly
+// one form per sign-in: never scnehaux-provider beside it, never a second Tenant.
+export const tenantSignInScope = (tenantId: string): string =>
+  `openid scnehaux-privileged organization:${tenantId} scnehaux-profile`;
 
 // The one signing algorithm accepted, for ID tokens and logout tokens alike (STD-IAM-002: PS256
 // is required, and nothing else is accepted without a registered exception).
@@ -32,6 +38,9 @@ export interface Identity {
   readonly keycloakSessionId: string | null;
   readonly acr: string | null;
   readonly authTime: Date | null;
+  // tenantId is the Tenant the sign-in was issued for, from the ID token's tenant_id; null for the
+  // provider-scope form, which carries none (ADR-IAM-008 §5.3).
+  readonly tenantId: string | null;
 }
 
 export interface Grant {
@@ -184,10 +193,15 @@ export class Oidc {
     maxAge?: number | null;
     acrValues?: string | null;
     kcAction?: string | null;
+    // tenantId asks for the tenant-scoped form for that Tenant; null asks for the provider-scope form.
+    tenantId?: string | null;
   }): URL {
     return client.buildAuthorizationUrl(this.#configuration, {
       redirect_uri: this.#redirectUri,
-      scope: signInScope,
+      scope:
+        checks.tenantId === undefined || checks.tenantId === null
+          ? signInScope
+          : tenantSignInScope(checks.tenantId),
       response_type: 'code',
       state: checks.state,
       nonce: checks.nonce,
@@ -369,6 +383,7 @@ export class Oidc {
               keycloakSessionId: stringClaim(claims, 'sid'),
               acr: stringClaim(claims, 'acr'),
               authTime: typeof authTime === 'number' ? new Date(authTime * 1_000) : null,
+              tenantId: stringClaim(claims, 'tenant_id'),
             },
     };
   }

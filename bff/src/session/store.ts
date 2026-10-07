@@ -16,6 +16,8 @@ export interface SessionRecord {
   readonly keycloakSessionId: string | null;
   readonly acr: string | null;
   readonly authTime: Date | null;
+  // tenantId is the Tenant the session's tokens were issued for; null for the provider-scope form.
+  readonly tenantId: string | null;
   readonly tokens: TokenSet;
   readonly accessExpiresAt: Date;
   readonly csrfToken: string;
@@ -36,6 +38,8 @@ export interface LoginState {
   readonly maxAge: number | null;
   // acrValues is the level the sign-in asked for (ADR-IAM-004); null for none.
   readonly acrValues: string | null;
+  // tenantId is the Tenant the sign-in asked for (ADR-IAM-008); null for the provider-scope form.
+  readonly tenantId: string | null;
 }
 
 // TokenUpdate is what a refresh writes back: the new tokens and what they assert.
@@ -54,6 +58,7 @@ interface SessionRow {
   keycloak_session_id: string | null;
   acr: string | null;
   auth_time: Date | null;
+  tenant_id: string | null;
   tokens: Buffer;
   access_expires_at: Date;
   csrf_token: string;
@@ -71,10 +76,11 @@ interface LoginStateRow {
   expires_at: Date;
   max_age: number | null;
   acr_values: string | null;
+  tenant_id: string | null;
 }
 
 const sessionColumns =
-  'id_hash, subject, principal_id, display_name, keycloak_session_id, acr, auth_time, tokens, access_expires_at, csrf_token, created_at, last_seen_at, idle_expires_at, absolute_expires_at';
+  'id_hash, subject, principal_id, display_name, keycloak_session_id, acr, auth_time, tenant_id, tokens, access_expires_at, csrf_token, created_at, last_seen_at, idle_expires_at, absolute_expires_at';
 
 // SessionStore is the PostgreSQL session store. It knows rows and sealing; what makes a session
 // valid, and when it is refreshed, is Sessions' business.
@@ -89,11 +95,11 @@ export class SessionStore {
 
   async putLoginState(bindingHash: Buffer, login: LoginState): Promise<void> {
     await this.#pool.query(
-      `INSERT INTO login_states (binding_hash, state, nonce, code_verifier, return_to, expires_at, max_age, acr_values)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+      `INSERT INTO login_states (binding_hash, state, nonce, code_verifier, return_to, expires_at, max_age, acr_values, tenant_id)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
        ON CONFLICT (binding_hash) DO UPDATE SET state = EXCLUDED.state, nonce = EXCLUDED.nonce,
          code_verifier = EXCLUDED.code_verifier, return_to = EXCLUDED.return_to, expires_at = EXCLUDED.expires_at,
-         max_age = EXCLUDED.max_age, acr_values = EXCLUDED.acr_values`,
+         max_age = EXCLUDED.max_age, acr_values = EXCLUDED.acr_values, tenant_id = EXCLUDED.tenant_id`,
       [
         bindingHash,
         login.state,
@@ -103,6 +109,7 @@ export class SessionStore {
         login.expiresAt,
         login.maxAge,
         login.acrValues,
+        login.tenantId,
       ],
     );
   }
@@ -110,7 +117,7 @@ export class SessionStore {
   // takeLoginState consumes the row: a callback is answered once, and a replayed one finds nothing.
   async takeLoginState(bindingHash: Buffer): Promise<LoginState | null> {
     const { rows } = await this.#pool.query<LoginStateRow>(
-      'DELETE FROM login_states WHERE binding_hash = $1 RETURNING state, nonce, code_verifier, return_to, expires_at, max_age, acr_values',
+      'DELETE FROM login_states WHERE binding_hash = $1 RETURNING state, nonce, code_verifier, return_to, expires_at, max_age, acr_values, tenant_id',
       [bindingHash],
     );
     const row = rows[0];
@@ -125,12 +132,13 @@ export class SessionStore {
       expiresAt: row.expires_at,
       maxAge: row.max_age,
       acrValues: row.acr_values,
+      tenantId: row.tenant_id,
     };
   }
 
   async create(session: SessionRecord): Promise<void> {
     await this.#pool.query(
-      `INSERT INTO sessions (${sessionColumns}) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)`,
+      `INSERT INTO sessions (${sessionColumns}) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)`,
       [
         session.idHash,
         session.subject,
@@ -139,6 +147,7 @@ export class SessionStore {
         session.keycloakSessionId,
         session.acr,
         session.authTime,
+        session.tenantId,
         this.#sealTokens(session.tokens, session.idHash),
         session.accessExpiresAt,
         session.csrfToken,
@@ -239,6 +248,7 @@ export class SessionStore {
       keycloakSessionId: row.keycloak_session_id,
       acr: row.acr,
       authTime: row.auth_time,
+      tenantId: row.tenant_id,
       tokens: JSON.parse(this.#sealer.open(row.tokens, row.id_hash)) as TokenSet,
       accessExpiresAt: row.access_expires_at,
       csrfToken: row.csrf_token,
