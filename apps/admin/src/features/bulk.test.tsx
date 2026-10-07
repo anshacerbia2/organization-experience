@@ -89,7 +89,13 @@ describe('bulk membership actions', () => {
         item(3, {
           current_status: 'revoked',
           resulting_status: null,
-          outcome: { status: 'not_attempted', reason: 'refused at preview' },
+          // The batch keeps the refusal the preview recorded.
+          refusal: {
+            type: 'https://problems.scnehaux.com/state-transition-refused',
+            title: 'refused',
+            detail: 'already revoked',
+          },
+          outcome: { status: 'not_attempted', reason: 'refused_at_preview' },
         }),
       ],
       { would_change: 2, would_not_change: 1, succeeded: 1, failed: 1, not_attempted: 1 },
@@ -163,7 +169,7 @@ describe('bulk membership actions', () => {
       'changed since the preview',
     );
     expect(screen.getByRole('heading', { name: 'Not attempted' }).nextElementSibling).toHaveTextContent(
-      'refused at preview',
+      'refused at the preview · already revoked',
     );
     // A succeeded revocation is shown by its evidence, here only accepted.
     expect(screen.getByRole('heading', { name: 'Succeeded' }).nextElementSibling).toHaveTextContent(

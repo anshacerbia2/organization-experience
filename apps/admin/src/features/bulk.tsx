@@ -33,6 +33,7 @@ interface BatchItem {
     readonly status: 'succeeded' | 'failed' | 'not_attempted';
     readonly accepted_at?: string;
     readonly problem?: Problem;
+    // reason says why an item was not attempted: refused_at_preview, error_allowance or expired.
     readonly reason?: string;
   } | null;
 }
@@ -154,7 +155,11 @@ export function BulkMembershipAction({
         <ul>
           {by('not_attempted').map((item) => (
             <li key={item.membership_id}>
-              {facts(item.principal_id, item.outcome?.reason ?? problemText(item.refusal))}
+              {facts(
+                item.principal_id,
+                messages.notAttempted(item.outcome?.reason ?? ''),
+                problemText(item.refusal),
+              )}
             </li>
           ))}
         </ul>

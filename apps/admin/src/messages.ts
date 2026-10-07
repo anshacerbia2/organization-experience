@@ -180,6 +180,12 @@ export const messages = {
     `${String(succeeded)} succeeded, ${String(failed)} failed, ${String(notAttempted)} not attempted.`,
   outcomeHeading: (status: string): string =>
     ({ succeeded: 'Succeeded', failed: 'Failed', not_attempted: 'Not attempted' })[status] ?? status,
+  notAttempted: (reason: string): string =>
+    ({
+      refused_at_preview: 'refused at the preview',
+      error_allowance: 'stopped after the allowed failures',
+      expired: 'the preview expired before it was executed',
+    })[reason] ?? reason,
   resubmitFailed: (count: number): string => `Preview the ${String(count)} failed again`,
   close: 'Close',
   enforcementState: (state: string): string =>
