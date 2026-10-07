@@ -1,0 +1,33 @@
+/* The application's own styles until UI Platform ships its primitives (SAD-012 1.1.0 §7.3). Served
+   as a file: the BFF's content security policy allows styles from 'self' and nothing inline. */
+
+/* The scope banner stays in view whatever the page scrolls to, and nothing hides it
+   (TDD-organization-experience-001 §Scope Visibility). */
+.scope-banner {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  margin: 0;
+  padding: 0.75rem 1rem;
+  border-bottom: 3px solid;
+  background: Canvas;
+  color: CanvasText;
+  font-weight: 600;
+}
+
+.scope-banner p {
+  margin: 0;
+}
+
+.scope-banner--tenant {
+  border-color: #1d6fb8;
+}
+
+.scope-banner--provider {
+  border-color: #b3261e;
+}
+
+.scope-banner--idle,
+.scope-banner--warning {
+  border-color: #8a6d00;
+}

@@ -1,10 +1,11 @@
 {
   "source": "anshacerbia2/identity-experience",
-  "commit": "13f6e65cc8d5d5cc7ef7db003a9a6fc444c7b862",
+  "commit": "d7381094af443bf6a3ee0192ffb7ff0cb47392a7",
   "identical": [
     "bff/migrations/0001_sessions.sql",
     "bff/migrations/0002_login_max_age.sql",
     "bff/migrations/0003_login_acr.sql",
+    "bff/migrations/0004_tenant_per_sign_in.sql",
     "bff/src/auth/client-key.ts",
     "bff/src/auth/levels.ts",
     "bff/src/auth/oidc.ts",
@@ -24,6 +25,7 @@
     "bff/test/support/database.ts",
     "bff/test/support/identity-provider.ts",
     "bff/test/support/upstream.ts",
+    "bff/test/tenant.test.ts",
     "bff/tsconfig.build.json",
     "bff/tsconfig.json"
   ],
@@ -33,16 +35,20 @@
       "why": "Target-only: this manifest, which scripts/check-bff-conformance.mjs reads."
     },
     {
+      "path": "bff/migrations/1001_provider_windows.sql",
+      "why": "Target-only: provider mode's window table (TDD-organization-experience-001 1.2.0), numbered apart from the pattern's migrations."
+    },
+    {
       "path": "bff/package.json",
       "why": "Package name @organization-experience/bff; scripts and dependency versions unchanged."
     },
     {
       "path": "bff/src/api/proxy.ts",
-      "why": "Forwards /api/v1/* to the Organization Control API's /v1/* instead of Identity Control's: option organizationControlBaseUrl, and its log line and comment."
+      "why": "Forwards /api/v1/* to the Organization Control API's /v1/* instead of Identity Control's: option organizationControlBaseUrl, and its log line and comment. Runs the scope guard (bff/src/scope/guard.ts) before forwarding, and sets the provider window's reason and correlation (TDD-organization-experience-001 1.2.0)."
     },
     {
       "path": "bff/src/config.ts",
-      "why": "Environment prefix ORGANIZATION_EXPERIENCE_*; upstream organizationControlBaseUrl from ORGANIZATION_EXPERIENCE_ORGANIZATION_CONTROL_URL; one application, so no developerWebRoot or accountWebRoot."
+      "why": "Environment prefix ORGANIZATION_EXPERIENCE_*; upstream organizationControlBaseUrl from ORGANIZATION_EXPERIENCE_ORGANIZATION_CONTROL_URL; one application, so no developerWebRoot or accountWebRoot. tenantSignIn is true: the client is registered for the per-sign-in form (ADR-IAM-008). Adds the provider mode bounds ORGANIZATION_EXPERIENCE_PROVIDER_MAX_DURATION, _DEFAULT_DURATION and _STEP_UP_AGE."
     },
     {
       "path": "bff/src/http/applications.ts",
@@ -54,23 +60,47 @@
     },
     {
       "path": "bff/src/migrate-main.ts",
-      "why": "Environment prefix ORGANIZATION_EXPERIENCE_* and process name organization-experience-migrate."
+      "why": "Environment prefix ORGANIZATION_EXPERIENCE_* and process name organization-experience-migrate. Grants the serving role this application's own table, provider_windows, after the pattern's migrator grants the session tables."
+    },
+    {
+      "path": "bff/src/scope/control.ts",
+      "why": "Target-only: the BFF's own calls to the Organization Control API to open and close a provider window."
+    },
+    {
+      "path": "bff/src/scope/guard.ts",
+      "why": "Target-only: the scope guard, what each scope reaches before a request leaves the BFF."
+    },
+    {
+      "path": "bff/src/scope/routes.ts",
+      "why": "Target-only: GET /auth/scope, POST /auth/scope/provider and /end, and the sign-out hook."
+    },
+    {
+      "path": "bff/src/scope/windows.ts",
+      "why": "Target-only: the provider window store."
     },
     {
       "path": "bff/src/server.ts",
-      "why": "Serves one application at / and no Developer Console or account experience; passes organizationControlBaseUrl to the proxy."
+      "why": "Serves one application at / and no Developer Console or account experience; passes organizationControlBaseUrl to the proxy. Registers the scope endpoints and the sign-out hook that ends a provider window's activation, and gives the proxy the provider windows."
     },
     {
       "path": "bff/test/auth.test.ts",
       "why": "Two assertions follow the single application: a sign-in started under /developer/ lands at /?sign-in=*, and every sign-in asks for aal2."
     },
     {
+      "path": "bff/test/guard.test.ts",
+      "why": "Target-only: the scope guard and the window request, unit-tested."
+    },
+    {
+      "path": "bff/test/scope.test.ts",
+      "why": "Target-only: Tenant scope and provider mode against PostgreSQL and a stand-in Organization Control API."
+    },
+    {
       "path": "bff/test/server.test.ts",
-      "why": "Developer Console and account experience suites replaced by one test that their paths get this application's shell; configuration tests use the ORGANIZATION_EXPERIENCE_* names and organizationControlBaseUrl."
+      "why": "Developer Console and account experience suites replaced by one test that their paths get this application's shell; configuration tests use the ORGANIZATION_EXPERIENCE_* names and organizationControlBaseUrl. The defaults test asserts tenantSignIn, the scope guard on, and the provider mode bounds."
     },
     {
       "path": "bff/test/support/harness.ts",
-      "why": "testConfig and startHarness set organizationControlBaseUrl and no developer or account web roots, following Config."
+      "why": "testConfig and startHarness set organizationControlBaseUrl and no developer or account web roots, following Config. startHarness takes Config overrides and signIn a Tenant, as identity-experience's does; testConfig carries the provider mode bounds. The scope guard is off by default, so the pattern's suites test the proxy as the pattern defines it; scope.test.ts turns it on."
     }
   ]
 }

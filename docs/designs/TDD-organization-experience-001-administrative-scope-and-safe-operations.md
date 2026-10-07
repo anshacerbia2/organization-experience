@@ -3,7 +3,7 @@ doc_meta:
   id: TDD-organization-experience-001
   title: Administrative Scope, Provider Mode, and Safe Bulk Operations
   owner: Core Platform Team
-  version: 1.1.0
+  version: 1.2.0
   status: approved
   classification: restricted
   review_cycle_days: 90
@@ -96,7 +96,36 @@ Tenant scope                          Provider scope
 An operator never holds both simultaneously. Provider mode is entered, used, and left,
 and the session records which scope was active for every action taken.
 
+### The Scopes as Tokens and Records (1.2.0)
+
+The two scopes are two token forms, and the session holds one (`ADR-IAM-008`). This BFF's client
+is registered for the `per-sign-in` privileged form, so every sign-in names one:
+
+| Scope    | Sign-in                                                                    | Authority, read by the Organization Control API on every request |
+| :------- | :------------------------------------------------------------------------- | :--------------------------------------------------------------- |
+| Tenant   | `/auth/login?tenant=<tenant_id>`: `scnehaux-privileged organization:<tenant_id>` | Tenant administration grant, active Membership, active Tenant (`ADR-ORG-003`) |
+| Provider | `/auth/login?acr_values=aal2&max_age=0`: `scnehaux-provider`                 | An activation in force, approved by another provider (`ADR-ORG-002 §5.1`) |
+
+- **The scope comes from the session, never from browser input.** The BFF pattern holds the ID
+  token's `tenant_id` to the Tenant asked for, and stores the confirmed one
+  (`TDD-identity-experience-001` 1.15.0 §Context Switch). A session with a Tenant is in Tenant scope.
+  A session without one is in provider scope.
+- **Moving between scopes is a sign-in**, which replaces the session. Entering provider scope always
+  re-authenticates at `aal2` (`max_age=0`), as Entra PIM can require "reauthentication on every role
+  activation" [R1].
+- **"Default on sign-in" is the Tenant scope** when the operator names a Tenant. The Tenant is chosen
+  on the entry page, or arrives on a deep link, because the kernel's own chooser is not yet asserted
+  (`ADR-IAM-008` Alternative D).
+- **A provider session is not yet provider mode.** Its holder is eligible: the Organization Control
+  API admits it to `/v1/provider-activations` alone. Provider mode is a window: an activation the
+  operator requests with a reason and a duration, and another provider approves (§Provider Mode
+  Entry).
+
 ### Provider Mode Entry
+
+1.2.0 realizes the entry through the provider form's sign-in and an activation, which the
+Organization Control API records and enforces (`ADR-ORG-002`, `TDD-organization-control-001`
+§Provider Activation).
 
 ```mermaid
 sequenceDiagram
@@ -105,26 +134,56 @@ sequenceDiagram
     participant F as BFF
     participant K as Keycloak
     participant C as Organization Control API
+    participant A as Approver
 
     O->>U: Request provider mode
-    U->>F: POST /auth/step-up with required assurance
-    F->>K: Authorization request with acr_values and max_age
-    K-->>F: Elevated assurance
-    U->>O: Collect reason and target scope
-    O->>U: Reason, target Tenants, duration
-    U->>F: POST provider session
-    F->>C: Open provider scope with reason and correlation
-    C-->>F: Accepted, with expiry
-    F-->>U: Provider mode active
+    U->>F: GET /auth/login?acr_values=aal2&max_age=0
+    F->>K: scnehaux-provider, acr_values=aal2, max_age=0
+    K-->>F: Fresh aal2 authentication, no tenant_id
+    U->>O: Collect reason, duration, target Tenants
+    O->>U: Reason, duration, targets
+    U->>F: POST /auth/scope/provider
+    F->>C: GET /v1/provider-activations/grants
+    F->>C: POST /v1/provider-activations, reason, correlation
+    C-->>F: 201, pending approval
+    A->>C: Approve, with a reason
+    U->>F: GET /auth/scope (polled while pending)
+    F->>C: GET /v1/provider-activations
+    C-->>F: In force, ends_at
+    F-->>U: Provider mode active until ends_at
     U->>O: Persistent banner, countdown to expiry
 ```
 
-Reason is collected **before** the scope opens, not attached afterwards. A reason
-captured after the fact is written by someone who already knows the outcome, which is
-worth less than one written before it.
+**The order is the control.**
 
-The mode expires on its own. An operator who forgets to leave provider mode leaves it
-anyway.
+1. **The step-up comes first.** `POST /auth/scope/provider` refuses a session that is not in the
+   provider form, below `aal2`, or whose `auth_time` is older than
+   `ORGANIZATION_EXPERIENCE_PROVIDER_STEP_UP_AGE`.
+2. **The reason comes before the window opens.** It is the activation's own reason, recorded by the
+   Organization Control API at the request, as Entra PIM asks for "a business justification when
+   they activate" [R1].
+   - A request without one is refused by the BFF, and again by the API.
+   - A reason captured after the fact is written by someone who already knows the outcome, which is
+     worth less than one written before it.
+3. **The duration is bounded twice.** The BFF refuses one above
+   `ORGANIZATION_EXPERIENCE_PROVIDER_MAX_DURATION`, and the API refuses one above its own maximum.
+4. **Another provider approves**, in production (`ADR-ORG-002 §5.1`). Until then the window is
+   pending, and the banner says so.
+   - The same application shows a provider the activations awaiting its decision.
+   - Approving or denying needs a reason of its own.
+   - An operator's own request is never offered to them for approval, and the API refuses it.
+
+**The window ends on its own.** The activation's `ends_at` is the scope's expiry: the duration
+counted from the approval. An operator who forgets to leave provider mode leaves it anyway, and the
+API stops honouring the activation at that instant whatever the BFF does. Leaving early ends the
+activation (`POST /v1/provider-activations/{id}/end`). Signing out ends it too, so authority never
+outlives the session that asked for it.
+
+**The targets narrow; they do not grant.** The activation covers the whole provider scope.
+- **The window records what the operator named:** explicit Tenants, or all of them. The BFF refuses
+  a request naming any other Tenant, in its path or in its body's `tenant_id`.
+- **This prevents mistakes, not attacks** (§Security Notes). It is what keeps an operator who meant
+  one Tenant from acting on another.
 
 ### Scope Visibility
 
@@ -143,7 +202,17 @@ This application holds no domain state. Its client-side model is a read projecti
 Control API responses, discarded on sign-out.
 
 The BFF session carries the scope fields on top of the base session defined in
-`TDD-identity-experience-001`:
+`TDD-identity-experience-001`. 1.2.0 places them:
+
+- **`scope` and the Tenant** are the session's `tenant_id`, confirmed by the ID token.
+- **The provider window** is a row of the BFF's own table, `provider_windows`, keyed by the session
+  and deleted with it.
+  - It holds the activation identifier, the reason, the correlation identifier, the targets, the
+    duration, and `ends_at` once approved.
+  - `ends_at` is the Organization Control API's. The BFF reads the activation again on each
+    `GET /auth/scope`, rather than trusting its copy past the API's answer.
+
+The original field list, as 1.0.0 named it:
 
 ```text
 scope               tenant | provider
@@ -181,6 +250,38 @@ Every mutation carries an idempotency key generated by the BFF, an optimistic ve
 taken from the record the operator was shown, and the reason and correlation from the
 session. A version conflict is surfaced as a conflict rather than retried, because the
 operator acted on a view that has since changed.
+
+### The Scope Guard and the BFF's Scope Endpoints (1.2.0)
+
+The routes above are 1.0.0's sketch. The Organization Control API serves its actions as path
+segments (`/v1/tenants/{id}/suspend`) and takes the optimistic version as `expected_version` in the
+body. Week 3 builds against what it serves.
+
+```text
+GET   /auth/scope                  the active scope, and the provider window with its state
+POST  /auth/scope/provider         {"reason", "duration_minutes", "tenants": "all" | [tenant_id, ...]}
+POST  /auth/scope/provider/end     ends the window and its activation
+```
+
+The scope guard runs in the proxy before a request leaves the BFF, and answers `403` with a problem
+document naming the scope.
+
+| Active scope              | Reaches                                                                            |
+| :------------------------ | :--------------------------------------------------------------------------------- |
+| Tenant                    | `/v1/memberships…`, `/v1/workspaces…`, `/v1/invitations…` except the provider-only invitation routes. No path names a Tenant, and the API takes the Tenant from the token |
+| Provider, no window       | `/v1/provider-activations…` alone, as the API admits an eligible caller              |
+| Provider, window pending  | The same                                                                           |
+| Provider, window in force | Every route, except a path or a JSON body naming a Tenant outside the window's targets |
+
+In provider scope the BFF sets two headers on every forwarded request:
+
+- **`X-Administrative-Reason`.** The operator's own reason for the action when the application sends
+  one, and otherwise the window's reason. The API requires one on every provider request.
+- **`X-Correlation-ID`.** The window's correlation identifier, which the API adopts as the request's
+  correlation identifier and records with every privileged access. The scope correlation the data
+  model names is therefore on every record the window produced.
+
+A Tenant-scope request carries neither: the API records no privileged access for it.
 
 ## Algorithms / Logic
 
@@ -255,6 +356,7 @@ presented as a single irreversible button, because it is neither single nor imme
 | `ORGANIZATION_EXPERIENCE_PROVIDER_MAX_DURATION` | `60m` | Ceiling on one provider-mode window |
 | `ORGANIZATION_EXPERIENCE_PROVIDER_DEFAULT_DURATION` | `15m` | Default offered at entry |
 | `ORGANIZATION_EXPERIENCE_BULK_PREVIEW_LIMIT` | `500` | Items per preview page |
+| `ORGANIZATION_EXPERIENCE_PROVIDER_STEP_UP_AGE` | `5m` | How recent the provider sign-in's `auth_time` must be to request a window (1.2.0) |
 | `ORGANIZATION_EXPERIENCE_ORGANIZATION_CONTROL_URL` | none, required | Organization Control API, under this application's prefix like every other setting (1.1.0) |
 
 Session, cookie, refresh, and client credential settings are inherited unchanged from
@@ -271,6 +373,16 @@ Session, cookie, refresh, and client credential settings are inherited unchanged
 - The scope banner is present on every view and cannot be dismissed.
 - Provider mode expires at `scope_expiry` and the operator returns to tenant scope.
 - Every action taken in provider mode carries the scope correlation identifier.
+- 1.2.0:
+  - a Tenant-scope request for a provider route, or naming another Tenant, is refused by the BFF and
+    never reaches the API;
+  - a provider session reaches only the activation routes until its window is in force;
+  - a window request without a reason, above the maximum duration, from a session that is not a
+    fresh `aal2` provider sign-in, or naming no target is refused;
+  - an in-force window refuses a Tenant outside its targets, in the path or the body;
+  - a request in provider mode carries the window's reason and correlation identifier;
+  - a window past `ends_at` reaches nothing but the activation routes;
+  - leaving provider mode and signing out each end the activation.
 
 ### Bulk Operations
 
@@ -354,6 +466,9 @@ failure recovery, and stuck offboarding.
 | Depends on | `identity-kernel` — hosted login and step-up |
 | Build-time dependency | `scnehaux-ui-platform` — design system packages, once shipped (SAD-012 1.1.0 §1, §7.3) |
 | Conforms to | SAD-012 1.1.0 — a React SPA built with Vite behind the identity Fastify BFF, as ADR-GLB-FE-003 §5 and ADR-GLB-FE-011 §5.2 place an internal tool |
+| Governed by | ADR-IAM-008 — one client, the privileged form chosen per sign-in (1.2.0) |
+| Governed by | ADR-ORG-002 — provider authority is an approved, time-bounded activation (1.2.0) |
+| Governed by | ADR-ORG-003 — Tenant administration grant (1.2.0) |
 
 ### Standalone Operation
 
@@ -361,3 +476,10 @@ This repository requires no Scnehaux platform other than the five it shares this
 foundation with. It has no dependency on Notification, Audit, Software Catalog, or
 Subscription & Entitlement. `scnehaux-ui-platform` becomes its build-time dependency once
 UI Platform ships its primitives (SAD-012 1.1.0 §7.3).
+
+## References
+
+| Ref | Source |
+| :-- | :-- |
+| R1 | Microsoft, *Configure Microsoft Entra role settings in Privileged Identity Management*, <https://learn.microsoft.com/en-us/entra/id-governance/privileged-identity-management/pim-how-to-change-default-settings>, accessed 2026-10-07: "You can require users to enter a business justification when they activate the eligible assignment"; "To enforce reauthentication on every role activation, configure the Conditional Access policy targeting your authentication context with sign-in frequency set to Every time under Session controls"; activation maximum duration "can be from one to 24 hours". |
+| R2 | OWASP, *Multi-Tenant Application Security Cheat Sheet*, §1, <https://cheatsheetseries.owasp.org/cheatsheets/Multi_Tenant_Security_Cheat_Sheet.html>, accessed 2026-10-04 (as quoted by ADR-IAM-006): "Treat client-supplied tenant identifiers as selectors only. Verify that the authenticated principal is authorized to act in the selected tenant." The window's targets and the entry page's Tenant are selectors; the API decides. |

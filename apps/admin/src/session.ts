@@ -10,6 +10,9 @@ export type Session =
       readonly displayName: string | null;
       readonly acr: string | null;
       readonly authTime: string | null;
+      // tenantId is the Tenant the sign-in asked for and the ID token confirmed; null for a
+      // provider sign-in (ADR-IAM-008).
+      readonly tenantId: string | null;
       readonly idleExpiresAt: string;
       readonly absoluteExpiresAt: string;
       readonly csrfToken: string;
@@ -36,6 +39,15 @@ export async function fetchSession(): Promise<Session> {
 // path on its own origin.
 export const signInHref = (returnTo: string): string =>
   `/auth/login?return_to=${encodeURIComponent(returnTo)}`;
+
+// providerSignInHref signs in to the provider form with a fresh authentication at aal2, as entering
+// provider mode requires (ADR-IAM-008 §5.4). Any Tenant scope the browser held is replaced.
+export const providerSignInHref = (returnTo: string): string =>
+  `/auth/login?acr_values=aal2&max_age=0&return_to=${encodeURIComponent(returnTo)}`;
+
+// tenantPattern is the form a Tenant identifier takes. The BFF refuses anything else, and the
+// kernel admits only a member of the Tenant named (ADR-IAM-006 §5.2).
+export const tenantPattern = '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}';
 
 // signOut ends the session. The BFF ends the identity kernel's session server-side, so there is
 // nowhere to redirect. The browser sends its Origin on the POST, and the CSRF token goes in the

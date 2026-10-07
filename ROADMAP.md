@@ -51,7 +51,38 @@ BFF; cookie properties match exactly.
 the attempt is refused before it leaves the BFF; provider mode without a reason cannot
 be entered.
 
+**Built (TDD-organization-experience-001 1.2.0):**
+
+- ✅ **The two scopes are two token forms** (ADR-IAM-008).
+  - The client is registered for the `per-sign-in` form.
+  - A Tenant sign-in asks for `organization:<tenant_id>`, and the pattern holds the ID token to it
+    (identity-experience pin moved to `d7381094`, `bff/conformance.json`).
+  - A provider sign-in asks for none.
+  - Moving between scopes is a sign-in.
+- ✅ **The scope guard** (`bff/src/scope/guard.ts`) refuses before a request leaves the BFF:
+  - a Tenant session reaches only the Tenant administration routes, and nothing naming another
+    Tenant;
+  - a provider session reaches only the activation routes until its window is in force;
+  - an in-force window refuses a Tenant outside the ones it was entered for.
+- ✅ **Provider mode** (`POST /auth/scope/provider`): the reason, the duration and the Tenants are
+  stated before anything opens, after a fresh `aal2` sign-in.
+  - The window rests on an activation the Organization Control API records and another provider
+    approves (ADR-ORG-002). An emergency grant opens at once.
+  - The window ends at the activation's `ends_at`, whatever the session does. Leaving it, or
+    signing out, ends the activation.
+  - The window's reason and correlation identifier go on every provider request.
+- ✅ **In the application:** `ScopeContext` refuses a session and scope that disagree, and
+  `ScopeBanner` is sticky, non-dismissible, and names the scope, the Tenants and the time left.
+  The entry pages and the provider mode form complete it.
+- ⏳ **The approval surface**, where a provider decides others' requests, is Week 3. Until then
+  an approver uses the API.
+- Organization Control serves `GET /v1/provider-activations/grants`, so an eligible holder learns
+  what it can activate.
+
 ## Week 3 · Administration surfaces
+
+- The provider activation approval surface: requests awaiting the operator's decision, approve
+  or deny with a reason, never the operator's own
 
 - Organization registry views
 - Tenant lifecycle: activate, suspend, restore

@@ -13,6 +13,9 @@ import type { Config } from './config.js';
 import { registerCanonicalHost } from './http/canonical-host.js';
 import { sendProblem } from './http/problem.js';
 import { registerSecurityHeaders } from './http/security-headers.js';
+import { OrganizationControl } from './scope/control.js';
+import { endWindowOnSignOut, scopeRoutes } from './scope/routes.js';
+import { ProviderWindows } from './scope/windows.js';
 import { Sealer } from './session/seal.js';
 import { Sessions } from './session/sessions.js';
 import { SessionStore } from './session/store.js';
@@ -73,13 +76,40 @@ export async function buildServer(
     await pool.end();
   });
 
+  const windows = new ProviderWindows(pool);
+  const control = new OrganizationControl(config.organizationControlBaseUrl, config.upstreamTimeoutMs);
+
   await app.register(fastifyCookie);
-  await app.register(authRoutes, { publicOrigin: config.publicOrigin, oidc, sessions, store, now });
+  // A provider window's activation ends with the session that opened it. The hook is the root's, so
+  // it runs before the pattern's own sign-out route, which it never stands in the way of.
+  app.addHook(
+    'preHandler',
+    endWindowOnSignOut({ publicOrigin: config.publicOrigin, sessions, windows, control }),
+  );
+  await app.register(authRoutes, {
+    publicOrigin: config.publicOrigin,
+    oidc,
+    sessions,
+    store,
+    now,
+    tenantSignIn: config.tenantSignIn,
+  });
+  await app.register(scopeRoutes, {
+    publicOrigin: config.publicOrigin,
+    sessions,
+    windows,
+    control,
+    provider: config.provider,
+    now,
+  });
   await app.register(apiProxy, {
     publicOrigin: config.publicOrigin,
     sessions,
     organizationControlBaseUrl: config.organizationControlBaseUrl,
     timeoutMs: config.upstreamTimeoutMs,
+    windows,
+    now,
+    scopeGuard: config.scopeGuard,
   });
 
   app.get('/healthz', async (_request, reply) =>

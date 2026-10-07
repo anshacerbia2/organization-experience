@@ -248,6 +248,10 @@ describe('configuration', () => {
       session: { idleMs: 30 * 60_000, absoluteMs: 8 * 3_600_000, refreshSkewMs: 30_000 },
       organizationControlBaseUrl: 'http://organization-control:8080',
       upstreamTimeoutMs: 10_000,
+      tenantSignIn: true,
+      // The scope guard is on, and nothing in the environment turns it off.
+      scopeGuard: true,
+      provider: { maxDurationMs: 60 * 60_000, defaultDurationMs: 15 * 60_000, stepUpAgeMs: 5 * 60_000 },
     });
     // The internal address defaults to the issuer: one address for both, the simple deployment.
     expect(config.oidc.internalBaseUrl).toBe(complete.ORGANIZATION_EXPERIENCE_ISSUER);

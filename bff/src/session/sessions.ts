@@ -79,6 +79,11 @@ export class Sessions {
           return null;
         }
         const grant = await this.#oidc.refresh(current.tokens);
+        // A refresh keeps the Tenant it was issued for, or drops it (ADR-IAM-006 §5.2). One that
+        // returns another, or none, is not the session that signed in, and ends it (ADR-IAM-008).
+        if (grant.identity !== null && grant.identity.tenantId !== current.tenantId) {
+          throw new OidcError('the refresh returned a token for another Tenant than the session holds');
+        }
         return {
           tokens: grant.tokens,
           accessExpiresAt: grant.accessExpiresAt,
