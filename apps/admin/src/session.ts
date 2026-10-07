@@ -45,6 +45,11 @@ export const signInHref = (returnTo: string): string =>
 export const providerSignInHref = (returnTo: string): string =>
   `/auth/login?acr_values=aal2&max_age=0&return_to=${encodeURIComponent(returnTo)}`;
 
+// tenantSignInHref signs in to one Tenant, chosen from the operator's contexts or a deep link. The
+// kernel admits a member alone, and the BFF holds the ID token to the Tenant asked for.
+export const tenantSignInHref = (tenantId: string, returnTo: string): string =>
+  `/auth/login?tenant=${encodeURIComponent(tenantId)}&return_to=${encodeURIComponent(returnTo)}`;
+
 // tenantPattern is the form a Tenant identifier takes. The BFF refuses anything else, and the
 // kernel admits only a member of the Tenant named (ADR-IAM-006 §5.2).
 export const tenantPattern = '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}';

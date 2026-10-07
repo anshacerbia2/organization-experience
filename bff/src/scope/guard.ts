@@ -19,6 +19,8 @@ export interface GuardRequest {
   readonly body: Buffer | undefined;
   // reason is the operator's own reason for this action, when the application sent one.
   readonly reason: string | undefined;
+  // principalId is the session's Principal, from the ID token: the one whose own contexts it may read.
+  readonly principalId: string | null;
 }
 
 export type GuardDecision =
@@ -35,6 +37,13 @@ const providerOnlyInvitationRoutes = ['/v1/invitations/verify-identity', '/v1/in
 const activationRoutes = '/v1/provider-activations';
 
 const under = (path: string, prefix: string): boolean => path === prefix || path.startsWith(`${prefix}/`);
+
+// ownContexts is the one route every scope reaches: the operator's own contexts, read for themselves
+// (ADR-ORG-005). Another Principal's are not reached through it, in any scope.
+const ownContexts = (request: GuardRequest, path: string): boolean =>
+  request.method === 'GET' &&
+  request.principalId !== null &&
+  path === `/v1/principals/${encodeURIComponent(request.principalId)}/contexts`;
 
 // namedTenants are the Tenants a request names: the identifier after /v1/tenants/ in its path, and
 // a tenant_id at the top of a JSON body. Those are the two places the API takes a Tenant from.
@@ -60,6 +69,11 @@ export function namedTenants(request: GuardRequest): string[] {
 
 export function guard(scope: ActiveScope, request: GuardRequest, now: Date): GuardDecision {
   const path = request.path.split('?')[0] ?? '';
+
+  // A self read is not a provider access: it carries no window reason or correlation.
+  if (ownContexts(request, path)) {
+    return { allowed: true, headers: {} };
+  }
 
   if (scope.kind === 'tenant') {
     const reachable =

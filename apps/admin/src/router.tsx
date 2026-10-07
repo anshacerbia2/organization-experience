@@ -2,6 +2,7 @@ import { createRootRoute, createRoute, createRouter } from '@tanstack/react-rout
 
 import { ApprovalsPage } from './features/approvals';
 import { OffboardingDetail, OffboardingsPage } from './features/offboarding';
+import { ProjectionsPage } from './features/projections';
 import { OrganizationsPage, TenantsPage } from './features/provider';
 import { InvitationsPage, MembershipsPage, WorkspacesPage } from './features/tenant';
 import { Home, RequireScope, Shell } from './Shell';
@@ -59,6 +60,12 @@ const offboarding = createRoute({
   component: () => <RequireScope scope="provider-mode">{() => <OffboardingDetail />}</RequireScope>,
 });
 
+const projections = createRoute({
+  getParentRoute: () => root,
+  path: '/projections',
+  component: () => <RequireScope scope="provider-mode">{() => <ProjectionsPage />}</RequireScope>,
+});
+
 const approvals = createRoute({
   getParentRoute: () => root,
   path: '/approvals',
@@ -74,6 +81,7 @@ const routeTree = root.addChildren([
   tenants,
   offboardings,
   offboarding,
+  projections,
   approvals,
 ]);
 

@@ -10,6 +10,7 @@ import type { ProviderWindow } from '../src/scope/windows.js';
 const tenantA = '0199a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b';
 const tenantB = '0199a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5c';
 const now = new Date('2026-10-07T10:00:00Z');
+const me = '0199a1b2-c3d4-7e5f-8a9b-0c1d2e3f4aaa';
 
 const request = (path: string, overrides: Partial<GuardRequest> = {}): GuardRequest => ({
   method: 'GET',
@@ -17,6 +18,7 @@ const request = (path: string, overrides: Partial<GuardRequest> = {}): GuardRequ
   contentType: undefined,
   body: undefined,
   reason: undefined,
+  principalId: me,
   ...overrides,
 });
 
@@ -195,5 +197,35 @@ describe('readWindowRequest', () => {
     for (const tenants of [[], ['*'], [tenantA.toUpperCase()], 'some', undefined, Array(51).fill(tenantA)]) {
       expect(readWindowRequest({ ...valid, tenants }, provider)).toHaveProperty('problem');
     }
+  });
+});
+
+describe('own contexts (ADR-ORG-005)', () => {
+  const own = request(`/v1/principals/${me}/contexts`);
+  it('reaches the operator’s own contexts in every scope, carrying nothing of a window', () => {
+    for (const scope of [
+      tenantScope,
+      providerScope(null),
+      providerScope(window({ endsAt: null })),
+      providerScope(window()),
+    ]) {
+      expect(guard(scope, own, now)).toEqual({ allowed: true, headers: {} });
+    }
+    expect(
+      guard(providerScope(null), request(`/v1/principals/${me}/contexts?after=x&limit=10`), now).allowed,
+    ).toBe(true);
+  });
+
+  it('reaches no other Principal’s contexts, and only reads', () => {
+    expect(guard(tenantScope, request('/v1/principals/someone-else/contexts'), now).allowed).toBe(false);
+    expect(guard(providerScope(null), request('/v1/principals/someone-else/contexts'), now).allowed).toBe(
+      false,
+    );
+    expect(
+      guard(tenantScope, request(`/v1/principals/${me}/contexts`, { method: 'POST' }), now).allowed,
+    ).toBe(false);
+    expect(
+      guard(tenantScope, request(`/v1/principals/${me}/contexts`, { principalId: null }), now).allowed,
+    ).toBe(false);
   });
 });

@@ -19,7 +19,7 @@ import {
 // never one button. Every stage and obligation state comes from the persisted record, so the view
 // is what Organization Control holds after any restart.
 
-type Stage = 'freeze' | 'obligations' | 'release' | 'retired';
+type Stage = 'freeze' | 'obligations' | 'release' | 'retired' | 'cancelled';
 
 export interface Offboarding {
   readonly offboarding_id: string;
@@ -32,6 +32,10 @@ export interface Offboarding {
   readonly obligations_at?: string | null;
   readonly released_at?: string | null;
   readonly retired_at?: string | null;
+  // A cancelled offboarding (ADR-ORG-006) records who cancelled it, why and when.
+  readonly cancelled_at?: string | null;
+  readonly cancelled_by?: string | null;
+  readonly cancel_reason?: string | null;
   readonly deprovisioning: {
     readonly state: string;
     readonly detail: string | null;
@@ -60,9 +64,17 @@ export interface TenantDetail {
   readonly version: number;
   readonly offboarding_id?: string | null;
   readonly active_memberships?: number;
+  // provisioning is the Tenant's latest provisioning request, on the single read.
+  readonly provisioning?: {
+    readonly request_id: string;
+    readonly correlation_id: string;
+    readonly state: 'requested' | 'realized' | 'failed' | 'unresolved';
+    readonly detail?: string | null;
+  } | null;
 }
 
 const offboardingsKey = ['offboardings'] as const;
+// The forward stages. `cancelled` ends an offboarding early, from freeze or obligations.
 const stages: readonly Stage[] = ['freeze', 'obligations', 'release', 'retired'];
 
 // How long a stage may run before the view calls it stalled (TDD-organization-experience-003
@@ -75,6 +87,7 @@ const stageEnteredAt = (offboarding: Offboarding): string | null | undefined =>
     obligations: offboarding.obligations_at,
     release: offboarding.released_at,
     retired: offboarding.retired_at,
+    cancelled: offboarding.cancelled_at,
   })[offboarding.stage];
 
 const days = (since: string, now: number): number => Math.floor((now - Date.parse(since)) / 86_400_000);
@@ -132,6 +145,7 @@ function StageTimeline({ offboarding }: { readonly offboarding: Offboarding }): 
     entered !== null &&
     entered !== undefined &&
     offboarding.stage !== 'retired' &&
+    offboarding.stage !== 'cancelled' &&
     now - Date.parse(entered) > stallMs;
   return (
     <section aria-labelledby="stages-heading">
@@ -153,6 +167,15 @@ function StageTimeline({ offboarding }: { readonly offboarding: Offboarding }): 
         </p>
       )}
       {stalled ? <p role="alert">{messages.stalled}</p> : null}
+      {offboarding.stage === 'cancelled' ? (
+        <p role="status">
+          {messages.cancelledBy(
+            offboarding.cancelled_by ?? '',
+            formatTime(offboarding.cancelled_at),
+            offboarding.cancel_reason ?? '',
+          )}
+        </p>
+      ) : null}
     </section>
   );
 }
@@ -405,7 +428,23 @@ export function OffboardingDetail(): ReactElement {
         </section>
       ) : null}
 
-      {offboarding.stage !== 'retired' ? (
+      {(offboarding.stage === 'freeze' || offboarding.stage === 'obligations') &&
+      tenant.data !== undefined ? (
+        <section aria-labelledby="cancel-heading">
+          <h3 id="cancel-heading">{messages.cancelOffboarding}</h3>
+          <p>{messages.cancelExplained}</p>
+          <Action
+            label={messages.cancelOffboarding}
+            path={`${base}/cancel`}
+            body={{ expected_version: tenant.data.version }}
+            reason="required"
+            scopeNote={`${messages.cancelWill} ${note}`}
+            invalidates={invalidate}
+          />
+        </section>
+      ) : null}
+
+      {offboarding.stage !== 'retired' && offboarding.stage !== 'cancelled' ? (
         <p>
           <Action
             label={offboarding.legal_hold ? messages.liftHold : messages.setHold}
