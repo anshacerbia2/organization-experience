@@ -8,16 +8,16 @@ could register a confidential client, it is superseded, and it is not ported.
 
 ## The client
 
-| Property              | Value                                                                                    |
-| :-------------------- | :--------------------------------------------------------------------------------------- |
-| Client                | `organization-experience-bff`                                                            |
-| Registered through    | identity-control's `POST /v1/registrations` (`TDD-identity-control-003`)                 |
-| Profile               | `confidential`: Authorization Code with PKCE `S256`, nothing else                        |
-| Audience class        | `privileged`, in the `provider-scope` form, so it holds `scnehaux-provider`              |
-| Client authentication | `private_key_jwt`, PS256. The client has no secret (ADR-IAM-001 §5.12)                   |
-| Audience              | `organization-control-api`, the Organization Control API's keyless resource registration |
-| Redirect URI          | `http://127.0.0.1:8091/auth/callback`, exactly, no wildcard                              |
-| Back-channel logout   | none on the development server: Keycloak cannot reach a developer's machine              |
+| Property              | Value                                                                                                |
+| :-------------------- | :--------------------------------------------------------------------------------------------------- |
+| Client                | `organization-experience-bff`                                                                        |
+| Registered through    | identity-control's `POST /v1/registrations` (`TDD-identity-control-003`)                             |
+| Profile               | `confidential`: Authorization Code with PKCE `S256`, nothing else                                    |
+| Audience class        | `privileged`, in the `per-sign-in` form (ADR-IAM-008): both form scopes and `organization`, optional |
+| Client authentication | `private_key_jwt`, PS256. The client has no secret (ADR-IAM-001 §5.12)                               |
+| Audience              | `organization-control-api`, the Organization Control API's keyless resource registration             |
+| Redirect URI          | `http://127.0.0.1:8091/auth/callback`, exactly, no wildcard                                          |
+| Back-channel logout   | none on the development server: Keycloak cannot reach a developer's machine                          |
 
 **Port 8091.** The identity BFF listens on `127.0.0.1:8090`, so this one takes 8091 and the two do
 not collide on a port (they still share a cookie; see the last section). It is not `localhost:8080` for the identity BFF's reason: the dev tunnel forwards the
@@ -37,13 +37,15 @@ node scripts/new-client-key.mjs     # keys/organization-experience-bff.pem and .
 ```
 
 Whoever operates the development server then registers the client with a provider-scope token,
-an `Idempotency-Key` and an `X-Administrative-Reason`:
+an `Idempotency-Key` and an `X-Administrative-Reason`. It is registered for the `per-sign-in` form,
+which needs identity-control with ADR-IAM-008. Each sign-in then names one form: a Tenant with
+`?tenant=`, or the provider form:
 
 ```text
 POST /v1/registrations
 
 {"client_key":"organization-experience-bff","profile":"confidential","audience_class":"privileged",
- "privileged_form":"provider-scope","application_ref":"organization-experience",
+ "privileged_form":"per-sign-in","application_ref":"organization-experience",
  "redirect_uris":["http://127.0.0.1:8091/auth/callback"],"audience":["organization-control-api"],
  "public_key":<keys/organization-experience-bff.jwk.json>}
 ```
@@ -55,6 +57,12 @@ client's token lifetime from its audience's resource registration, and refuses o
 The BFF's own configuration is `.env.example`: `ORGANIZATION_EXPERIENCE_CLIENT_ID` names this client,
 `ORGANIZATION_EXPERIENCE_CLIENT_KEY_FILE` the private key, and `ORGANIZATION_EXPERIENCE_REDIRECT_URI`
 the callback above.
+
+**Provider mode on the development server.** The bootstrap provider holds an emergency grant
+(`ADR-ORG-002 §5.2`). Its window opens at once with no activation, and still ends at the duration
+stated. An eligible provider's window waits for another provider's approval, because Organization
+Control's `ORGANIZATION_PROVIDER_ACTIVATION_APPROVAL` defaults to `required`. This application's
+approval surface is Week 3. Until then the approver uses `POST /v1/provider-activations/{id}/approve`.
 
 ## Rotating the key
 
