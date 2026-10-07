@@ -1,3 +1,5 @@
+import { randomUUID } from 'node:crypto';
+
 // The calls this BFF makes to the Organization Control API on its own account, to open and close a
 // provider window (TDD-organization-experience-001 1.2.0 §Provider Mode Entry). Each carries the
 // session's access token, the operator's reason and the window's correlation identifier, as every
@@ -66,6 +68,9 @@ function activationOf(view: ActivationView): Activation {
 
 export interface Call {
   readonly accessToken: string;
+  // idempotencyKey names one command, so a retry of it is not a second command. A command without
+  // one is given a fresh key.
+  readonly idempotencyKey?: string;
   // reason travels in X-Administrative-Reason: visible US-ASCII, which the API requires.
   readonly reason: string;
   readonly correlationId: string;
@@ -94,6 +99,8 @@ export class OrganizationControl {
     );
   }
 
+  // requestActivation asks once per window: the window's correlation identifier is its idempotency
+  // key, so a request retried after an outage is answered with the activation the first one made.
   async requestActivation(call: Call, grantId: string, durationSeconds: number): Promise<Activation> {
     return activationOf(
       (await this.#send('POST', '/provider-activations', call, {
@@ -116,6 +123,8 @@ export class OrganizationControl {
     await this.#send('POST', `/provider-activations/${encodeURIComponent(activationId)}/end`, call, {});
   }
 
+  // #send carries an Idempotency-Key on every command (TDD-organization-control-003 §API: "Every
+  // mutation requires an `Idempotency-Key`"), and never on a read, which the API refuses with one.
   async #send(method: 'GET' | 'POST', path: string, call: Call, body?: unknown): Promise<unknown> {
     let response: Response;
     try {
@@ -126,6 +135,7 @@ export class OrganizationControl {
           authorization: `Bearer ${call.accessToken}`,
           'x-administrative-reason': call.reason,
           'x-correlation-id': call.correlationId,
+          ...(method === 'POST' ? { 'idempotency-key': call.idempotencyKey ?? randomUUID() } : {}),
           ...(body === undefined ? {} : { 'content-type': 'application/json' }),
         },
         ...(body === undefined ? {} : { body: JSON.stringify(body) }),

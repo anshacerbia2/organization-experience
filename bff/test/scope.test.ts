@@ -173,6 +173,13 @@ describe('provider mode', () => {
     expect(JSON.parse(requested?.body ?? '{}')).toEqual({ grant_id: grantId, duration_seconds: 900 });
     expect(requested?.headers['x-administrative-reason']).toBe(reason);
     expect(requested?.headers['x-correlation-id']).toMatch(/^[0-9a-f-]{36}$/);
+    // A command carries an idempotency key, the window's correlation, so a retry is not a second
+    // request; a read carries none (TDD-organization-control-003 §API).
+    expect(requested?.headers['idempotency-key']).toBe(requested?.headers['x-correlation-id']);
+    const grantsRead = harness.upstream.received.find(
+      (received) => received.method === 'GET' && received.url === '/v1/provider-activations/grants',
+    );
+    expect(grantsRead?.headers['idempotency-key']).toBeUndefined();
 
     const refused = await get(session, `/api/v1/tenants/${tenantA}`);
     expect(refused.statusCode).toBe(403);
@@ -247,6 +254,11 @@ describe('provider mode', () => {
     await post(session, '/auth/scope/provider', window);
     expect((await post(session, '/auth/scope/provider/end')).statusCode).toBe(204);
     expect(reached('POST', `/v1/provider-activations/${activationId}/end`)).toBe(true);
+    const ended = harness.upstream.received.find(
+      (received) =>
+        received.method === 'POST' && received.url === `/v1/provider-activations/${activationId}/end`,
+    );
+    expect(ended?.headers['idempotency-key']).toMatch(/^[0-9a-f-]{36}$/);
     expect((await get(session, '/auth/scope')).json()).toMatchObject({ window: null });
   });
 

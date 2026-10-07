@@ -340,7 +340,11 @@ export function scopeRoutes(app: FastifyInstance, options: ScopeRoutesOptions, d
       };
     } else {
       const requested = await ask(() =>
-        control.requestActivation(call, grant.grantId, read.request.durationSeconds),
+        control.requestActivation(
+          { ...call, idempotencyKey: correlationId },
+          grant.grantId,
+          read.request.durationSeconds,
+        ),
       );
       if (!requested.ok) {
         return failed(request, reply, sessions, session, requested.error);
