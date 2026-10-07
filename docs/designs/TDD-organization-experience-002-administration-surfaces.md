@@ -3,12 +3,12 @@ doc_meta:
   id: TDD-organization-experience-002
   title: Organization, Tenant, Workspace, and Membership Administration Surfaces
   owner: Core Platform Team
-  version: 1.1.0
+  version: 1.2.0
   status: approved
   classification: restricted
   review_cycle_days: 90
   created_date: 2026-08-11
-  last_reviewed: 2026-08-14
+  last_reviewed: 2026-10-07
   parent_sad: SAD-012
 ---
 
@@ -110,6 +110,75 @@ GET   /api/v1/principals/{id}/contexts
 GET   /api/v1/projections/organization/consumers
 ```
 
+### The Interface as Served (1.2.0)
+
+The route list above is 1.0.0's sketch. Organization Control serves its actions as path segments,
+takes the optimistic version as `expected_version` in the body, and takes a Tenant-scope caller's
+Tenant from the token, so no Tenant-scope path names one. Week 3 builds against what it serves
+(`TDD-organization-control-002`, `-003` and `-004`).
+
+```text
+Tenant scope                                              Provider mode, window in force
+GET   /api/v1/workspaces            ?status               GET   /api/v1/organizations   ?status&classification
+POST  /api/v1/workspaces                                  GET   /api/v1/organizations/{id}
+POST  /api/v1/workspaces/{id}/archive|restore|retire      POST  /api/v1/organizations
+GET   /api/v1/memberships           ?status&workspace_id  POST  /api/v1/organizations/{id}/suspend|restore|retire
+GET   /api/v1/memberships/{id}                            GET   /api/v1/tenants         ?status&organization_id
+POST  /api/v1/memberships                                 GET   /api/v1/tenants/{id}
+POST  /api/v1/memberships/{id}/suspend|restore|revoke     POST  /api/v1/tenants
+GET   /api/v1/invitations           ?state                POST  /api/v1/tenants/{id}/activate|suspend|restore
+POST  /api/v1/invitations
+POST  /api/v1/invitations/{id}/revoke                     Provider scope, any window state
+                                                          GET   /api/v1/provider-activations
+                                                          POST  /api/v1/provider-activations/{id}/approve|deny
+```
+
+**Lists page by keyset.** STD-GLB-001 prohibits offsets.
+- **The request.** Each list takes `after` and `limit` (50 by default, 100 at most). The response is
+  `{"<items>": [...], "next": <id> | null}`, the form identity-control already serves.
+- **The interface.** A keyset gives no page count and no "page 7", so the interface offers the next
+  page, never a numbered one. A filter change starts again from the first page.
+
+**Every mutation carries four things.** `TDD-organization-experience-001` §API requires them, and
+`TDD-organization-control-002` §API requires them of the API:
+
+| Part | Where it comes from |
+| :-- | :-- |
+| `Idempotency-Key` | Generated in the browser, one per distinct request. Resubmitting the same values after an outage reuses it, so the API answers with what the first attempt did. A changed value is a new request with a new key. The BFF forwards it, as identity-experience's does |
+| `expected_version` | The record as the operator was shown it |
+| `X-Administrative-Reason` | The operator's own, for the action. Required for a Membership revocation, an Organization retirement, and a Tenant or Organization suspension. In provider mode an action without one carries the window's reason (`TDD-organization-experience-001` 1.2.0) |
+| Correlation | In provider mode, the window's, set by the BFF |
+
+**A version conflict is shown, not retried.** A `409 version-conflict` reads the record again and
+shows its current state and version beside what the operator acted on. The operator decides again.
+A `409` for any other reason, such as a transition the state does not allow, shows the API's own
+sentence.
+
+**What Week 3 does not build, and why.**
+- **The context switcher.** No Organization Control route lists the Tenants an operator
+  administers. Until one does, a Tenant is entered by its identifier or by a deep link
+  (`TDD-organization-experience-001` 1.2.0).
+- **Projection health.** No route lists the projection consumers; Organization Control serves one
+  consumer at a time.
+- **`unresolved`.** It is a state of the provisioning request, not of the Tenant, and the Tenant
+  read does not carry it.
+  - The Tenant panel renders the Tenant states the API serves: `requested`, `provisioning`,
+    `active`, `failed`, `suspended`, `offboarding` and `retired`.
+  - The rule below for `unresolved` waits for the provisioning request to be readable.
+- **Enforcement after a revocation.** The interface shows the revocation as accepted, at the time
+  the API accepted it, and never as enforced. Its propagation is Week 4's
+  (`TDD-organization-experience-001` §Presenting Revocation Honestly).
+
+**The approval surface (1.2.0).** In production, another provider approves an activation
+(`ADR-ORG-002 §5.1`).
+- **Who uses it.** A provider session reaches it with or without a window of its own.
+- **Reading the list** needs a reason, as every provider read does. The operator writes one before
+  the requests are shown, unless a window supplies it.
+- **What it lists:** the activations awaiting a decision, each with its holder, reason, duration and
+  age. Approving or denying takes a reason of its own.
+- **The operator's own request** is shown as theirs, with no decision control. The API refuses a
+  self-approval regardless.
+
 ## Algorithms / Logic
 
 ### Tenant States Are Rendered Individually
@@ -205,6 +274,17 @@ An `extra` reconciliation finding renders as a security finding, matching how
 
 ## Testing Strategy
 
+### As Served (1.2.0)
+
+- Each list pages by `after` and `next`, and a filter change returns to the first page.
+- Every mutation sends an `Idempotency-Key`, the record's `expected_version`, and a reason where one
+  is required. Resubmitting the same values reuses the key.
+- A `409 version-conflict` shows the record's current state beside what was acted on, and nothing
+  is retried.
+- A revocation is shown as accepted, with its time, and never as enforced.
+- The approval surface lists pending activations and decides with a reason. It never offers the
+  operator their own request.
+
 ### Lifecycle Rendering
 
 - `requested`, `provisioning`, `unresolved`, `failed`, `active`, and `suspended` each
@@ -279,3 +359,6 @@ investigation.
 | Depends on | `TDD-organization-control-003` — Tenant, Organization, and Workspace lifecycle |
 | Depends on | `TDD-organization-control-004` — the invitation join |
 | Depends on | `TDD-organization-control-002` — Membership, revocation, projection health |
+| Conforms to | STD-GLB-001 §Pagination — keyset paging, no offsets (1.2.0) |
+| Conforms to | STD-GLB-FE-001 §Technology Stack — server state through TanStack Query (1.2.0) |
+| Governed by | ADR-ORG-002 — an activation approved by another provider (1.2.0) |
