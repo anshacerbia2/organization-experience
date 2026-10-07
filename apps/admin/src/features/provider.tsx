@@ -6,6 +6,7 @@ import { useIdempotencyKey } from '../api/idempotency';
 import { messages } from '../messages';
 import { useSignedIn } from '../SessionContext';
 import { Action, ApiErrorMessage, facts, Field, ListState, LoadMore, usePagedList } from './common';
+import { BeginOffboarding } from './offboarding';
 
 // The provider-mode surfaces (TDD-organization-experience-002 1.2.0): the Organization registry and
 // the Tenant lifecycle, across Tenants, reachable only while a provider window is in force. Every
@@ -327,6 +328,11 @@ export function TenantsPage(): ReactElement {
                   invalidates={[tenantsKey]}
                 />
               ) : null}
+              {tenant.status === 'active' ||
+              tenant.status === 'suspended' ||
+              tenant.status === 'offboarding' ? (
+                <BeginOffboarding tenantId={tenant.tenant_id} />
+              ) : null}{' '}
               {tenant.status === 'suspended' ? (
                 <Action
                   label={messages.restore}

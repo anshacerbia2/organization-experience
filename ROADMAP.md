@@ -136,6 +136,35 @@ the operator can see and resolve.
 **Exit:** a bulk operation never reports a single aggregate success; a queued revocation
 is never shown as enforced.
 
+**Built (TDD-organization-experience-001 1.3.0, TDD-organization-experience-003 1.2.0, ADR-ORG-004):**
+
+- ✅ **Bulk Membership actions are batches the server previews.**
+  - Each item shows its current state and its resulting state, or the API's refusal.
+  - The confirmation names the count and the Tenant.
+  - Execution commits the previewed set, each item held to the version the preview read.
+  - Outcomes are shown under succeeded, failed and not attempted, never as one success.
+  - The failed subset is previewed again as a batch that continues the first.
+- ✅ **A revocation or suspension is shown by its evidence:** accepted, propagating, enforced or
+  over budget.
+  - The interface reads it again until it settles, naming the services not yet applying it and
+    the time against the budget.
+  - Delivered is not enforced.
+- ✅ **Freshness as built.**
+  - The administrative reads are authoritative, so administrative data carries no marker.
+  - An irreversible operation re-reads the record and sends its version; affected counts come
+    from the API.
+- ✅ **Offboarding is staged and resumable.**
+  - A stage timeline says what each stage stops, with the time in stage and a stall warning.
+  - The freeze runs in batches.
+  - The obligation board shows waived apart from completed and overdue first, and offers no
+    control to resolve another domain's row.
+  - The legal hold names what proceeds and what is blocked.
+  - Release and retirement are gated, with their causes shown.
+  - Beginning shows the API's count, and a Tenant already offboarding resumes.
+- ⏳ **Returning a Tenant from a mistaken offboarding** waits on an Organization Control
+  transition back from the freeze stage. None is served, so nothing here calls the freeze
+  reversible.
+
 ## Depends on
 
 | Repository             | What this needs from it                                                                   |

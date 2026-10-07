@@ -3,7 +3,7 @@ doc_meta:
   id: TDD-organization-experience-001
   title: Administrative Scope, Provider Mode, and Safe Bulk Operations
   owner: Core Platform Team
-  version: 1.2.0
+  version: 1.3.0
   status: approved
   classification: restricted
   review_cycle_days: 90
@@ -309,6 +309,22 @@ The preview is not advisory. Its idempotency key carries into execution, so the
 operator commits the set they were shown rather than the set as it stands at submit
 time.
 
+**As served (1.3.0, `ADR-ORG-004` §5.1).** The preview and the execution are a batch
+resource of the Organization Control API.
+- **The preview.** `POST /v1/membership-batches`, with the action, up to 500 Membership
+  identifiers and the reason, returns the server's preview. It runs through the single
+  command's own validation.
+- **What the batch holds.** Each item's version is pinned when the preview reads it.
+  `POST /v1/membership-batches/{id}/execute`, with the `Idempotency-Key` generated for that
+  preview, commits it. An item that changed since fails with `409 version-conflict` rather
+  than being applied. That is what makes the preview binding.
+- **Outcomes.** The interface shows each item's outcome from the batch, under three headings:
+  `succeeded`, `failed` (the API's own problem) and `not_attempted`.
+- **Resubmitting.** The failed items are previewed again as a new batch that names the one it
+  continues, under the same correlation.
+- **Larger selections.** A selection larger than the preview limit is several batches,
+  previewed and confirmed one at a time and never merged into one count.
+
 ### Presenting Revocation Honestly
 
 `TDD-organization-control-002` is explicit that acknowledgement means durable and
@@ -320,6 +336,19 @@ queued, not enforced. The interface carries that distinction rather than smoothi
 | Propagating | Enforcing, with the elapsed time against the budget |
 | Enforced | Enforced, with the enforced timestamp |
 | Over budget | Enforcement delayed, with an escalation path |
+
+**As served (1.3.0, `ADR-ORG-004` §5.2).** The states are derived from recorded evidence.
+- **Where they come from.** `GET /v1/memberships/{id}/enforcement` returns:
+  - the latest transition's event;
+  - per subscribed consumer, whether it recorded `consumer_applied`, `transport_accepted` or
+    nothing yet, or was dead-lettered;
+  - the propagation budget;
+  - the derived state.
+- **When it is read.** The interface reads it after a revocation or suspension until the state is
+  `enforced` or `over_budget`. It shows the elapsed time against the budget, and names the
+  consumers still pending.
+- **What `enforced` means.** Every subscribed consumer recorded `consumer_applied`. Delivery
+  alone is still propagating.
 
 An interface that reports "revoked" the moment the API returns 202 teaches operators
 that revocation is instant. Incident response is then planned around a property the
@@ -336,6 +365,26 @@ Views feeding an irreversible operation never use a marker. They call the
 authoritative fresh check, per the staleness policy in
 `TDD-organization-control-002`, because a stale read behind an irreversible action is
 the case that policy exists to prevent.
+
+**As built, the administrative reads are authoritative (1.3.0).** Every read this
+application makes through the Organization Control API is answered from the control
+database, not from a projection:
+- the Organization, Tenant, Workspace, Membership, invitation and offboarding reads;
+- `TDD-organization-control-002`: both Membership reads "run in a read-only transaction on
+  the tenant pool".
+
+What 1.2.0 assumed changes in three places:
+- **No marker on administrative data.** There is no projection age to mark it with.
+  `max_accepted_age` and `use_with_marker` are a projection consumer's declared policy
+  (`TDD-organization-control-002` §Staleness Policy). They are shown where consumers are
+  shown, on the projection health view (`TDD-organization-experience-002`).
+- **The fresh check for an irreversible operation is the authoritative re-read and the
+  version it returns.** The operation sends that version as `expected_version`, and a record
+  changed in between answers `409 version-conflict`. `POST /v1/context/verify` is a
+  projection consumer's call, metered per consumer, and refused to an administrator. It is
+  not used here.
+- **Counts come from the API.** An irreversible operation's affected count is read from the
+  API immediately before the confirmation (§Irreversible Operations).
 
 ### Irreversible Operations
 
@@ -395,10 +444,13 @@ Session, cookie, refresh, and client credential settings are inherited unchanged
 ### Honest Presentation
 
 - A revocation is shown as accepted and not as enforced until the enforced timestamp
-  arrives.
+  arrives. As served, it shows as `enforced` only when every subscribed consumer has recorded
+  `consumer_applied` (1.3.0).
 - Enforcement exceeding budget is surfaced with an escalation path.
-- A stale projection renders its marker inline with the data.
-- A view feeding an irreversible operation performs the authoritative fresh check.
+- A stale projection renders its marker inline with the data. As built, this applies only to
+  the consumers on the projection health view (1.3.0).
+- A view feeding an irreversible operation reads the record again and sends the version
+  it read; a change in between is shown as a conflict (1.3.0).
 
 ### Conformance
 
@@ -430,9 +482,9 @@ Bulk preview is bounded by page size and computed server-side, so a large select
 costs the operator a paged review rather than costing the control plane an unbounded
 query.
 
-Views render from projections, so ordinary browsing performs no authoritative read.
-The authoritative fresh check appears only ahead of irreversible operations, which is
-where its 200 ms budget is spent.
+1.2.0 said views render from projections. As built they are authoritative reads, paged
+by keyset (STD-GLB-001 1.3.0), so ordinary browsing costs one indexed page per request. An
+irreversible operation adds one re-read before it is confirmed (§Presenting Staleness).
 
 ## Operational Notes
 
@@ -467,6 +519,7 @@ failure recovery, and stuck offboarding.
 | Build-time dependency | `scnehaux-ui-platform` — design system packages, once shipped (SAD-012 1.1.0 §1, §7.3) |
 | Conforms to | SAD-012 1.1.0 — a React SPA built with Vite behind the identity Fastify BFF, as ADR-GLB-FE-003 §5 and ADR-GLB-FE-011 §5.2 place an internal tool |
 | Governed by | ADR-IAM-008 — one client, the privileged form chosen per sign-in (1.2.0) |
+| Governed by | ADR-ORG-004 — bulk actions previewed by the server, revocation shown by its evidence (1.3.0) |
 | Governed by | ADR-ORG-002 — provider authority is an approved, time-bounded activation (1.2.0) |
 | Governed by | ADR-ORG-003 — Tenant administration grant (1.2.0) |
 
