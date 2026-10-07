@@ -29,14 +29,26 @@ and the tests that prove it are the same tests. The pattern's files and their te
 byte-identical to identity-experience's at a pinned commit, listed in `bff/conformance.json`;
 `pnpm check:bff-conformance` fails CI on any difference (README §Stack).
 
-- Authorization code with PKCE, confidential client, server-side token holding
-- `__Host-` session cookie, opaque value, `HttpOnly`, `Secure`, `SameSite=Lax`
-- Three independent forgery defences
-- Server-side refresh, failure destroying the session
-- Back-channel logout, idle and absolute expiry
+- ✅ Authorization code with PKCE, confidential client, server-side token holding
+- ✅ `__Host-` session cookie, opaque value, `HttpOnly`, `Secure`, `SameSite=Lax`
+- ✅ Three independent forgery defences
+- ✅ Server-side refresh, failure destroying the session
+- ✅ Back-channel logout, idle and absolute expiry
 
 **Exit:** the conformance suite from `identity-experience` passes unchanged against this
 BFF; cookie properties match exactly.
+
+✅ **Met, as `pnpm check:bff-conformance` proves in CI.**
+
+- The files that implement the five items above are byte-identical to identity-experience's at the
+  pinned commit (`bff/conformance.json`), `cookies.ts` among them, so the cookie properties match
+  exactly.
+- `oidc.test.ts` and `tenant.test.ts` are byte-identical too.
+- **Not literally unchanged.** `auth.test.ts` has two assertions adapted, and `server.test.ts`
+  replaces the suites for applications this repository does not serve. Each is listed with its
+  reason in `bff/conformance.json`:
+  - every sign-in lands at the root of the one application;
+  - every sign-in asks for `aal2`.
 
 ## Week 2 · Scope
 
@@ -50,6 +62,10 @@ BFF; cookie properties match exactly.
 **Exit:** an operator in tenant scope cannot issue a request naming another Tenant, and
 the attempt is refused before it leaves the BFF; provider mode without a reason cannot
 be entered.
+
+✅ **Met** by the Built block below, and tested in `bff/test/scope.test.ts`: "refuses a request
+naming another Tenant before it leaves the BFF" and "cannot be entered without a reason, and the API
+is never asked".
 
 **Built (TDD-organization-experience-001 1.2.0):**
 
@@ -75,8 +91,9 @@ be entered.
   `ScopeBanner` is sticky, non-dismissible, and names the scope, the Tenants and the time left.
   The entry pages and the provider mode form complete it.
 - ✅ **The approval surface**, where a provider decides others' requests, came in Week 3.
-- Organization Control serves `GET /v1/provider-activations/grants`, so an eligible holder learns
-  what it can activate.
+- ✅ Organization Control serves `GET /v1/provider-activations/grants`, so an eligible holder learns
+  what it can activate. The BFF reads it before every window request (`ownGrants`,
+  `bff/src/scope/control.ts`).
 
 ## Week 3 · Administration surfaces
 
@@ -92,6 +109,9 @@ be entered.
 
 **Exit:** a mutation on a record that changed since it was displayed returns a conflict
 the operator can see and resolve.
+
+✅ **Met** by the Built block below, and tested in `administration.test.tsx`: "shows a version
+conflict as one, and reads the list again rather than retrying".
 
 **Built (TDD-organization-experience-002 1.2.0):**
 
@@ -138,6 +158,9 @@ the operator can see and resolve.
 
 **Exit:** a bulk operation never reports a single aggregate success; a queued revocation
 is never shown as enforced.
+
+✅ **Met** by the Built block below, and tested in `bulk.test.tsx` (outcomes under three headings)
+and `administration.test.tsx` (a revocation shown by its evidence).
 
 **Built (TDD-organization-experience-001 1.3.0, TDD-organization-experience-003 1.2.0, ADR-ORG-004):**
 
@@ -194,8 +217,34 @@ Recorded so scope creep is visible rather than convenient:
 
 **Design gate.** All three designs at `1.0.0`.
 
+✅ **Met.** All three are `approved`, at 1.4.0 (`docs/designs`).
+
 **Production gate.** The design gate, plus: the identity BFF conformance suite passing
 unchanged, provider-mode controls tested end to end including automatic expiry, bulk
 partial-failure recovery exercised, WCAG 2.2 AA conformance evidence, and runbooks
 written for provider-access review, bulk operation partial failure, and stuck
 offboarding.
+
+**Where the production gate stands (TDD-organization-experience-001 1.4.0):**
+
+- ✅ **The design gate.**
+- ✅ **The identity BFF conformance suite passes in CI.** It is not literally unchanged: Week 1
+  lists the two adapted assertions. Whether that meets "unchanged" is the owner's call.
+- ✅ **Provider-mode controls are tested across each boundary, including automatic expiry.**
+  - At the BFF, against PostgreSQL and a stand-in Organization Control: the window ends at
+    `ends_at`.
+  - In the application: the scope is read again at `ends_at`, and the provider surfaces close.
+- ⏳ **A browser end to end against the stack is not built.** It needs the kernel's hosted login, an
+  Organization Control with a second provider to approve, and a browser driver: a CI job that brings
+  the stack up (TDD-organization-experience-001 §Testing Strategy, End to End).
+- ✅ **Bulk partial-failure recovery is exercised,** in the application and through the BFF.
+  - Covered: an interrupted execution sent again with the same key, then the failed items
+    continued as a new batch.
+  - It found a defect, fixed in 1.4.0: the scope guard refused `/v1/membership-batches` in a Tenant
+    scope, so bulk actions could not leave the BFF.
+- ✅ **Automated WCAG 2.2 A and AA checks** (axe-core) run on every route in CI.
+- ⏳ **Manual WCAG 2.2 AA evidence is still needed:** keyboard, screen reader, contrast and target
+  size in a real browser. Automated checks find only part of what conformance needs.
+- ✅ **Runbooks:** `docs/runbooks/organization-experience-operations.md`.
+- ⏳ **The provider-access review needs `audit.privileged_access` to be readable.** Organization
+  Control serves no route for it, and how a reviewer reads it is an owner decision.

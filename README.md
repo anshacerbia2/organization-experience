@@ -93,19 +93,22 @@ to the pattern lands in identity-experience first, and reaches this repository b
 
 ## Layout
 
-| Path            | Contents                                                                          |
-| :-------------- | :-------------------------------------------------------------------------------- |
-| `apps/admin/`   | Organization, Tenant, Workspace, Membership administration                        |
-| `bff/`          | Session and API proxy, conforming to the identity pattern; `bff/conformance.json` |
-| `scripts/`      | `check-bff-conformance.mjs`, `new-client-key.mjs`                                 |
-| `deploy/dev/`   | How this BFF's client is registered on the development server                     |
-| `docs/designs/` | Technical Design Documents                                                        |
+| Path             | Contents                                                                          |
+| :--------------- | :-------------------------------------------------------------------------------- |
+| `apps/admin/`    | Organization, Tenant, Workspace, Membership administration                        |
+| `bff/`           | Session and API proxy, conforming to the identity pattern; `bff/conformance.json` |
+| `scripts/`       | `check-bff-conformance.mjs`, `new-client-key.mjs`                                 |
+| `deploy/dev/`    | How this BFF's client is registered on the development server                     |
+| `docs/designs/`  | Technical Design Documents                                                        |
+| `docs/runbooks/` | Provider-access review, bulk partial failure, stuck offboarding                   |
 
 ## Designs
 
-| TDD                               | Subject                                                       | Status   |
-| :-------------------------------- | :------------------------------------------------------------ | :------- |
-| `TDD-organization-experience-001` | Administrative scope, provider mode, and safe bulk operations | approved |
+| TDD                               | Subject                                                                 | Status   |
+| :-------------------------------- | :---------------------------------------------------------------------- | :------- |
+| `TDD-organization-experience-001` | Administrative scope, provider mode, and safe bulk operations           | approved |
+| `TDD-organization-experience-002` | Organization, Tenant, Workspace, and Membership administration surfaces | approved |
+| `TDD-organization-experience-003` | Offboarding workflow and obligation tracking views                      | approved |
 
 ## Standalone operation
 
