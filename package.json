@@ -1,0 +1,33 @@
+{
+  "name": "organization-experience",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "packageManager": "pnpm@10.23.0",
+  "engines": {
+    "node": ">=24.11.0"
+  },
+  "scripts": {
+    "dev:admin": "pnpm --filter @organization-experience/admin dev",
+    "dev:bff": "pnpm --filter @organization-experience/bff dev",
+    "build": "pnpm --filter @organization-experience/admin build && pnpm --filter @organization-experience/bff build",
+    "typecheck": "pnpm -r typecheck",
+    "lint": "eslint . && pnpm -r --if-present lint:styles && pnpm -r --if-present lint:boundaries",
+    "test": "pnpm -r test",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "check:bff-conformance": "node scripts/check-bff-conformance.mjs"
+  },
+  "devDependencies": {
+    "@eslint/js": "9.39.5",
+    "eslint": "9.39.5",
+    "eslint-plugin-import-x": "4.17.1",
+    "eslint-plugin-jsx-a11y": "6.10.2",
+    "eslint-plugin-react": "7.37.5",
+    "eslint-plugin-react-hooks": "7.1.1",
+    "globals": "17.12.0",
+    "prettier": "3.9.9",
+    "typescript": "6.0.3",
+    "typescript-eslint": "8.70.1"
+  }
+}

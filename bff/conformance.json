@@ -1,0 +1,76 @@
+{
+  "source": "anshacerbia2/identity-experience",
+  "commit": "13f6e65cc8d5d5cc7ef7db003a9a6fc444c7b862",
+  "identical": [
+    "bff/migrations/0001_sessions.sql",
+    "bff/migrations/0002_login_max_age.sql",
+    "bff/migrations/0003_login_acr.sql",
+    "bff/src/auth/client-key.ts",
+    "bff/src/auth/levels.ts",
+    "bff/src/auth/oidc.ts",
+    "bff/src/auth/routes.ts",
+    "bff/src/db/migrate.ts",
+    "bff/src/http/authenticate.ts",
+    "bff/src/http/canonical-host.ts",
+    "bff/src/http/cookies.ts",
+    "bff/src/http/csrf.ts",
+    "bff/src/http/problem.ts",
+    "bff/src/http/security-headers.ts",
+    "bff/src/session/seal.ts",
+    "bff/src/session/sessions.ts",
+    "bff/src/session/store.ts",
+    "bff/test/oidc.test.ts",
+    "bff/test/support/client-key.ts",
+    "bff/test/support/database.ts",
+    "bff/test/support/identity-provider.ts",
+    "bff/test/support/upstream.ts",
+    "bff/tsconfig.build.json",
+    "bff/tsconfig.json"
+  ],
+  "adapted": [
+    {
+      "path": "bff/conformance.json",
+      "why": "Target-only: this manifest, which scripts/check-bff-conformance.mjs reads."
+    },
+    {
+      "path": "bff/package.json",
+      "why": "Package name @organization-experience/bff; scripts and dependency versions unchanged."
+    },
+    {
+      "path": "bff/src/api/proxy.ts",
+      "why": "Forwards /api/v1/* to the Organization Control API's /v1/* instead of Identity Control's: option organizationControlBaseUrl, and its log line and comment."
+    },
+    {
+      "path": "bff/src/config.ts",
+      "why": "Environment prefix ORGANIZATION_EXPERIENCE_*; upstream organizationControlBaseUrl from ORGANIZATION_EXPERIENCE_ORGANIZATION_CONTROL_URL; one application, so no developerWebRoot or accountWebRoot."
+    },
+    {
+      "path": "bff/src/http/applications.ts",
+      "why": "One application at the root: applicationRoot returns '/' for every path, so routes.ts stays identical and every sign-in asks for aal2. No /developer/ or /account/ prefixes."
+    },
+    {
+      "path": "bff/src/main.ts",
+      "why": "Process name organization-experience-bff in its one stderr line and header comment."
+    },
+    {
+      "path": "bff/src/migrate-main.ts",
+      "why": "Environment prefix ORGANIZATION_EXPERIENCE_* and process name organization-experience-migrate."
+    },
+    {
+      "path": "bff/src/server.ts",
+      "why": "Serves one application at / and no Developer Console or account experience; passes organizationControlBaseUrl to the proxy."
+    },
+    {
+      "path": "bff/test/auth.test.ts",
+      "why": "Two assertions follow the single application: a sign-in started under /developer/ lands at /?sign-in=*, and every sign-in asks for aal2."
+    },
+    {
+      "path": "bff/test/server.test.ts",
+      "why": "Developer Console and account experience suites replaced by one test that their paths get this application's shell; configuration tests use the ORGANIZATION_EXPERIENCE_* names and organizationControlBaseUrl."
+    },
+    {
+      "path": "bff/test/support/harness.ts",
+      "why": "testConfig and startHarness set organizationControlBaseUrl and no developer or account web roots, following Config."
+    }
+  ]
+}
