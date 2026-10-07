@@ -50,6 +50,8 @@ describe('Tenant scope', () => {
     for (const path of [
       '/v1/memberships',
       '/v1/memberships/x/suspend',
+      '/v1/membership-batches',
+      '/v1/membership-batches/b/execute',
       '/v1/workspaces/w',
       '/v1/invitations',
     ]) {
@@ -66,6 +68,7 @@ describe('Tenant scope', () => {
       '/v1/invitations/verify-identity',
       '/v1/invitations/expire-lapsed',
       '/v1/membershipsx',
+      '/v1/membership-batchesx',
     ]) {
       const decision = guard(tenantScope, request(path), now);
       expect(decision.allowed).toBe(false);

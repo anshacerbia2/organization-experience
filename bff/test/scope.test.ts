@@ -117,6 +117,79 @@ describe('Tenant scope', () => {
     const { session } = await signIn(harness, { user: member, tenant: tenantA });
     expect((await post(session, '/auth/scope/provider', window)).statusCode).toBe(403);
   });
+
+  // TDD-organization-experience-001 1.4.0: a bulk action and its recovery, through the BFF. The
+  // execution is interrupted, sent again with the same Idempotency-Key, and its failed item is
+  // previewed again as a batch that continues the first (TDD-organization-control-002 §Membership
+  // Batches, §Resuming an execution).
+  it('carries a bulk action through an interrupted execution and the resubmission of its failed items', async () => {
+    const batchId = '0199a1b2-c3d4-7e5f-8a9b-0c1d2e3f4e01';
+    const continuation = '0199a1b2-c3d4-7e5f-8a9b-0c1d2e3f4e02';
+    const executeKey = '0199a1b2-c3d4-7e5f-8a9b-0c1d2e3f4e11';
+    const { session } = await signIn(harness, { user: member, tenant: tenantA });
+    const { csrfToken } = await sessionOf(harness, session);
+    const command = (url: string, key: string, body: unknown) =>
+      harness.app.inject({
+        method: 'POST',
+        url,
+        cookies: cookies(session),
+        headers: {
+          origin: publicOrigin,
+          'x-csrf-token': csrfToken ?? '',
+          'content-type': 'application/json',
+          'idempotency-key': key,
+          'x-administrative-reason': 'Contractors whose engagement ended',
+        },
+        payload: JSON.stringify(body),
+      });
+    const sentTo = (url: string) =>
+      harness.upstream.received.filter((received) => received.method === 'POST' && received.url === url);
+
+    routes.set('POST /v1/membership-batches', json(201, { batch_id: batchId, state: 'previewed' }));
+    const preview = await command('/api/v1/membership-batches', '0199a1b2-c3d4-7e5f-8a9b-0c1d2e3f4e10', {
+      action: 'revoke',
+      membership_ids: ['m-1', 'm-2'],
+    });
+    expect(preview.statusCode).toBe(201);
+    expect(sentTo('/v1/membership-batches')[0]?.headers['x-administrative-reason']).toBe(
+      'Contractors whose engagement ended',
+    );
+
+    // The request that executes ends before its answer: the gateway's timeout.
+    routes.set(`POST /v1/membership-batches/${batchId}/execute`, json(504, { title: 'Gateway Timeout' }));
+    expect((await command(`/api/v1/membership-batches/${batchId}/execute`, executeKey, {})).statusCode).toBe(
+      504,
+    );
+    routes.set(
+      `POST /v1/membership-batches/${batchId}/execute`,
+      json(200, {
+        batch_id: batchId,
+        state: 'executed',
+        counts: { succeeded: 1, failed: 1, not_attempted: 0 },
+      }),
+    );
+    expect((await command(`/api/v1/membership-batches/${batchId}/execute`, executeKey, {})).statusCode).toBe(
+      200,
+    );
+    const executions = sentTo(`/v1/membership-batches/${batchId}/execute`);
+    expect(executions.map((received) => received.headers['idempotency-key'])).toEqual([
+      executeKey,
+      executeKey,
+    ]);
+
+    routes.set('POST /v1/membership-batches', json(201, { batch_id: continuation, state: 'previewed' }));
+    const again = await command('/api/v1/membership-batches', '0199a1b2-c3d4-7e5f-8a9b-0c1d2e3f4e12', {
+      action: 'revoke',
+      membership_ids: ['m-2'],
+      continues: batchId,
+    });
+    expect(again.statusCode).toBe(201);
+    expect(JSON.parse(sentTo('/v1/membership-batches')[1]?.body ?? '{}')).toEqual({
+      action: 'revoke',
+      membership_ids: ['m-2'],
+      continues: batchId,
+    });
+  });
 });
 
 describe('provider mode', () => {
