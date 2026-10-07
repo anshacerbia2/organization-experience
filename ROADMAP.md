@@ -94,6 +94,36 @@ be entered.
 **Exit:** a mutation on a record that changed since it was displayed returns a conflict
 the operator can see and resolve.
 
+**Built (TDD-organization-experience-002 1.2.0):**
+
+- ✅ **The surfaces,** against what Organization Control serves.
+  - In a Tenant scope: Workspaces, Memberships and invitations.
+  - In provider mode: the Organization registry and the Tenant lifecycle.
+  - In any provider session: the approval surface.
+  - Each surface says which scope it needs, and the navigation offers only the active scope's.
+- ✅ **Keyset lists** in the estate's form (STD-GLB-001 1.3.0). The list grows by its next page,
+  and a filter change starts it again from the first.
+- ✅ **Every mutation carries the contract:**
+  - an `Idempotency-Key` per distinct request;
+  - the `expected_version` the operator was shown;
+  - the operator's reason where it is required. Revocation, retirement and suspension require
+    one, and in provider mode the window's reason covers the rest;
+  - in provider mode, the window's correlation.
+- ✅ **A `409 version-conflict` is shown as one.** The list is read again, so the current state
+  is beside it, and nothing is retried.
+- ✅ **Lifecycle rendered honestly.**
+  - Each Tenant state carries its own consequence, and activation is an explicit step.
+  - An invitation is pending, granting nothing, with its countdown.
+  - A revocation is accepted, with its time, and never shown as enforced.
+  - Irreversible actions name their scope in the confirmation, and retirement needs the name
+    typed.
+- ✅ **Server state is in TanStack Query** (STD-GLB-FE-001), the session and the scope included.
+  Routing uses TanStack Router, as identity-experience does.
+- ⏳ **Waiting on an Organization Control route each:**
+  - the context switcher: a list of the Tenants an operator administers;
+  - projection health: a list of the consumers;
+  - `unresolved`: the provisioning request's state on the Tenant read.
+
 ## Week 4 · Bulk, freshness, and offboarding
 
 - Bulk preview: per-item current state, resulting state, and refusal reasons
