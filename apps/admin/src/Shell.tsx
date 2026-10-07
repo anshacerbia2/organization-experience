@@ -108,6 +108,7 @@ function Navigation(): ReactElement | null {
       links.push(
         { to: '/organizations', label: messages.organizations },
         { to: '/tenants', label: messages.tenants },
+        { to: '/offboardings', label: messages.offboardings },
       );
     }
     links.push({ to: '/approvals', label: messages.approvals });

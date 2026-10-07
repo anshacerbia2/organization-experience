@@ -159,6 +159,60 @@ export const messages = {
   tenantOffboarding: 'Offboarding: staged, and resumable. It is not finished.',
   tenantRetired: 'Retired.',
 
+  offboardings: 'Offboardings',
+  noOffboardings: 'No offboardings match.',
+  stage: 'Stage',
+  stages: 'Stages',
+  stageName: (stage: string): string =>
+    ({ freeze: 'Freeze', obligations: 'Obligations', release: 'Release', retired: 'Retired' })[stage] ??
+    stage,
+  stageStops: (stage: string): string =>
+    ({
+      freeze: 'stops access for every membership in the Tenant. Nothing is deleted.',
+      obligations: 'keeps access stopped. Data remains while domains export, retain and report.',
+      release: 'keeps access stopped. Infrastructure is being released.',
+      retired: 'stops everything.',
+    })[stage] ?? '',
+  inStageSince: (stage: string, since: string, elapsed: number): string =>
+    `In ${stage} since ${since}, ${String(elapsed)} days.`,
+  stalled: 'This offboarding has been in its stage for more than 30 days.',
+  startedAt: (at: string): string => `Started ${at}`,
+  offboardingOf: (name: string): string => `Offboarding of ${name}`,
+  legalHoldSet: 'Legal hold is set',
+  holdProceeds: (what: string): string => `${what} proceeds`,
+  holdBlocks: (what: string): string => `${what} is blocked`,
+  setHold: 'Set legal hold',
+  liftHold: 'Lift legal hold',
+  retirement: 'Retirement',
+  obligations: 'Obligations',
+  obligation: 'Obligation',
+  domain: 'Domain',
+  due: 'Due',
+  detail: 'Detail',
+  overdue: 'overdue',
+  obligationState: (state: string): string => (state === 'waived' ? 'waived: decided not to be done' : state),
+  resolvedByDomain: (domain: string): string => `Resolved by the ${domain} domain, not here.`,
+  resolvedBy: (who: string, at: string, detail: string): string =>
+    [`by ${who}`, at, detail].filter((part) => part !== '').join(', '),
+  raiseObligation: 'Raise obligation',
+  activeRemaining: (count: number): string => `${String(count)} memberships are still active in this Tenant.`,
+  freezeNext: (size: number): string => `Suspend the next ${String(size)}`,
+  completeFreeze: 'Complete the freeze',
+  release: 'Release',
+  releaseIrreversible: 'Release begins removing the Tenant’s infrastructure. It cannot be undone.',
+  blockedByHold: (what: string): string => `${what} is blocked by the legal hold.`,
+  blockedByObligations: 'Release waits on these obligations:',
+  deprovisioningNone: 'Deprovisioning has not been requested.',
+  deprovisioningRealized: (at: string): string => `Deprovisioning is complete, ${at}.`,
+  deprovisioningFailed: (detail: string): string => `Deprovisioning failed: ${detail}`,
+  deprovisioningAwaiting: (at: string): string =>
+    `Deprovisioning was requested ${at} and has no outcome yet. Retirement waits; nothing is retried here.`,
+  offboard: 'Offboarding',
+  beginOffboarding: 'Begin offboarding',
+  resumeOffboarding: 'Resume its offboarding',
+  beginWill: (count: number): string =>
+    `This suspends ${String(count)} memberships now and stops access. Nothing is deleted.`,
+
   approvals: 'Activation requests',
   reviewRequests: 'Review requests',
   reviewReasonExplained:
