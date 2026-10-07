@@ -101,6 +101,7 @@ export function apiProxy(app: FastifyInstance, options: ProxyOptions, done: () =
             contentType: request.headers['content-type'],
             body: hasBody ? (request.body as Buffer) : undefined,
             reason: typeof reasonHeader === 'string' ? reasonHeader : undefined,
+            principalId: session.principalId,
           },
           options.now(),
         );

@@ -3,7 +3,7 @@ doc_meta:
   id: TDD-organization-experience-002
   title: Organization, Tenant, Workspace, and Membership Administration Surfaces
   owner: Core Platform Team
-  version: 1.2.0
+  version: 1.3.0
   status: approved
   classification: restricted
   review_cycle_days: 90
@@ -168,6 +168,23 @@ sentence.
 - **Enforcement after a revocation.** The interface shows the revocation as accepted, at the time
   the API accepted it, and never as enforced. Its propagation is Week 4's
   (`TDD-organization-experience-001` §Presenting Revocation Honestly).
+
+**What 1.2.0 waited on, served (1.3.0).**
+- **The context switcher.** It lists the operator's own contexts from
+  `GET /v1/principals/{principal_id}/contexts` (`ADR-ORG-005`).
+  - It is served to the operator for themselves, signed in with or without a Tenant.
+  - Each entry names the Tenant and the Workspace, and whether the operator administers the
+    Tenant.
+  - Choosing an entry is the Tenant sign-in. An entry is a selector, and the API checks the choice
+    again at use. The identifier field remains for a deep link.
+- **Projection health** lists the consumers from `GET /v1/projections/consumers`, in provider mode.
+  - Each consumer shows its declared budget and stale behaviour, and its last reported mark and
+    time.
+  - A consumer past its budget renders stale, with its stale behaviour named.
+- **`unresolved`** is read from the Tenant read's `provisioning`, the latest provisioning request.
+  - It renders with retry disabled and the reason given ("Do not retry; awaiting
+    reconciliation").
+  - `failed` renders with its detail.
 
 **The approval surface (1.2.0).** In production, another provider approves an activation
 (`ADR-ORG-002 §5.1`).

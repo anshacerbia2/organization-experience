@@ -74,8 +74,7 @@ be entered.
 - ✅ **In the application:** `ScopeContext` refuses a session and scope that disagree, and
   `ScopeBanner` is sticky, non-dismissible, and names the scope, the Tenants and the time left.
   The entry pages and the provider mode form complete it.
-- ⏳ **The approval surface**, where a provider decides others' requests, is Week 3. Until then
-  an approver uses the API.
+- ✅ **The approval surface**, where a provider decides others' requests, came in Week 3.
 - Organization Control serves `GET /v1/provider-activations/grants`, so an eligible holder learns
   what it can activate.
 
@@ -119,10 +118,11 @@ the operator can see and resolve.
     typed.
 - ✅ **Server state is in TanStack Query** (STD-GLB-FE-001), the session and the scope included.
   Routing uses TanStack Router, as identity-experience does.
-- ⏳ **Waiting on an Organization Control route each:**
-  - the context switcher: a list of the Tenants an operator administers;
-  - projection health: a list of the consumers;
-  - `unresolved`: the provisioning request's state on the Tenant read.
+- ✅ **What waited on an Organization Control route, served (TDD-organization-experience-002
+  1.3.0):**
+  - the context switcher: the operator's own contexts (ADR-ORG-005), offered in every scope;
+  - projection health: the consumers, with a stale consumer marked inline;
+  - `unresolved`: the latest provisioning request on the Tenant read, offering no retry.
 
 ## Week 4 · Bulk, freshness, and offboarding
 
@@ -161,9 +161,11 @@ is never shown as enforced.
   - The legal hold names what proceeds and what is blocked.
   - Release and retirement are gated, with their causes shown.
   - Beginning shows the API's count, and a Tenant already offboarding resumes.
-- ⏳ **Returning a Tenant from a mistaken offboarding** waits on an Organization Control
-  transition back from the freeze stage. None is served, so nothing here calls the freeze
-  reversible.
+- ✅ **Returning a Tenant from a mistaken offboarding** (ADR-ORG-006,
+  TDD-organization-experience-003 1.3.0).
+  - Cancellation is offered in the freeze and obligations stages. It restores the Tenant's prior
+    status and the Memberships the freeze suspended.
+  - A cancellation that stopped partway says how many remain and finishes when sent again.
 
 ## Depends on
 

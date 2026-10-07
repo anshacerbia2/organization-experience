@@ -209,16 +209,52 @@ export const messages = {
   overBudgetEscalation:
     'Enforcement is past its budget. Raise it with the platform on-call, quoting the event and the services above.',
 
+  // The context switcher, projection health, provisioning and cancellation (TDD-002 and TDD-003 1.3.0).
+  yourTenants: 'Your Tenants',
+  noContexts: 'You hold no active membership in an active Tenant.',
+  currentTenant: (name: string): string => `${name} (current)`,
+  youAdminister: 'you administer it',
+  youAreMember: 'member',
+  projectionHealth: 'Projection health',
+  noConsumers: 'No consumers are registered.',
+  budgetOf: (seconds: number): string => `budget ${String(seconds)} s`,
+  staleBehavior: (behavior: string): string => `when stale: ${behavior.replace(/_/g, ' ')}`,
+  lastReported: (at: string): string => (at === '' ? 'never reported' : `last reported ${at}`),
+  consumerStale: (behavior: string): string =>
+    `Stale: past its budget. It applies its stale behaviour, ${behavior.replace(/_/g, ' ')}.`,
+  provisioningState: (state: string, correlation: string, detail: string): string =>
+    ({
+      requested: `Provisioning requested (${correlation}). Membership cannot be granted yet.`,
+      realized: `Provisioning realized (${correlation}). Activation is the next, deliberate step.`,
+      failed: `Provisioning failed (${correlation})${detail === '' ? '' : `: ${detail}`}.`,
+      unresolved: `Provisioning outcome unknown (${correlation}). Do not retry: awaiting reconciliation, because a retry could provision this Tenant twice.`,
+    })[state] ?? state,
+  cancelOffboarding: 'Cancel this offboarding',
+  cancelExplained:
+    'Cancelling returns the Tenant to the status it held before offboarding began, and restores the memberships this freeze suspended. Memberships suspended before it stay suspended.',
+  cancelWill: 'This restores access for the memberships the freeze suspended.',
+  restorePending: (count: number): string =>
+    `${String(count)} memberships the freeze suspended are not restored yet. Finishing the cancellation restores them.`,
+  finishRestoring: 'Finish restoring',
+  cancelledBy: (who: string, at: string, reason: string): string =>
+    `Cancelled by ${who}, ${at}${reason === '' ? '' : `: ${reason}`}.`,
+
   offboardings: 'Offboardings',
   noOffboardings: 'No offboardings match.',
   stage: 'Stage',
   stages: 'Stages',
   stageName: (stage: string): string =>
-    ({ freeze: 'Freeze', obligations: 'Obligations', release: 'Release', retired: 'Retired' })[stage] ??
-    stage,
+    ({
+      freeze: 'Freeze',
+      obligations: 'Obligations',
+      release: 'Release',
+      retired: 'Retired',
+      cancelled: 'Cancelled',
+    })[stage] ?? stage,
   stageStops: (stage: string): string =>
     ({
-      freeze: 'stops access for every membership in the Tenant. Nothing is deleted.',
+      freeze:
+        'stops access for every membership in the Tenant. Nothing is deleted, and it can be cancelled until release.',
       obligations: 'keeps access stopped. Data remains while domains export, retain and report.',
       release: 'keeps access stopped. Infrastructure is being released.',
       retired: 'stops everything.',

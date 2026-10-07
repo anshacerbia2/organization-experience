@@ -3,6 +3,7 @@ import { Link, Outlet } from '@tanstack/react-router';
 import { useState, type ReactElement, type ReactNode } from 'react';
 
 import { sessionQueryKey } from './api/query';
+import { ContextSwitcher } from './features/contexts';
 import { messages } from './messages';
 import { ProviderModeGate } from './ProviderMode';
 import { ScopeBanner } from './ScopeBanner';
@@ -109,6 +110,7 @@ function Navigation(): ReactElement | null {
         { to: '/organizations', label: messages.organizations },
         { to: '/tenants', label: messages.tenants },
         { to: '/offboardings', label: messages.offboardings },
+        { to: '/projections', label: messages.projectionHealth },
       );
     }
     links.push({ to: '/approvals', label: messages.approvals });
@@ -147,6 +149,7 @@ export function Home(): ReactElement | null {
   if (scope.scope === 'tenant') {
     return (
       <>
+        <ContextSwitcher returnTo={here()} current={scope.tenantId} />
         <TenantSignIn returnTo={here()} label={messages.switchTenant} />
         <p>
           <ProviderSignIn returnTo={here()} label={messages.switchToProvider} />
@@ -159,7 +162,12 @@ export function Home(): ReactElement | null {
       <ProviderModeGate scope={scope} csrfToken={session.csrfToken} returnTo={here()} />
       {/* Switching to a Tenant replaces the session; an open window is left first, so its
           activation ends rather than outliving the session that asked for it. */}
-      {scope.window === null ? <TenantSignIn returnTo={here()} label={messages.signInTenant} /> : null}
+      {scope.window === null ? (
+        <>
+          <ContextSwitcher returnTo={here()} current={null} />
+          <TenantSignIn returnTo={here()} label={messages.signInTenant} />
+        </>
+      ) : null}
     </>
   );
 }

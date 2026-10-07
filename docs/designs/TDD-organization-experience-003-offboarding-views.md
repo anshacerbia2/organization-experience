@@ -3,7 +3,7 @@ doc_meta:
   id: TDD-organization-experience-003
   title: Offboarding Workflow and Obligation Tracking Views
   owner: Core Platform Team
-  version: 1.2.0
+  version: 1.3.0
   status: approved
   classification: restricted
   review_cycle_days: 90
@@ -126,7 +126,16 @@ How the served API meets this design:
   - An obligation is resolved by its accountable domain, which states its domain to the API.
   - The board shows who resolved each row and when, and offers no control that would let an
     operator resolve another domain's obligation.
-- **The freeze is not called reversible here.**
+- **The freeze is reversible as served (1.3.0, `ADR-ORG-006`).**
+  - `POST /v1/offboardings/{id}/cancel`, with a reason and the Tenant's version, is offered in the
+    freeze and obligations stages and nowhere after.
+  - It returns the Tenant to the status it held when offboarding began, and restores the
+    Memberships the freeze suspended and no others. The offboarding ends `cancelled`, recorded.
+  - The freeze stage now says what is true of it: access is stopped, nothing is deleted, and it
+    can be cancelled until release.
+  - An offboarding begun before the freeze recorded what it suspended cannot be cancelled. The
+    interface shows the API's refusal.
+- **Before 1.3.0 the freeze was not called reversible here.**
   - Organization Control serves no transition from `offboarding` back to `active`.
   - The freeze stage therefore states what is true of it: access is stopped and nothing is
     deleted.

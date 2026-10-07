@@ -1,12 +1,12 @@
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState, type ReactElement } from 'react';
 
-import { apiCommand } from '../api/client';
+import { apiCommand, apiGet } from '../api/client';
 import { useIdempotencyKey } from '../api/idempotency';
 import { messages } from '../messages';
 import { useSignedIn } from '../SessionContext';
 import { Action, ApiErrorMessage, facts, Field, ListState, LoadMore, usePagedList } from './common';
-import { BeginOffboarding } from './offboarding';
+import { BeginOffboarding, type TenantDetail } from './offboarding';
 
 // The provider-mode surfaces (TDD-organization-experience-002 1.2.0): the Organization registry and
 // the Tenant lifecycle, across Tenants, reachable only while a provider window is in force. Every
@@ -308,6 +308,11 @@ export function TenantsPage(): ReactElement {
                 messages.versionOf(tenant.version),
               )}
               <p>{tenantStateNote[tenant.status]}</p>
+              {tenant.status === 'requested' ||
+              tenant.status === 'provisioning' ||
+              tenant.status === 'failed' ? (
+                <ProvisioningStatus tenantId={tenant.tenant_id} />
+              ) : null}
               {tenant.status === 'provisioning' ? (
                 <Action
                   label={messages.activate}
@@ -349,5 +354,24 @@ export function TenantsPage(): ReactElement {
       </ul>
       <LoadMore query={query} />
     </section>
+  );
+}
+
+// ProvisioningStatus reads the Tenant's latest provisioning request (TDD-organization-experience-002
+// §Tenant States Are Rendered Individually). `unresolved` is its own state: the outcome is unknown,
+// and retrying could provision the Tenant twice, so nothing here retries it.
+function ProvisioningStatus({ tenantId }: { readonly tenantId: string }): ReactElement | null {
+  const detail = useQuery({
+    queryKey: ['tenant', tenantId],
+    queryFn: ({ signal }) => apiGet<TenantDetail>(`/v1/tenants/${tenantId}`, { signal }),
+  });
+  const provisioning = detail.data?.provisioning;
+  if (provisioning === undefined || provisioning === null) {
+    return null;
+  }
+  return (
+    <p role="status" data-provisioning={provisioning.state}>
+      {messages.provisioningState(provisioning.state, provisioning.correlation_id, provisioning.detail ?? '')}
+    </p>
   );
 }
