@@ -215,11 +215,38 @@ describe('memberships', () => {
   };
   const revokePath = `/api/v1/memberships/${membership.membership_id}/revoke`;
 
-  it('cannot revoke without a reason, names the Tenant, and shows acceptance, never enforcement', async () => {
+  it('cannot revoke without a reason, names the Tenant, and shows the revocation by its evidence', async () => {
     visit('/memberships');
+    let reads = 0;
+    const evidence = (applied: boolean) => ({
+      membership_id: membership.membership_id,
+      event_id: 'ev-1',
+      transition: 'revoked',
+      accepted_at: '2026-10-07T12:00:00Z',
+      published_at: '2026-10-07T12:00:01Z',
+      budget_seconds: 10,
+      consumers: [
+        {
+          consumer_id: 'identity-control',
+          evidence: 'consumer_applied',
+          recorded_at: '2026-10-07T12:00:02Z',
+        },
+        {
+          consumer_id: 'billing',
+          evidence: applied ? 'consumer_applied' : 'transport_accepted',
+          recorded_at: '2026-10-07T12:00:03Z',
+        },
+      ],
+      state: applied ? 'enforced' : 'propagating',
+      evaluated_at: '2026-10-07T12:00:04Z',
+    });
     const fetchMock = stub(signedInto(tenantA, { scope: 'tenant', tenantId: tenantA }), (url, init) => {
       if (url === '/api/v1/memberships') {
         return json({ memberships: [membership], next: null });
+      }
+      if (url === `/api/v1/memberships/${membership.membership_id}/enforcement`) {
+        reads += 1;
+        return json(evidence(reads > 1));
       }
       if (url === revokePath && init?.method === 'POST') {
         return json({
@@ -244,10 +271,13 @@ describe('memberships', () => {
     const [init] = sent(fetchMock, revokePath);
     expect(JSON.parse(init?.body as string)).toEqual({ expected_version: 7 });
     expect(headersOf(init)['x-administrative-reason']).toBe('Left the company on 2026-10-06');
-    const status = await screen.findByText(/Revocation accepted at/);
-    expect(status).toHaveTextContent('Acceptance is not enforcement');
-    expect(screen.queryByText(/enforced/i)).not.toBeInTheDocument();
-  });
+    // Delivered is not applied: the first read is propagating, naming the service still pending.
+    const propagating = await screen.findByText('Propagating');
+    expect(propagating.closest('[role="status"]')).toHaveTextContent('billing: delivered, not yet applied');
+    expect(propagating.closest('[role="status"]')).toHaveTextContent('4 s of a 10 s budget');
+    // Enforced only once every service has applied it, read again without a reload.
+    expect(await screen.findByText('Enforced', {}, { timeout: 5_000 })).toBeInTheDocument();
+  }, 10_000);
 });
 
 describe('invitations', () => {

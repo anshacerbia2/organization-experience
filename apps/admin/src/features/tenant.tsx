@@ -5,17 +5,18 @@ import { apiCommand } from '../api/client';
 import { useIdempotencyKey } from '../api/idempotency';
 import { messages } from '../messages';
 import { useSignedIn } from '../SessionContext';
+import { BulkMembershipAction } from './bulk';
 import {
   Action,
   ApiErrorMessage,
   Countdown,
   facts,
   Field,
-  formatTime,
   ListState,
   LoadMore,
   usePagedList,
 } from './common';
+import { EnforcementStatus } from './enforcement';
 
 // The Tenant-scope surfaces (TDD-organization-experience-002 1.2.0): Workspaces, Memberships and
 // invitations in the one Tenant the session holds. No path names the Tenant: the API takes it from
@@ -224,7 +225,13 @@ export function MembershipsPage({ tenantId }: { readonly tenantId: string }): Re
   const [workspace, setWorkspace] = useState('');
   const [subjectType, setSubjectType] = useState('human');
   const [provenance, setProvenance] = useState('');
-  const [accepted, setAccepted] = useState<{ id: string; at: string } | null>(null);
+  // The Memberships whose last transition here is followed until it is enforced or over budget.
+  const [followed, setFollowed] = useState<ReadonlySet<string>>(new Set());
+  const follow = (id: string): void => {
+    setFollowed((current) => new Set([...current, id]));
+  };
+  const [selected, setSelected] = useState<ReadonlySet<string>>(new Set());
+  const [bulk, setBulk] = useState(false);
   const scopeNote = messages.inTenant(tenantId);
 
   return (
@@ -308,12 +315,47 @@ export function MembershipsPage({ tenantId }: { readonly tenantId: string }): Re
         onChange={setStatus}
       />
       <ListState query={query} empty={messages.noMemberships} count={items.length} />
+      {selected.size === 0 ? null : bulk ? (
+        <BulkMembershipAction
+          selected={[...selected]}
+          tenantId={tenantId}
+          onClose={() => {
+            setBulk(false);
+            setSelected(new Set());
+          }}
+        />
+      ) : (
+        <p>
+          <button
+            type="button"
+            onClick={() => {
+              setBulk(true);
+            }}
+          >
+            {messages.bulkActOn(selected.size)}
+          </button>
+        </p>
+      )}
       <ul>
         {items.map((membership) => {
           const versioned = { expected_version: membership.version };
           const base = `/v1/memberships/${membership.membership_id}` as const;
           return (
             <li key={membership.membership_id}>
+              <input
+                type="checkbox"
+                aria-label={messages.selectMembership(membership.principal_id)}
+                checked={selected.has(membership.membership_id)}
+                onChange={(event) => {
+                  const next = new Set(selected);
+                  if (event.target.checked) {
+                    next.add(membership.membership_id);
+                  } else {
+                    next.delete(membership.membership_id);
+                  }
+                  setSelected(next);
+                }}
+              />{' '}
               <strong>{membership.principal_id}</strong>{' '}
               {facts(
                 membership.subject_type,
@@ -330,6 +372,9 @@ export function MembershipsPage({ tenantId }: { readonly tenantId: string }): Re
                   body={versioned}
                   reason="optional"
                   invalidates={[membershipsKey]}
+                  onDone={() => {
+                    follow(membership.membership_id);
+                  }}
                 />
               ) : null}
               {membership.status === 'suspended' ? (
@@ -349,13 +394,13 @@ export function MembershipsPage({ tenantId }: { readonly tenantId: string }): Re
                   reason="required"
                   scopeNote={`${messages.irreversible} ${scopeNote}`}
                   invalidates={[membershipsKey]}
-                  onDone={(result) => {
-                    setAccepted({ id: membership.membership_id, at: result.accepted_at });
+                  onDone={() => {
+                    follow(membership.membership_id);
                   }}
                 />
               ) : null}
-              {accepted?.id === membership.membership_id ? (
-                <p role="status">{messages.revocationAccepted(formatTime(accepted.at))}</p>
+              {followed.has(membership.membership_id) ? (
+                <EnforcementStatus membershipId={membership.membership_id} />
               ) : null}
             </li>
           );

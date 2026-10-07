@@ -159,6 +159,50 @@ export const messages = {
   tenantOffboarding: 'Offboarding: staged, and resumable. It is not finished.',
   tenantRetired: 'Retired.',
 
+  // Bulk actions and enforcement (ADR-ORG-004).
+  selectMembership: (principal: string): string => `Select the membership of ${principal}`,
+  bulkActOn: (count: number): string => `Act on ${String(count)} selected memberships`,
+  bulkAction: 'Bulk action',
+  bulkActionLabel: 'Action',
+  bulkSelected: (count: number): string => `${String(count)} memberships selected`,
+  bulkContinues: 'Resubmitting the failed memberships of the previous batch, under its correlation.',
+  bulkPreviewAction: 'Preview',
+  bulkPreview: 'Preview',
+  bulkPreviewCaption: (change: number, unchanged: number): string =>
+    `${String(change)} would change; ${String(unchanged)} would not.`,
+  currentState: 'Now',
+  resultingState: 'After',
+  bulkConfirm: (action: string, count: number, tenantId: string): string =>
+    `This will ${action} ${String(count)} memberships in Tenant ${tenantId}, exactly as previewed. A membership that changed since the preview is not touched.`,
+  bulkExecute: (action: string, count: number): string => `${action} ${String(count)} memberships`,
+  bulkOutcome: 'Outcome',
+  bulkCounts: (succeeded: number, failed: number, notAttempted: number): string =>
+    `${String(succeeded)} succeeded, ${String(failed)} failed, ${String(notAttempted)} not attempted.`,
+  outcomeHeading: (status: string): string =>
+    ({ succeeded: 'Succeeded', failed: 'Failed', not_attempted: 'Not attempted' })[status] ?? status,
+  resubmitFailed: (count: number): string => `Preview the ${String(count)} failed again`,
+  close: 'Close',
+  enforcementState: (state: string): string =>
+    ({
+      accepted: 'Accepted',
+      propagating: 'Propagating',
+      enforced: 'Enforced',
+      over_budget: 'Enforcement delayed',
+    })[state] ?? state,
+  enforcementTiming: (transition: string, at: string, elapsed: number, budget: number): string =>
+    `${transition} accepted ${at}; ${String(elapsed)} s of a ${String(budget)} s budget.`,
+  pendingConsumers: 'Services not yet applying it',
+  consumerEvidence: (consumer: string, evidence: string): string => `${consumer}: ${evidence}`,
+  evidence: (evidence: string): string =>
+    ({
+      transport_accepted: 'delivered, not yet applied',
+      pending: 'not yet delivered',
+      dead_lettered: 'delivery failed',
+      consumer_applied: 'applied',
+    })[evidence] ?? evidence,
+  overBudgetEscalation:
+    'Enforcement is past its budget. Raise it with the platform on-call, quoting the event and the services above.',
+
   offboardings: 'Offboardings',
   noOffboardings: 'No offboardings match.',
   stage: 'Stage',
