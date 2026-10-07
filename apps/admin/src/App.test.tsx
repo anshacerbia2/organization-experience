@@ -108,9 +108,10 @@ describe('App', () => {
   it('states an unavailable session rather than offering sign-in', async () => {
     stubBff({ '/auth/session': () => respond({}, 503) });
     render(<App />);
-    expect(await screen.findByText('Session unavailable')).toBeInTheDocument();
+    // A failed read is retried twice before the page says so (src/api/query.ts).
+    expect(await screen.findByText('Session unavailable', {}, { timeout: 6_000 })).toBeInTheDocument();
     expect(screen.queryByRole('link', { name: 'Sign in as a provider' })).not.toBeInTheDocument();
-  });
+  }, 10_000);
 
   it('says a sign-in did not complete, differently when the kernel did not answer', async () => {
     stubBff({ '/auth/session': () => respond({ authenticated: false }) });

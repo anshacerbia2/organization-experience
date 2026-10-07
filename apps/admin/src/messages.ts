@@ -72,6 +72,104 @@ export const messages = {
   correlation: (id: string): string => `Reference ${id}`,
   leaveProviderMode: 'Leave provider mode',
   withdrawRequest: 'Withdraw the request',
+  // The administration surfaces (TDD-organization-experience-002 1.2.0).
+  navigation: 'Sections',
+  separator: ' · ',
+  subjectHuman: 'human',
+  subjectWorkload: 'workload',
+  overview: 'Overview',
+  loading: 'Loading',
+  loadMore: 'Show more',
+  any: 'Any',
+  cancel: 'Cancel',
+  status: 'Status',
+  state: (value: string): string => value.replace(/_/g, ' '),
+  versionOf: (version: number): string => `version ${String(version)}`,
+  irreversible: 'This cannot be undone.',
+  inTenant: (tenantId: string): string => `In Tenant ${tenantId}.`,
+  inTenantNamed: (name: string, tenantId: string): string =>
+    `In Tenant ${name} (${tenantId}), in provider mode.`,
+  inOrganization: (name: string): string => `In Organization ${name}, in provider mode.`,
+  reasonOptional: 'Reason (optional)',
+  typeToConfirm: (text: string): string => `Type ${text} to confirm`,
+  versionConflict:
+    'Not done: the record changed since it was shown. Its current state is shown now; decide again on what it is.',
+  refusedBy: (detail: string): string => `Not done. Organization Control said: ${detail}`,
+  needsTenantScope: 'This section belongs to a Tenant scope. Sign in to a Tenant to use it.',
+  needsProvider: 'This section belongs to a provider sign-in.',
+  needsProviderMode: 'This section opens in provider mode. Enter it, with a reason, from the overview.',
+
+  workspaces: 'Workspaces',
+  createWorkspace: 'Create workspace',
+  displayName: 'Display name',
+  workspaceType: 'Type',
+  noWorkspaces: 'No workspaces match.',
+  archive: 'Archive',
+  restore: 'Restore',
+  retire: 'Retire',
+
+  memberships: 'Memberships',
+  grantMembership: 'Grant membership',
+  principalId: 'Principal identifier',
+  workspaceIdOptional: 'Workspace identifier (optional)',
+  workspaceRef: (id: string): string => `workspace ${id}`,
+  subjectType: 'Subject type',
+  provenance: 'Provenance',
+  provenanceHint: 'How this membership came to exist, for example a request reference.',
+  noMemberships: 'No memberships match.',
+  suspend: 'Suspend',
+  revoke: 'Revoke',
+  revocationAccepted: (at: string): string =>
+    `Revocation accepted at ${at}. Acceptance is not enforcement: access ends as each service applies it.`,
+
+  invitations: 'Invitations',
+  sendInvitation: 'Send invitation',
+  invitee: 'Invitee',
+  inviteeHint: 'The address the invitation is for. It is stored only as a digest.',
+  validForDays: 'Valid for days',
+  invitationToken:
+    'The invitation token, shown this once. Deliver it to the invitee; it grants nothing until their identity is verified.',
+  noInvitations: 'No invitations match.',
+  invitationState: (state: string): string =>
+    state === 'pending'
+      ? 'pending: nothing is granted until the invitee is verified and accepts'
+      : state === 'identity_verified'
+        ? 'identity verified: awaiting acceptance'
+        : state.replace(/_/g, ' '),
+  expiresIn: 'expires in',
+
+  organizations: 'Organizations',
+  createOrganization: 'Register organization',
+  classification: 'Classification',
+  noOrganizations: 'No organizations match.',
+  itsTenants: 'Its Tenants',
+
+  tenants: 'Tenants',
+  requestTenant: 'Request tenant',
+  organizationId: 'Organization identifier',
+  isolationProfile: 'Isolation profile',
+  noTenants: 'No Tenants match.',
+  activate: 'Activate',
+  tenantRequested: 'Awaiting provisioning. Membership cannot be granted yet.',
+  tenantProvisioning:
+    'Provisioning in progress. Activation is a deliberate step, taken here once provisioning has been confirmed.',
+  tenantActive: 'Usable.',
+  tenantFailed: 'Provisioning was refused. Nothing in this Tenant is usable.',
+  tenantSuspended: 'Access is stopped for every membership in this Tenant.',
+  tenantOffboarding: 'Offboarding: staged, and resumable. It is not finished.',
+  tenantRetired: 'Retired.',
+
+  approvals: 'Activation requests',
+  reviewRequests: 'Review requests',
+  reviewReasonExplained:
+    'Reading the requests is a provider access, recorded with a reason. Provider mode supplies its own; without it, state yours.',
+  noPendingActivations: 'No activation awaits a decision.',
+  minutes: (count: number): string => `${String(count)} minutes`,
+  activationReason: (reason: string): string => `Reason given: ${reason}`,
+  yourRequest: 'Your own request. Another provider decides it.',
+  approve: 'Approve',
+  deny: 'Deny',
+
   leaveUnconfirmed:
     'Provider mode is closed here, but Organization Control did not confirm the activation ended. It ends at its own time.',
 } as const;

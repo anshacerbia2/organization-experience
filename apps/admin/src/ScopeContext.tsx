@@ -1,13 +1,7 @@
-import {
-  createContext,
-  useCallback,
-  useContext,
-  useEffect,
-  useState,
-  type ReactElement,
-  type ReactNode,
-} from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { createContext, useCallback, useContext, useEffect, type ReactElement, type ReactNode } from 'react';
 
+import { scopeQueryKey } from './api/query';
 import { fetchScope, type Scope } from './scope';
 
 // ScopeContext holds the active scope and gives it to every view (TDD-organization-experience-001
@@ -31,6 +25,9 @@ const Context = createContext<ScopeContextValue | null>(null);
 // learns of the decision by asking.
 const pendingPollMs = 10_000;
 
+const pendingWindow = (scope: Scope | undefined): boolean =>
+  scope?.scope === 'provider' && scope.window?.state === 'pending';
+
 export function ScopeProvider({
   sessionTenantId,
   children,
@@ -39,49 +36,44 @@ export function ScopeProvider({
   readonly sessionTenantId: string | null;
   readonly children: ReactNode;
 }): ReactElement {
-  const [state, setState] = useState<ScopeState>({ status: 'loading' });
-  const [generation, setGeneration] = useState(0);
+  const client = useQueryClient();
+  const query = useQuery({
+    queryKey: scopeQueryKey,
+    queryFn: fetchScope,
+    // A window's state is read again on every view: it changes at the API, not here.
+    staleTime: 0,
+    refetchInterval: (current) => (pendingWindow(current.state.data) ? pendingPollMs : false),
+  });
   const reload = useCallback(() => {
-    setGeneration((value) => value + 1);
-  }, []);
+    void client.invalidateQueries({ queryKey: scopeQueryKey });
+  }, [client]);
 
-  useEffect(() => {
-    let current = true;
-    fetchScope().then(
-      (scope) => {
-        if (!current) {
-          return;
-        }
-        const scopeTenant = scope.scope === 'tenant' ? scope.tenantId : null;
-        setState(scopeTenant === sessionTenantId ? { status: 'ready', scope } : { status: 'ambiguous' });
-      },
-      () => {
-        if (current) {
-          setState({ status: 'unavailable' });
-        }
-      },
-    );
-    return () => {
-      current = false;
-    };
-  }, [generation, sessionTenantId]);
+  let state: ScopeState;
+  if (query.isPending) {
+    state = { status: 'loading' };
+  } else if (query.isError) {
+    state = { status: 'unavailable' };
+  } else {
+    const scopeTenant = query.data.scope === 'tenant' ? query.data.tenantId : null;
+    state =
+      scopeTenant === sessionTenantId ? { status: 'ready', scope: query.data } : { status: 'ambiguous' };
+  }
 
-  // A pending window is read again until it is decided; an open one is read again the moment it
-  // ends, so the scope changes on screen when it changes at the BFF.
-  const window = state.status === 'ready' && state.scope.scope === 'provider' ? state.scope.window : null;
+  // An open window is read again the moment it ends, so the scope changes on screen when it
+  // changes at the BFF.
+  const endsAt =
+    state.status === 'ready' && state.scope.scope === 'provider' && state.scope.window?.state === 'in-force'
+      ? state.scope.window.endsAt
+      : null;
   useEffect(() => {
-    if (window === null) {
+    if (endsAt === null) {
       return undefined;
     }
-    const delay =
-      window.state === 'pending' || window.endsAt === null
-        ? pendingPollMs
-        : Math.max(0, Date.parse(window.endsAt) - Date.now()) + 500;
-    const timer = setTimeout(reload, delay);
+    const timer = setTimeout(reload, Math.max(0, Date.parse(endsAt) - Date.now()) + 500);
     return () => {
       clearTimeout(timer);
     };
-  }, [window, reload]);
+  }, [endsAt, reload]);
 
   return <Context.Provider value={{ state, reload }}>{children}</Context.Provider>;
 }
@@ -92,4 +84,12 @@ export function useScope(): ScopeContextValue {
     throw new Error('useScope is used outside a ScopeProvider');
   }
   return value;
+}
+
+// useWindowInForce reports whether provider mode is open now: what the provider surfaces need.
+export function useWindowInForce(): boolean {
+  const { state } = useScope();
+  return (
+    state.status === 'ready' && state.scope.scope === 'provider' && state.scope.window?.state === 'in-force'
+  );
 }
