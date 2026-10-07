@@ -70,32 +70,47 @@ Source code
 
 ## Repository map
 
-| Repository | Role |
-| :-- | :-- |
-| `identity-kernel` | Hosted login and step-up |
-| `identity-control` | Identity Control Service |
-| `organization-control` | Organization Control API — this application's backend |
-| `foundation-platform` | Shared Go substrate, not consumed here |
-| `identity-experience` | **Normative BFF pattern for this repository** |
-| **`organization-experience`** | **This repository** |
+| Repository                    | Role                                                  |
+| :---------------------------- | :---------------------------------------------------- |
+| `identity-kernel`             | Hosted login and step-up                              |
+| `identity-control`            | Identity Control Service                              |
+| `organization-control`        | Organization Control API — this application's backend |
+| `foundation-platform`         | Shared Go substrate, not consumed here                |
+| `identity-experience`         | **Normative BFF pattern for this repository**         |
+| **`organization-experience`** | **This repository**                                   |
+
+## Stack
+
+The same as identity-experience's (SAD-012 1.1.0): a React 19 single-page application built with
+Vite, behind a Fastify BFF on Node.js 24, in one pnpm workspace. ADR-GLB-FE-003 §5 sends an
+internal B2B tool like this one to Vite rather than Next.js, and ADR-GLB-FE-011 §5.2 permits it.
+
+**The conformance is checked, not promised.** Every BFF file that carries the session pattern is
+byte-identical to identity-experience's at one pinned commit. `bff/conformance.json` lists each of
+them, and lists every file that differs with the reason it differs. `pnpm check:bff-conformance`
+fetches the pinned files and fails on a single changed byte, and CI runs it on every change. A fix
+to the pattern lands in identity-experience first, and reaches this repository by moving the pin.
 
 ## Layout
 
-| Path | Contents |
-| :-- | :-- |
-| `apps/admin/` | Organization, Tenant, Workspace, Membership administration |
-| `bff/` | Session and API proxy, conforming to the identity pattern |
-| `docs/designs/` | Technical Design Documents |
+| Path            | Contents                                                                          |
+| :-------------- | :-------------------------------------------------------------------------------- |
+| `apps/admin/`   | Organization, Tenant, Workspace, Membership administration                        |
+| `bff/`          | Session and API proxy, conforming to the identity pattern; `bff/conformance.json` |
+| `scripts/`      | `check-bff-conformance.mjs`, `new-client-key.mjs`                                 |
+| `deploy/dev/`   | How this BFF's client is registered on the development server                     |
+| `docs/designs/` | Technical Design Documents                                                        |
 
 ## Designs
 
-| TDD | Subject | Status |
-| :-- | :-- | :-- |
+| TDD                               | Subject                                                       | Status   |
+| :-------------------------------- | :------------------------------------------------------------ | :------- |
 | `TDD-organization-experience-001` | Administrative scope, provider mode, and safe bulk operations | approved |
 
 ## Standalone operation
 
 This repository requires no Scnehaux platform other than the five it shares this
-foundation with. Its one build-time dependency is `scnehaux-ui-platform`, which
-produces no runtime edge, and it has no dependency on Notification, Audit, Software
-Catalog, or Subscription & Entitlement.
+foundation with. It has no dependency on Notification, Audit, Software Catalog, or
+Subscription & Entitlement. `scnehaux-ui-platform` becomes its build-time design-system
+dependency once UI Platform ships its primitives (SAD-012 1.1.0 §7.3); until then it uses its
+own components, as identity-experience does.

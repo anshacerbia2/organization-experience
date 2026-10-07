@@ -16,16 +16,18 @@ security postures to maintain and two places for a defect to hide.
 
 ## Design status
 
-| TDD | Subject | Status |
-| :-- | :-- | :-- |
-| `TDD-organization-experience-001` | Administrative scope, provider mode, safe bulk operations | approved |
+| TDD                               | Subject                                                                 | Status   |
+| :-------------------------------- | :---------------------------------------------------------------------- | :------- |
+| `TDD-organization-experience-001` | Administrative scope, provider mode, safe bulk operations               | approved |
 | `TDD-organization-experience-002` | Organization, Tenant, Workspace, and Membership administration surfaces | approved |
-| `TDD-organization-experience-003` | Offboarding workflow and obligation tracking views | approved |
+| `TDD-organization-experience-003` | Offboarding workflow and obligation tracking views                      | approved |
 
 ## Week 1 · BFF conformance
 
 Not a new design. The pattern from `TDD-identity-experience-001` is implemented here,
-and the tests that prove it are the same tests.
+and the tests that prove it are the same tests. The pattern's files and their tests are
+byte-identical to identity-experience's at a pinned commit, listed in `bff/conformance.json`;
+`pnpm check:bff-conformance` fails CI on any difference (README §Stack).
 
 - Authorization code with PKCE, confidential client, server-side token holding
 - `__Host-` session cookie, opaque value, `HttpOnly`, `Secure`, `SameSite=Lax`
@@ -75,12 +77,12 @@ is never shown as enforced.
 
 ## Depends on
 
-| Repository | What this needs from it |
-| :-- | :-- |
-| `identity-experience` | The BFF pattern, as a normative reference and a test suite |
-| `organization-control` | The Organization Control API, which reauthorizes every command |
-| `identity-kernel` | Hosted login and step-up `acr` values |
-| `scnehaux-ui-platform` | Design system packages, build-time only |
+| Repository             | What this needs from it                                                                   |
+| :--------------------- | :---------------------------------------------------------------------------------------- |
+| `identity-experience`  | The BFF pattern, as a normative reference and a test suite                                |
+| `organization-control` | The Organization Control API, which reauthorizes every command                            |
+| `identity-kernel`      | Hosted login and step-up `acr` values                                                     |
+| `scnehaux-ui-platform` | Design system packages, build-time only, once UI Platform ships them (SAD-012 1.1.0 §7.3) |
 
 Nothing here waits on the Keycloak proof-of-concept.
 

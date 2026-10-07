@@ -3,12 +3,12 @@ doc_meta:
   id: TDD-organization-experience-001
   title: Administrative Scope, Provider Mode, and Safe Bulk Operations
   owner: Core Platform Team
-  version: 1.0.0
+  version: 1.1.0
   status: approved
   classification: restricted
   review_cycle_days: 90
   created_date: 2026-08-11
-  last_reviewed: 2026-08-11
+  last_reviewed: 2026-10-07
   parent_sad: SAD-012
 ---
 
@@ -46,7 +46,8 @@ to visual convention.
   `TDD-organization-control-002`.
 - Row-Level Security and the two database runtime roles — owned by
   `TDD-organization-control-001`.
-- Visual design language and component composition, owned by the UI Platform.
+- Visual design language and component composition, owned by the UI Platform once it ships
+  its primitives; until then by this repository's own components (SAD-012 1.1.0 §7.3).
 
 ## Technical Context
 
@@ -254,7 +255,7 @@ presented as a single irreversible button, because it is neither single nor imme
 | `ORGANIZATION_EXPERIENCE_PROVIDER_MAX_DURATION` | `60m` | Ceiling on one provider-mode window |
 | `ORGANIZATION_EXPERIENCE_PROVIDER_DEFAULT_DURATION` | `15m` | Default offered at entry |
 | `ORGANIZATION_EXPERIENCE_BULK_PREVIEW_LIMIT` | `500` | Items per preview page |
-| `ORGANIZATION_CONTROL_BASE_URL` | none, required | Organization Control API |
+| `ORGANIZATION_EXPERIENCE_ORGANIZATION_CONTROL_URL` | none, required | Organization Control API, under this application's prefix like every other setting (1.1.0) |
 
 Session, cookie, refresh, and client credential settings are inherited unchanged from
 `TDD-identity-experience-001`.
@@ -351,11 +352,12 @@ failure recovery, and stuck offboarding.
 | Enterprise constraint | EAD-006 — privileged access is scoped, time-bounded, attributable, and evidenced |
 | Depends on | `organization-control` — the Organization Control API, which reauthorizes every command |
 | Depends on | `identity-kernel` — hosted login and step-up |
-| Build-time dependency | `scnehaux-ui-platform` — design system packages, per SAD-012 §1 |
+| Build-time dependency | `scnehaux-ui-platform` — design system packages, once shipped (SAD-012 1.1.0 §1, §7.3) |
+| Conforms to | SAD-012 1.1.0 — a React SPA built with Vite behind the identity Fastify BFF, as ADR-GLB-FE-003 §5 and ADR-GLB-FE-011 §5.2 place an internal tool |
 
 ### Standalone Operation
 
 This repository requires no Scnehaux platform other than the five it shares this
-foundation with. Its one build-time dependency is `scnehaux-ui-platform`, which
-produces no runtime edge. It has no dependency on Notification, Audit, Software
-Catalog, or Subscription & Entitlement.
+foundation with. It has no dependency on Notification, Audit, Software Catalog, or
+Subscription & Entitlement. `scnehaux-ui-platform` becomes its build-time dependency once
+UI Platform ships its primitives (SAD-012 1.1.0 §7.3).

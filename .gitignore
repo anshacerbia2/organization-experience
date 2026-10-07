@@ -1,0 +1,14 @@
+node_modules/
+dist/
+coverage/
+playwright-report/
+test-results/
+*.tsbuildinfo
+.env
+.env.*
+!.env.example
+.vite/
+
+# The BFF's private client key, made by scripts/new-client-key.mjs. It never leaves this machine.
+keys/
+*.pem
