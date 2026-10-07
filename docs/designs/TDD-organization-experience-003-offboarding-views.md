@@ -3,12 +3,12 @@ doc_meta:
   id: TDD-organization-experience-003
   title: Offboarding Workflow and Obligation Tracking Views
   owner: Core Platform Team
-  version: 1.1.0
+  version: 1.2.0
   status: approved
   classification: restricted
   review_cycle_days: 90
   created_date: 2026-08-11
-  last_reviewed: 2026-08-14
+  last_reviewed: 2026-10-07
   parent_sad: SAD-012
 ---
 
@@ -90,6 +90,50 @@ POST  /api/v1/offboardings/{id}/obligations/{oid}:waive
 POST  /api/v1/offboardings/{id}:advance
 POST  /api/v1/offboardings/{id}:finalise
 ```
+
+### As Served (1.2.0)
+
+The route list above is 1.0.0's sketch. Organization Control serves offboarding to a provider in
+provider mode only (`TDD-organization-control-004` 1.7.0), and this experience builds against
+what it serves:
+
+```text
+GET   /api/v1/offboardings              ?stage&tenant_id   the estate list form (STD-GLB-001 1.3.0)
+GET   /api/v1/offboardings/{id}                            stage, stage timestamps, legal hold,
+                                                           deprovisioning, active_memberships
+GET   /api/v1/offboardings/{id}/obligations                every row, overdue open first
+GET   /api/v1/tenants/{id}                                 offboarding_id, active_memberships, version
+POST  /api/v1/offboardings                {tenant_id, expected_version}      begin
+POST  /api/v1/offboardings/{id}/freeze    {size}                             one freeze batch
+POST  /api/v1/offboardings/{id}/complete-freeze                              freeze → obligations
+POST  /api/v1/offboardings/{id}/obligations {domain, type, due_at?}          raise an obligation
+POST  /api/v1/offboardings/{id}/legal-hold {hold}                            set or lift the hold
+POST  /api/v1/offboardings/{id}/release                                      obligations → release
+POST  /api/v1/offboardings/{id}/retire    {expected_version}                 release → retired
+```
+
+How the served API meets this design:
+- **Advance and finalise are the served transitions.**
+  - Advancing is `complete-freeze`, then `release`.
+  - Finalising is `retire`, which takes the Tenant's version read immediately before the
+    confirmation.
+  - Each refusal is the API's own problem document. The finalisation refusal renders the open
+    obligations from the board as rows.
+- **The freeze runs in batches,** as the API serves it.
+  - The interface shows the Memberships still active and offers the next batch.
+  - It completes the freeze only when none remain. The API refuses an early completion anyway.
+- **The obligation board offers no completion or waiver.**
+  - An obligation is resolved by its accountable domain, which states its domain to the API.
+  - The board shows who resolved each row and when, and offers no control that would let an
+    operator resolve another domain's obligation.
+- **The freeze is not called reversible here.**
+  - Organization Control serves no transition from `offboarding` back to `active`.
+  - The freeze stage therefore states what is true of it: access is stopped and nothing is
+    deleted.
+  - Returning a Tenant from a mistaken offboarding waits on that transition, and is recorded in
+    the ROADMAP.
+- **Ambiguous release** is a deprovisioning that was requested and has no outcome yet. It renders
+  as awaiting its outcome, with retirement disabled and the cause named.
 
 ## Algorithms / Logic
 
@@ -210,7 +254,8 @@ unresolved, not failed, with the retry control disabled — the same treatment
 ### Stage Presentation
 
 - Each stage states what it has stopped and what it has not.
-- The freeze stage states that it is reversible and that nothing is deleted.
+- The freeze stage states that nothing is deleted. As served it does not claim to be reversible
+  (1.2.0).
 - Elapsed time in stage renders and drives the stall indication.
 
 ### Beginning
