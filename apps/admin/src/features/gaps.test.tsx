@@ -225,4 +225,38 @@ describe('cancelling an offboarding', () => {
     expect(await screen.findByText(/Cancelled by prn-x, .*: wrong Tenant\./)).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Set legal hold' })).not.toBeInTheDocument();
   });
+
+  it('a cancellation that stopped part way says how many remain, and finishes when sent again', async () => {
+    visit(`/offboardings/${offboardingId}`);
+    const fetchMock = stub(signedInto(null, providerScope(inForce)), (url, init) =>
+      url.endsWith('/cancel') && init?.method === 'POST'
+        ? json(record({ stage: 'cancelled', restore_pending: 0 }))
+        : detail(
+            record({
+              stage: 'cancelled',
+              cancelled_by: 'prn-x',
+              cancelled_at: '2026-10-07T12:00:00Z',
+              cancel_reason: 'wrong Tenant',
+              restore_pending: 37,
+            }),
+          )(url),
+    );
+    render(<App />);
+    expect(
+      await screen.findByText(/37 memberships the freeze suspended are not restored yet/),
+    ).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: 'Finish restoring' })).toBeEnabled();
+    });
+    await userEvent.click(screen.getByRole('button', { name: 'Finish restoring' }));
+    const form = screen.getByRole('form', { name: 'Finish restoring' });
+    await userEvent.type(
+      within(form).getByLabelText('Reason'),
+      'Finishing the cancellation of a wrong Tenant',
+    );
+    await userEvent.click(within(form).getByRole('button', { name: 'Finish restoring' }));
+    await waitFor(() => {
+      expect(sent(fetchMock, `/api/v1/offboardings/${offboardingId}/cancel`)).toHaveLength(1);
+    });
+  });
 });

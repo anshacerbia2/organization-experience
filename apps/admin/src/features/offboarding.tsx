@@ -36,6 +36,9 @@ export interface Offboarding {
   readonly cancelled_at?: string | null;
   readonly cancelled_by?: string | null;
   readonly cancel_reason?: string | null;
+  // restore_pending counts the Memberships the freeze suspended that a cancellation has yet to restore;
+  // sending the cancellation again finishes it.
+  readonly restore_pending?: number | null;
   readonly deprovisioning: {
     readonly state: string;
     readonly detail: string | null;
@@ -333,6 +336,21 @@ export function OffboardingDetail(): ReactElement {
       <h2 id="offboarding-heading">{messages.offboardingOf(name)}</h2>
       <p>{facts(messages.startedAt(formatTime(offboarding.started_at)), offboarding.reason)}</p>
       <StageTimeline offboarding={offboarding} />
+      {offboarding.stage === 'cancelled' &&
+      (offboarding.restore_pending ?? 0) > 0 &&
+      tenant.data !== undefined ? (
+        <div role="alert">
+          <p>{messages.restorePending(offboarding.restore_pending ?? 0)}</p>
+          <Action
+            label={messages.finishRestoring}
+            path={`${base}/cancel`}
+            body={{ expected_version: tenant.data.version }}
+            reason="required"
+            scopeNote={note}
+            invalidates={invalidate}
+          />
+        </div>
+      ) : null}
       <LegalHoldBanner offboarding={offboarding} />
 
       {offboarding.stage === 'freeze' ? (

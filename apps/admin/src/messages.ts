@@ -233,6 +233,9 @@ export const messages = {
   cancelExplained:
     'Cancelling returns the Tenant to the status it held before offboarding began, and restores the memberships this freeze suspended. Memberships suspended before it stay suspended.',
   cancelWill: 'This restores access for the memberships the freeze suspended.',
+  restorePending: (count: number): string =>
+    `${String(count)} memberships the freeze suspended are not restored yet. Finishing the cancellation restores them.`,
+  finishRestoring: 'Finish restoring',
   cancelledBy: (who: string, at: string, reason: string): string =>
     `Cancelled by ${who}, ${at}${reason === '' ? '' : `: ${reason}`}.`,
 
