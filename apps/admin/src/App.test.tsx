@@ -1,9 +1,10 @@
-import { render, screen, waitFor, within } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { axe } from 'vitest-axe';
 
 import { App } from './App';
+import { navigation } from './session';
 
 const tenantA = '0199a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b';
 const tenantB = '0199a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5c';
@@ -68,9 +69,17 @@ describe('App', () => {
     stubBff({ '/auth/session': () => respond({ authenticated: false }) });
     const { container } = render(<App />);
     const tenantForm = await screen.findByRole('form', { name: 'Sign in to a Tenant' });
-    expect(tenantForm).toHaveAttribute('action', '/auth/login');
-    expect(tenantForm).toHaveAttribute('method', 'get');
-    expect(within(tenantForm).getByLabelText('Tenant identifier')).toHaveAttribute('name', 'tenant');
+    // No form submission: the BFF's form-action 'self' would refuse the redirect to the kernel in
+    // Chrome, so the form navigates by script (STD-GLB-FE-003 §3.5).
+    expect(tenantForm).not.toHaveAttribute('action');
+    const assign = vi.spyOn(navigation, 'assign').mockImplementation(() => undefined);
+    const tenant = '01a11d40-640b-7000-9268-e828ba458639';
+    fireEvent.change(within(tenantForm).getByLabelText('Tenant identifier'), { target: { value: tenant } });
+    fireEvent.submit(tenantForm);
+    expect(assign).toHaveBeenCalledWith(
+      `/auth/login?tenant=${tenant}&return_to=${encodeURIComponent('/tenants?page=2')}`,
+    );
+    assign.mockRestore();
     expect(screen.getByRole('link', { name: 'Sign in as a provider' })).toHaveAttribute(
       'href',
       `/auth/login?acr_values=aal2&max_age=0&return_to=${encodeURIComponent('/tenants?page=2')}`,
