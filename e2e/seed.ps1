@@ -4,7 +4,8 @@
 # shared server: it creates people and gives them passwords.
 #
 #   1. identity-experience-bff registered in identity-control, as identity-experience's
-#      deploy/dev/README.md §First start step 2 declares a new server's client;
+#      deploy/dev/README.md §First start step 2 declares a new server's client, with the back-channel
+#      logout URI where the kernel reaches it when -IdentityExperienceBackChannelUri names one;
 #   2. three people, created through identity-control's POST /v1/principals as any Principal is:
 #      a second provider, a Tenant administrator, and a person with two devices. Each is given a
 #      password through the kernel's administrator and its pending action cleared. DEVELOPMENT ONLY,
@@ -30,7 +31,11 @@ param(
     [Parameter(Mandatory = $true)] [string] $IdentityRepo,
     [Parameter(Mandatory = $true)] [string] $WiringState,
     [Parameter(Mandatory = $true)] [string] $IdentityExperienceJwk,
-    [Parameter(Mandatory = $true)] [string] $Out
+    [Parameter(Mandatory = $true)] [string] $Out,
+    # Where the kernel reaches the identity BFF's POST /auth/back-channel-logout. It is declared in the
+    # registration, and an identity-control that does not take backchannel_logout_uri ignores it, so the
+    # evidence reads what the kernel holds rather than what was sent.
+    [string] $IdentityExperienceBackChannelUri = ""
 )
 
 $ErrorActionPreference = "Stop"
@@ -146,11 +151,15 @@ function Wait-For([string] $label, [int] $seconds, [scriptblock] $condition) {
 
 Write-Host "1. identity-experience-bff registered"
 $jwk = Get-Content -Raw $IdentityExperienceJwk | ConvertFrom-Json
-$null = Require "identity-experience-bff registered" (Call "POST" "$identityApi/v1/registrations" @{
-        client_key = "identity-experience-bff"; profile = "confidential"; audience_class = "privileged"
-        privileged_form = "provider-scope"; application_ref = "identity-experience"
-        redirect_uris = @("http://127.0.0.1:8090/auth/callback"); audience = @("identity-control-api")
-        public_key = @{ kty = $jwk.kty; n = $jwk.n; e = $jwk.e } } "stack-identity-bff") 201
+$declaration = @{
+    client_key = "identity-experience-bff"; profile = "confidential"; audience_class = "privileged"
+    privileged_form = "provider-scope"; application_ref = "identity-experience"
+    redirect_uris = @("http://127.0.0.1:8090/auth/callback"); audience = @("identity-control-api")
+    public_key = @{ kty = $jwk.kty; n = $jwk.n; e = $jwk.e } }
+# In this stack the kernel can reach the BFF, as it reaches a deployed one, so it declares the URI a
+# deployed BFF declares (identity-experience deploy/dev/README.md, ADR-IAM-009). A laptop's does not.
+if ($IdentityExperienceBackChannelUri) { $declaration["backchannel_logout_uri"] = $IdentityExperienceBackChannelUri }
+$null = Require "identity-experience-bff registered" (Call "POST" "$identityApi/v1/registrations" $declaration "stack-identity-bff") 201
 
 Write-Host "2. the people"
 # New-Person creates a Principal the way POST /v1/principals creates any, then gives it a password.

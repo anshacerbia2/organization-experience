@@ -258,11 +258,22 @@ jobs:
           export KC_BOOTSTRAP_ADMIN_PASSWORD="$(grep '^KC_BOOTSTRAP_ADMIN_PASSWORD=' .kernel/deploy/dev/.env | cut -d= -f2-)"
           export KC_BASE_URL=https://localhost KC_ADMIN_URL=http://localhost:8080
           export IDENTITY_OPERATOR_TOTP_FILE="$RUNNER_TEMP/operator-totp.json"
+          # The kernel's container reaches this runner on its Docker network's gateway, as
+          # identity-control's deploy-dev reaches its logout receiver, so the identity BFF listens there
+          # too, and its back-channel logout URI names that address.
+          network="$(docker inspect -f '{{range $name, $_ := .NetworkSettings.Networks}}{{println $name}}{{end}}' scnehaux-identity-dev-keycloak-1 | head -n 1)"
+          gateway="$(docker network inspect -f '{{range .IPAM.Config}}{{println .Gateway}}{{end}}' "$network" | head -n 1)"
+          [ -n "$gateway" ] || { echo "::error::no gateway for the kernel's network $network"; exit 1; }
+          echo "KERNEL_GATEWAY=$gateway" >> "$GITHUB_ENV"
           pwsh -NoProfile -File e2e/seed.ps1 -IdentityRepo .identity -WiringState "$RUNNER_TEMP/wiring/state.json" \
-            -IdentityExperienceJwk .identity-experience/keys/identity-experience-bff.jwk.json -Out "$RUNNER_TEMP/seed.json"
+            -IdentityExperienceJwk .identity-experience/keys/identity-experience-bff.jwk.json -Out "$RUNNER_TEMP/seed.json" \
+            -IdentityExperienceBackChannelUri "http://$gateway:8090/auth/back-channel-logout"
 
       # Each BFF's session store, migrated as its owning role, served by a role with DML alone, as
-      # each README's §One-off tasks runs it.
+      # each README's §One-off tasks runs it. The identity BFF listens on every address of the runner,
+      # so the kernel's container reaches its back-channel logout route on the gateway; the browser
+      # still uses 127.0.0.1, the origin its client is registered with. This BFF listens on loopback,
+      # as on a laptop the kernel cannot reach.
       - name: start the two BFFs
         env:
           PGPASSWORD: bff
@@ -301,7 +312,7 @@ jobs:
           ORGANIZATION_EXPERIENCE_SESSION_KEY="$(openssl rand -base64 32)" \
             nohup node bff/dist/main.js > "$RUNNER_TEMP/bff/organization-experience.log" 2>&1 &
           IDENTITY_EXPERIENCE_PUBLIC_ORIGIN=http://127.0.0.1:8090 \
-          IDENTITY_EXPERIENCE_LISTEN_HOST=127.0.0.1 \
+          IDENTITY_EXPERIENCE_LISTEN_HOST=0.0.0.0 \
           IDENTITY_EXPERIENCE_LISTEN_PORT=8090 \
           IDENTITY_EXPERIENCE_REDIRECT_URI=http://127.0.0.1:8090/auth/callback \
           IDENTITY_EXPERIENCE_WEB_ROOT="$GITHUB_WORKSPACE/.identity-experience/apps/admin/dist" \
