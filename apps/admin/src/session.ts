@@ -75,3 +75,13 @@ export function signInOutcome(search: string): 'failed' | 'unavailable' | null {
   const value = new URLSearchParams(search).get('sign-in');
   return value === 'failed' || value === 'unavailable' ? value : null;
 }
+
+// navigation leaves the application for a sign-in. A sign-in is a navigation the script makes, never a
+// form submitted to /auth/login: that route redirects to the identity kernel, and Chrome checks a form
+// submission's redirect against the BFF's `form-action 'self'` and refuses it (STD-GLB-FE-003 §3.5).
+// An object, so a test can replace the one call jsdom does not implement.
+export const navigation = {
+  assign(href: string): void {
+    window.location.assign(href);
+  },
+};
