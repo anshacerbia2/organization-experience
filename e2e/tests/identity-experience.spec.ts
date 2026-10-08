@@ -13,6 +13,7 @@ import { expect, test } from '@playwright/test';
 
 import {
   ActiveTab,
+  fetchIn,
   backChannelLogoutUrl,
   identityExperience as bff,
   iso,
@@ -129,7 +130,7 @@ test('a kernel session removed ends the identity BFF session within the remainin
         writeEvidence('session-removal', {
           ...known,
           session_destroyed_at: null,
-          refreshes_after_kernel_removal: refreshes.after(removedAt),
+          refreshes_after_kernel_removal: refreshes.after(atRemoval.accessExpiresAt),
           refreshes_seen: refreshes.seen.map((x) => ({ at: iso(x.at), expires_at: iso(x.expiresAt) })),
           answers_after_acceptance: tab.statuses(acceptedAt),
           kernel_sessions_after: sessions.map((x) => x.id),
@@ -153,15 +154,12 @@ test('a kernel session removed ends the identity BFF session within the remainin
     const afterRemoval = destroyed.at - removedAt;
     const lifetime = l0LifetimeSeconds * 1000;
 
-    await page.goto(`${bff}/account/`);
-    await expect(page.getByText('Where you are signed in')).toHaveCount(0);
-
     const evidence = {
       ...known,
       session_destroyed_at: iso(destroyed.at),
       measured_seconds: seconds(measured),
       within_bound: measured <= bound,
-      refreshes_after_kernel_removal: refreshes.after(removedAt),
+      refreshes_after_kernel_removal: refreshes.after(atRemoval.accessExpiresAt),
       back_channel: { ...known.back_channel, ended_after_kernel_removal_seconds: seconds(afterRemoval) },
       mechanism:
         backChannel !== null && afterRemoval < 10_000
@@ -177,6 +175,11 @@ test('a kernel session removed ends the identity BFF session within the remainin
       `| ${evidence.accepted_at} | +${evidence.propagation_seconds} s | +${evidence.measured_seconds} s | ${evidence.measured_seconds} s | ${evidence.bound_seconds} s | ${backChannel === null ? 'not registered' : 'registered'} | ${evidence.mechanism} |`,
       '',
     ]);
+
+    // And the browser shows it: the page offers a sign-in, and no session's controls.
+    await page.goto(`${bff}/account/`);
+    expect(JSON.parse((await fetchIn(page, '/auth/session')).body)).toEqual({ authenticated: false });
+    await expect(page.getByRole('button', { name: 'Sign out everywhere' })).toHaveCount(0);
 
     expect(
       atAccept.accessExpiresAt.getTime() - acceptedAt,

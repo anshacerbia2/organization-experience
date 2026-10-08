@@ -359,6 +359,17 @@ jobs:
           if-no-files-found: ignore
           retention-days: 14
 
+      # The BFFs' own logs: request lines and refusals, never a token (TDD-identity-experience-001
+      # §Token Containment).
+      - name: keep the BFF logs
+        if: failure()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: bff-logs
+          path: ${{ runner.temp }}/bff/*.log
+          if-no-files-found: ignore
+          retention-days: 14
+
       - name: stack logs
         if: failure()
         run: |
