@@ -1,4 +1,6 @@
-import type { Pool } from 'pg';
+import type { Pool, QueryResult, QueryResultRow } from 'pg';
+
+import { isStoreOutage, SessionStoreUnavailable } from '../session/store.js';
 
 // A provider window (TDD-organization-experience-001 1.2.0 §Provider Mode Entry): what a provider
 // session opened provider mode with. It is keyed by the session's digest and deleted with it.
@@ -41,6 +43,9 @@ interface WindowRow {
 const columns =
   'session_hash, grant_kind, activation_id, reason, correlation_id, tenants, duration_seconds, requested_at, ends_at';
 
+// ProviderWindows lives in the session store's database, so a store that does not answer is the
+// same outage, named the same way, and the BFF answers it 503 (TDD-identity-experience-001 1.17.0
+// §Session-Store Outage).
 export class ProviderWindows {
   readonly #pool: Pool;
 
@@ -48,8 +53,19 @@ export class ProviderWindows {
     this.#pool = pool;
   }
 
+  async #query<R extends QueryResultRow = QueryResultRow>(
+    text: string,
+    values?: unknown[],
+  ): Promise<QueryResult<R>> {
+    try {
+      return await this.#pool.query<R>(text, values);
+    } catch (error) {
+      throw isStoreOutage(error) ? new SessionStoreUnavailable(error) : error;
+    }
+  }
+
   async find(sessionHash: Buffer): Promise<ProviderWindow | null> {
-    const { rows } = await this.#pool.query<WindowRow>(
+    const { rows } = await this.#query<WindowRow>(
       `SELECT ${columns} FROM provider_windows WHERE session_hash = $1`,
       [sessionHash],
     );
@@ -71,7 +87,7 @@ export class ProviderWindows {
 
   // open records a window, replacing one the session had left behind.
   async open(window: ProviderWindow): Promise<void> {
-    await this.#pool.query(
+    await this.#query(
       `INSERT INTO provider_windows (${columns}) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
        ON CONFLICT (session_hash) DO UPDATE SET grant_kind = EXCLUDED.grant_kind,
          activation_id = EXCLUDED.activation_id, reason = EXCLUDED.reason,
@@ -94,13 +110,13 @@ export class ProviderWindows {
 
   // approved records the end the API set when it approved the activation.
   async approved(sessionHash: Buffer, endsAt: Date): Promise<void> {
-    await this.#pool.query('UPDATE provider_windows SET ends_at = $2 WHERE session_hash = $1', [
+    await this.#query('UPDATE provider_windows SET ends_at = $2 WHERE session_hash = $1', [
       sessionHash,
       endsAt,
     ]);
   }
 
   async close(sessionHash: Buffer): Promise<void> {
-    await this.#pool.query('DELETE FROM provider_windows WHERE session_hash = $1', [sessionHash]);
+    await this.#query('DELETE FROM provider_windows WHERE session_hash = $1', [sessionHash]);
   }
 }

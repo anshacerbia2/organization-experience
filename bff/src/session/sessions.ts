@@ -3,7 +3,7 @@ import type { FastifyBaseLogger } from 'fastify';
 import { OidcError, type Grant, type Identity, type Oidc } from '../auth/oidc.js';
 import type { SessionConfig } from '../config.js';
 import { digest, randomToken } from './seal.js';
-import type { SessionRecord, SessionStore } from './store.js';
+import { UnreadableSession, type SessionRecord, type SessionStore } from './store.js';
 
 // Sessions decides what a session is: when it starts, when it is still valid, when its access
 // token is refreshed, and that a refused refresh ends it (TDD-identity-experience-001 §Refresh).
@@ -44,11 +44,29 @@ export class Sessions {
   // resolve finds the session a cookie names, or null. An expired session is destroyed on the way
   // out, so it is refused once and then gone. `activity` extends the idle expiry; reading the
   // session's display context is not activity, or a tab left open would never go idle.
-  async resolve(cookie: string | undefined, activity: boolean): Promise<SessionRecord | null> {
+  //
+  // A row that does not open under the session key is no session: its holder is signed out and
+  // signs in again. The row is left for the purge, because a replica holding the wrong key would
+  // otherwise delete sessions every other replica can read (TDD-identity-experience-001
+  // §Server-Side Session). A store that does not answer throws SessionStoreUnavailable.
+  async resolve(
+    cookie: string | undefined,
+    activity: boolean,
+    log?: FastifyBaseLogger,
+  ): Promise<SessionRecord | null> {
     if (cookie === undefined || cookie === '') {
       return null;
     }
-    const session = await this.#store.find(digest(cookie));
+    let session: SessionRecord | null;
+    try {
+      session = await this.#store.find(digest(cookie));
+    } catch (error) {
+      if (!(error instanceof UnreadableSession)) {
+        throw error;
+      }
+      log?.warn({ err: error }, 'session unreadable under the session key; treated as signed out');
+      return null;
+    }
     if (session === null) {
       return null;
     }
@@ -92,6 +110,11 @@ export class Sessions {
         };
       });
     } catch (error) {
+      // A row that stopped opening under the key between the read and the lock is no session.
+      if (error instanceof UnreadableSession) {
+        log.warn({ err: error }, 'session unreadable under the session key; treated as signed out');
+        return null;
+      }
       // Only a refusal by the identity kernel ends the session. A store failure is an outage, not
       // a revocation, and answers as one.
       if (!(error instanceof OidcError)) {

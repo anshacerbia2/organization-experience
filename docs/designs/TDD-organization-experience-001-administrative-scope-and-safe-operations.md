@@ -3,12 +3,12 @@ doc_meta:
   id: TDD-organization-experience-001
   title: Administrative Scope, Provider Mode, and Safe Bulk Operations
   owner: Core Platform Team
-  version: 1.4.0
+  version: 1.5.0
   status: approved
   classification: restricted
   review_cycle_days: 90
   created_date: 2026-08-11
-  last_reviewed: 2026-10-07
+  last_reviewed: 2026-10-08
   parent_sad: SAD-012
 ---
 
@@ -57,6 +57,14 @@ server-side, three independent cross-site request forgery defences, server-side
 refresh, and idle plus absolute expiry. Nothing about that pattern is restated or
 varied here, and a divergence in this repository is a defect rather than a local
 decision.
+
+**A session-store outage (1.5.0).** The pattern's own behaviour, at the pin
+`bff/conformance.json` names (`TDD-identity-experience-001` 1.17.0 §Session-Store Outage): a store
+that does not answer is answered `503 dependency-unavailable` with the session and its cookie kept, a
+sign-in lands on `?sign-in=unavailable`, and a session that no longer opens under
+`ORGANIZATION_EXPERIENCE_SESSION_KEY` is a signed-out one, never a `500`. The provider window store
+lives in the same database, so its queries name an outage the same way, and a scope route answers
+`503` too. `bff/test/store-outage.test.ts` is the source's, byte for byte.
 
 What differs is the thing this application administers. The Organization control plane
 distinguishes two callers at the database level, with two PostgreSQL runtime roles and
@@ -557,7 +565,9 @@ tenant-scope views are missing information rather than that the operator did wro
 
 Runbooks required before production: provider-access review, bulk operation partial
 failure recovery, and stuck offboarding. They are written in
-`docs/runbooks/organization-experience-operations.md` (1.4.0).
+`docs/runbooks/organization-experience-operations.md` (1.4.0). The same file says what the BFF does
+when its session store does not answer (1.5.0); the operator's steps are identity-experience's
+`docs/runbooks/session-store-outage.md`, with this application's variable names.
 
 ## Traceability
 

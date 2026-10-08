@@ -49,6 +49,10 @@ BFF; cookie properties match exactly.
   reason in `bff/conformance.json`:
   - every sign-in lands at the root of the one application;
   - every sign-in asks for `aal2`.
+- ✅ **A session-store outage answers `503`, and an unreadable session signs out** (TDD-organization-experience-001 1.5.0,
+  identity-experience pin moved to `9899e257`, `bff/conformance.json`). The pattern's
+  `bff/test/store-outage.test.ts` runs here byte for byte. The provider window store names an outage
+  as the session store does, so the scope routes answer `503` too.
 
 ## Week 2 · Scope
 

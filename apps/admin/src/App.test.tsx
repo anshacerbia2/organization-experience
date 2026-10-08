@@ -113,11 +113,11 @@ describe('App', () => {
     expect(screen.queryByRole('link', { name: 'Sign in as a provider' })).not.toBeInTheDocument();
   }, 10_000);
 
-  it('says a sign-in did not complete, differently when the kernel did not answer', async () => {
+  it('says a sign-in did not complete, differently when the kernel or the session store did not answer', async () => {
     stubBff({ '/auth/session': () => respond({ authenticated: false }) });
     window.history.replaceState(null, '', '/?sign-in=unavailable');
     render(<App />);
-    expect(await screen.findByRole('alert')).toHaveTextContent('Keycloak could not be reached');
+    expect(await screen.findByRole('alert')).toHaveTextContent('The sign-in service could not be reached');
   });
 });
 

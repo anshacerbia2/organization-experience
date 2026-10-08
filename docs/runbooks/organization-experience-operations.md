@@ -178,6 +178,24 @@ re-raise open obligations. Offboarding resumes from its stage.
    the Tenant to its prior status and restores the memberships the freeze suspended (`ADR-ORG-006`).
    From release on, it cannot be cancelled.
 
+## Session-store outage
+
+The BFF is identity-experience's pattern (`bff/conformance.json`), so its runbook applies:
+identity-experience `docs/runbooks/session-store-outage.md`. Read its variable names with this
+application's prefix: `ORGANIZATION_EXPERIENCE_DATABASE_URL`, `ORGANIZATION_EXPERIENCE_SESSION_KEY`.
+
+- **What the browser sees.** Every signed-in request answers `503 dependency-unavailable`, the scope
+  banner included. A sign-in lands on `?sign-in=unavailable`. Nobody is signed out, and the same
+  request works once the store answers. No provider window is opened or closed while it lasts: the
+  window store is the same database.
+- **What the log says.** `session store unavailable` at `error`, with the driver's error as
+  `err.cause`. Any `request failed` line is a different fault.
+- **Do not restart the BFF to fix it.** The pool reconnects on the next request once the store
+  answers.
+- **A changed session key is not an outage.** Sessions that no longer open are signed out with `401`,
+  and the log says `session unreadable under the session key; treated as signed out`. Put the old key
+  back if the change was a mistake.
+
 ## References
 
 | Ref | Source |

@@ -1,6 +1,53 @@
-import type { Pool, PoolClient } from 'pg';
+import pg, { type Pool, type PoolClient } from 'pg';
 
 import type { Sealer } from './seal.js';
+
+// SessionStoreUnavailable is the session store not answering: no connection, a connection lost, or
+// the server refusing work for want of resources or by an operator's hand. It is an outage, not a
+// fault in the request, and the BFF answers it 503 (TDD-identity-experience-001 §Session-Store
+// Outage). The driver's own error is its cause, for the log.
+export class SessionStoreUnavailable extends Error {
+  override readonly name = 'SessionStoreUnavailable';
+
+  constructor(cause: unknown) {
+    super('the session store is unavailable', { cause });
+  }
+}
+
+// UnreadableSession is a row whose sealed tokens do not open under the current session key: the key
+// was changed, or the row was altered. Nothing it holds can be used, so the session is treated as
+// signed out (TDD-identity-experience-001 §Server-Side Session).
+export class UnreadableSession extends Error {
+  override readonly name = 'UnreadableSession';
+
+  constructor(cause: unknown) {
+    super('the session row does not open under the session key', { cause });
+  }
+}
+
+// The SQLSTATE classes that say the server cannot do the work now, whatever the statement: 08
+// connection exception, 53 insufficient resources, 57 operator intervention (a shutdown, a
+// cancelled query), 58 system error (PostgreSQL Appendix A). Any other server error is a fault in
+// what was asked, and stays one.
+const outageClasses = new Set(['08', '53', '57', '58']);
+
+// isStoreOutage classifies what the driver threw. An error the server did not write, such as a
+// refused or dropped connection or a pool timeout, is the store not answering.
+export function isStoreOutage(error: unknown): boolean {
+  if (error instanceof pg.DatabaseError) {
+    return outageClasses.has((error.code ?? '').slice(0, 2));
+  }
+  return error instanceof Error;
+}
+
+// reached runs one call to the store and names an outage as one.
+async function reached<T>(call: () => Promise<T>): Promise<T> {
+  try {
+    return await call();
+  } catch (error) {
+    throw isStoreOutage(error) ? new SessionStoreUnavailable(error) : error;
+  }
+}
 
 // TokenSet is what the BFF holds for a session and the browser never sees.
 export interface TokenSet {
@@ -83,7 +130,9 @@ const sessionColumns =
   'id_hash, subject, principal_id, display_name, keycloak_session_id, acr, auth_time, tenant_id, tokens, access_expires_at, csrf_token, created_at, last_seen_at, idle_expires_at, absolute_expires_at';
 
 // SessionStore is the PostgreSQL session store. It knows rows and sealing; what makes a session
-// valid, and when it is refreshed, is Sessions' business.
+// valid, and when it is refreshed, is Sessions' business. Every method throws
+// SessionStoreUnavailable when the store does not answer, and a read of a session row throws
+// UnreadableSession when the row does not open.
 export class SessionStore {
   readonly #pool: Pool;
   readonly #sealer: Sealer;
@@ -94,7 +143,7 @@ export class SessionStore {
   }
 
   async putLoginState(bindingHash: Buffer, login: LoginState): Promise<void> {
-    await this.#pool.query(
+    await this.#query(
       `INSERT INTO login_states (binding_hash, state, nonce, code_verifier, return_to, expires_at, max_age, acr_values, tenant_id)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
        ON CONFLICT (binding_hash) DO UPDATE SET state = EXCLUDED.state, nonce = EXCLUDED.nonce,
@@ -116,7 +165,7 @@ export class SessionStore {
 
   // takeLoginState consumes the row: a callback is answered once, and a replayed one finds nothing.
   async takeLoginState(bindingHash: Buffer): Promise<LoginState | null> {
-    const { rows } = await this.#pool.query<LoginStateRow>(
+    const { rows } = await this.#query<LoginStateRow>(
       'DELETE FROM login_states WHERE binding_hash = $1 RETURNING state, nonce, code_verifier, return_to, expires_at, max_age, acr_values, tenant_id',
       [bindingHash],
     );
@@ -124,10 +173,18 @@ export class SessionStore {
     if (row === undefined) {
       return null;
     }
+    // A verifier sealed under a session key since changed does not open. The row is already
+    // consumed, so the sign-in is one that cannot complete, as an expired one.
+    let codeVerifier: string;
+    try {
+      codeVerifier = this.#sealer.open(row.code_verifier, bindingHash);
+    } catch {
+      return null;
+    }
     return {
       state: row.state,
       nonce: row.nonce,
-      codeVerifier: this.#sealer.open(row.code_verifier, bindingHash),
+      codeVerifier,
       returnTo: row.return_to,
       expiresAt: row.expires_at,
       maxAge: row.max_age,
@@ -137,7 +194,7 @@ export class SessionStore {
   }
 
   async create(session: SessionRecord): Promise<void> {
-    await this.#pool.query(
+    await this.#query(
       `INSERT INTO sessions (${sessionColumns}) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)`,
       [
         session.idHash,
@@ -160,7 +217,7 @@ export class SessionStore {
   }
 
   async find(idHash: Buffer): Promise<SessionRecord | null> {
-    const { rows } = await this.#pool.query<SessionRow>(
+    const { rows } = await this.#query<SessionRow>(
       `SELECT ${sessionColumns} FROM sessions WHERE id_hash = $1`,
       [idHash],
     );
@@ -168,7 +225,7 @@ export class SessionStore {
   }
 
   async touch(idHash: Buffer, lastSeenAt: Date, idleExpiresAt: Date): Promise<void> {
-    await this.#pool.query('UPDATE sessions SET last_seen_at = $2, idle_expires_at = $3 WHERE id_hash = $1', [
+    await this.#query('UPDATE sessions SET last_seen_at = $2, idle_expires_at = $3 WHERE id_hash = $1', [
       idHash,
       lastSeenAt,
       idleExpiresAt,
@@ -186,9 +243,10 @@ export class SessionStore {
     update: (current: SessionRecord) => Promise<TokenUpdate | null>,
   ): Promise<SessionRecord | null> {
     return this.#transaction(async (client) => {
-      const { rows } = await client.query<SessionRow>(
-        `SELECT ${sessionColumns} FROM sessions WHERE id_hash = $1 FOR UPDATE`,
-        [idHash],
+      const { rows } = await reached(() =>
+        client.query<SessionRow>(`SELECT ${sessionColumns} FROM sessions WHERE id_hash = $1 FOR UPDATE`, [
+          idHash,
+        ]),
       );
       if (rows[0] === undefined) {
         return null;
@@ -198,16 +256,18 @@ export class SessionStore {
       if (next === null) {
         return current;
       }
-      await client.query(
-        'UPDATE sessions SET tokens = $2, access_expires_at = $3, acr = $4, auth_time = $5 WHERE id_hash = $1',
-        [idHash, this.#sealTokens(next.tokens, idHash), next.accessExpiresAt, next.acr, next.authTime],
+      await reached(() =>
+        client.query(
+          'UPDATE sessions SET tokens = $2, access_expires_at = $3, acr = $4, auth_time = $5 WHERE id_hash = $1',
+          [idHash, this.#sealTokens(next.tokens, idHash), next.accessExpiresAt, next.acr, next.authTime],
+        ),
       );
       return { ...current, ...next };
     });
   }
 
   async destroy(idHash: Buffer): Promise<void> {
-    await this.#pool.query('DELETE FROM sessions WHERE id_hash = $1', [idHash]);
+    await this.#query('DELETE FROM sessions WHERE id_hash = $1', [idHash]);
   }
 
   // destroyForLogout ends the sessions a back-channel logout token names: the Keycloak session when
@@ -216,10 +276,10 @@ export class SessionStore {
   async destroyForLogout(subject: string | null, keycloakSessionId: string | null): Promise<number> {
     const result =
       keycloakSessionId === null
-        ? await this.#pool.query('DELETE FROM sessions WHERE subject = $1', [subject])
+        ? await this.#query('DELETE FROM sessions WHERE subject = $1', [subject])
         : subject === null
-          ? await this.#pool.query('DELETE FROM sessions WHERE keycloak_session_id = $1', [keycloakSessionId])
-          : await this.#pool.query('DELETE FROM sessions WHERE keycloak_session_id = $1 AND subject = $2', [
+          ? await this.#query('DELETE FROM sessions WHERE keycloak_session_id = $1', [keycloakSessionId])
+          : await this.#query('DELETE FROM sessions WHERE keycloak_session_id = $1 AND subject = $2', [
               keycloakSessionId,
               subject,
             ]);
@@ -229,10 +289,15 @@ export class SessionStore {
   // purgeExpired removes what can no longer be used. A row past its expiry is already refused when
   // presented; this keeps the tables sized to the live population.
   async purgeExpired(now: Date): Promise<void> {
-    await this.#pool.query('DELETE FROM sessions WHERE idle_expires_at <= $1 OR absolute_expires_at <= $1', [
-      now,
-    ]);
-    await this.#pool.query('DELETE FROM login_states WHERE expires_at <= $1', [now]);
+    await this.#query('DELETE FROM sessions WHERE idle_expires_at <= $1 OR absolute_expires_at <= $1', [now]);
+    await this.#query('DELETE FROM login_states WHERE expires_at <= $1', [now]);
+  }
+
+  #query<R extends pg.QueryResultRow = pg.QueryResultRow>(
+    text: string,
+    values?: unknown[],
+  ): Promise<pg.QueryResult<R>> {
+    return reached(() => this.#pool.query<R>(text, values));
   }
 
   #sealTokens(tokens: TokenSet, idHash: Buffer): Buffer {
@@ -240,6 +305,12 @@ export class SessionStore {
   }
 
   #record(row: SessionRow): SessionRecord {
+    let tokens: TokenSet;
+    try {
+      tokens = JSON.parse(this.#sealer.open(row.tokens, row.id_hash)) as TokenSet;
+    } catch (error) {
+      throw new UnreadableSession(error);
+    }
     return {
       idHash: row.id_hash,
       subject: row.subject,
@@ -249,7 +320,7 @@ export class SessionStore {
       acr: row.acr,
       authTime: row.auth_time,
       tenantId: row.tenant_id,
-      tokens: JSON.parse(this.#sealer.open(row.tokens, row.id_hash)) as TokenSet,
+      tokens,
       accessExpiresAt: row.access_expires_at,
       csrfToken: row.csrf_token,
       createdAt: row.created_at,
@@ -260,17 +331,20 @@ export class SessionStore {
   }
 
   async #transaction<T>(work: (client: PoolClient) => Promise<T>): Promise<T> {
-    const client = await this.#pool.connect();
+    const client = await reached(() => this.#pool.connect());
+    // A connection that failed is discarded, not returned to the pool for the next request.
+    let lost = false;
     try {
-      await client.query('BEGIN');
+      await reached(() => client.query('BEGIN'));
       const result = await work(client);
-      await client.query('COMMIT');
+      await reached(() => client.query('COMMIT'));
       return result;
     } catch (error) {
+      lost = error instanceof SessionStoreUnavailable;
       await client.query('ROLLBACK').catch(() => undefined);
       throw error;
     } finally {
-      client.release();
+      client.release(lost);
     }
   }
 }
