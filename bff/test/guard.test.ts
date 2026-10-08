@@ -54,6 +54,8 @@ describe('Tenant scope', () => {
       '/v1/membership-batches/b/execute',
       '/v1/workspaces/w',
       '/v1/invitations',
+      '/v1/provider-access',
+      '/v1/provider-access?authority=emergency',
     ]) {
       expect(guard(tenantScope, request(path), now)).toEqual({ allowed: true, headers: {} });
     }
@@ -69,6 +71,10 @@ describe('Tenant scope', () => {
       '/v1/invitations/expire-lapsed',
       '/v1/membershipsx',
       '/v1/membership-batchesx',
+      '/v1/privileged-access',
+      '/v1/privileged-access/reviews',
+      '/v1/privileged-access:unreviewed',
+      '/v1/provider-accessx',
     ]) {
       const decision = guard(tenantScope, request(path), now);
       expect(decision.allowed).toBe(false);
@@ -127,6 +133,32 @@ describe('provider scope', () => {
     });
     expect(guard(open, post('/v1/offboardings', { tenant_id: tenantB }), now).allowed).toBe(false);
     expect(guard(open, post('/v1/offboardings', { tenant_id: tenantA }), now).allowed).toBe(true);
+  });
+
+  it('reaches the privileged-access record only in force, with the window reason and correlation', () => {
+    for (const path of [
+      '/v1/privileged-access',
+      '/v1/privileged-access:unreviewed',
+      '/v1/privileged-access/reviews',
+    ]) {
+      expect(guard(providerScope(null), request(path), now)).toMatchObject({
+        allowed: false,
+        detail: expect.stringContaining('not active') as unknown,
+      });
+      expect(guard(providerScope(window({ endsAt: null })), request(path), now).allowed).toBe(false);
+      expect(guard(providerScope(window()), request(path), now)).toEqual({
+        allowed: true,
+        headers: {
+          'x-correlation-id': window().correlationId,
+          'x-administrative-reason': window().reason,
+        },
+      });
+    }
+    const review = post('/v1/privileged-access/reviews', { actor_id: me, outcome: 'appropriate' });
+    expect(guard(providerScope(window()), { ...review, reason: 'Week 41 review' }, now)).toEqual({
+      allowed: true,
+      headers: { 'x-correlation-id': window().correlationId },
+    });
   });
 
   it('reaches every Tenant when entered for all of them', () => {

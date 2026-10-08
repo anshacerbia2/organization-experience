@@ -103,6 +103,7 @@ function Navigation(): ReactElement | null {
       { to: '/workspaces', label: messages.workspaces },
       { to: '/memberships', label: messages.memberships },
       { to: '/invitations', label: messages.invitations },
+      { to: '/provider-access', label: messages.providerAccess },
     );
   } else {
     if (inForce) {
@@ -111,6 +112,7 @@ function Navigation(): ReactElement | null {
         { to: '/tenants', label: messages.tenants },
         { to: '/offboardings', label: messages.offboardings },
         { to: '/projections', label: messages.projectionHealth },
+        { to: '/access-review', label: messages.accessReview },
       );
     }
     links.push({ to: '/approvals', label: messages.approvals });
