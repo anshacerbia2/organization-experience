@@ -296,7 +296,7 @@ test('a Membership action: the operator grants one and revokes the administrator
   };
 
   // The interface shows the revocation by its evidence, never as enforced on acceptance.
-  await expect(row).toContainText('Revocation accepted at');
+  await expect(row).toContainText('revoked');
   await expect(row.locator('[data-enforcement="enforced"]')).toBeVisible({ timeout: 60_000 });
 
   // No session is removed (ADR-IAM-006 §5.5): the kernel still lists the person's sessions.

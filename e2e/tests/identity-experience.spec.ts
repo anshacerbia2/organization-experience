@@ -17,6 +17,7 @@ import {
   identityExperience as bff,
   iso,
   kernel,
+  kernelEvents,
   kernelUserOf,
   Refreshes,
   l0LifetimeSeconds,
@@ -119,13 +120,29 @@ test('a kernel session removed ends the identity BFF session within the remainin
       250,
       () => Promise.resolve(tab.firstAfter(acceptedAt, 401) !== undefined),
     ).catch((error: unknown) => {
-      writeEvidence('session-removal', {
-        ...known,
-        session_destroyed_at: null,
-        refreshes_after_kernel_removal: refreshes.after(removedAt),
-        answers_after_acceptance: tab.statuses(acceptedAt),
+      // What the kernel itself recorded, to say which side kept the session alive.
+      return Promise.all([
+        kernel<{ id: string }[]>(`/users/${user}/sessions`),
+        kernelEvents(user, 'REFRESH_TOKEN'),
+        kernelEvents(user, 'REFRESH_TOKEN_ERROR'),
+      ]).then(([sessions, refreshed, refused]) => {
+        writeEvidence('session-removal', {
+          ...known,
+          session_destroyed_at: null,
+          refreshes_after_kernel_removal: refreshes.after(removedAt),
+          refreshes_seen: refreshes.seen.map((x) => ({ at: iso(x.at), expires_at: iso(x.expiresAt) })),
+          answers_after_acceptance: tab.statuses(acceptedAt),
+          kernel_sessions_after: sessions.map((x) => x.id),
+          ended_session: kernelSession,
+          kernel_refresh_events: refreshed.map((e) => ({ at: iso(e.time), session: e.sessionId ?? null })),
+          kernel_refresh_errors: refused.map((e) => ({
+            at: iso(e.time),
+            session: e.sessionId ?? null,
+            error: e.error ?? null,
+          })),
+        });
+        throw error;
       });
-      throw error;
     });
     await tab.stop();
     await refreshes.stop();
