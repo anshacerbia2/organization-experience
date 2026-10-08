@@ -113,7 +113,7 @@ test('a Tenant administrator signs in through the kernel’s hosted login', asyn
   await expect(banner(page)).toContainText(`Tenant scope: ${s.tenantId}`);
 
   // The cookie the pattern sets (TDD-identity-experience-001 §Session Cookie), as the browser holds it.
-  const cookie = (await context.cookies(bff)).find((c) => c.name === sessionCookie);
+  const cookie = (await context.cookies()).find((c) => c.name === sessionCookie);
   expect(cookie, 'the session cookie').toBeDefined();
   expect(cookie?.httpOnly, 'HttpOnly').toBe(true);
   expect(cookie?.secure, 'Secure').toBe(true);
