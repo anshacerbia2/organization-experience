@@ -242,10 +242,12 @@ export async function sessionRow(schema: string, cookie: string): Promise<Sessio
   }
 }
 
-// Refreshes watches one session's row and records each new access token expiry it sees, and when: a
-// refresh the BFF made. After a revocation is applied, none may succeed.
+// Refreshes watches one session's row and records each access token expiry it holds, and when it was
+// first seen: a new one is a refresh the BFF made. After a revocation is applied, none may succeed. A
+// read that fails is retried; the watch ends when the row is gone.
 export class Refreshes {
   readonly seen: { at: number; expiresAt: number }[] = [];
+  readonly failedReads: string[] = [];
   #running = false;
   #loop: Promise<void> = Promise.resolve();
 
@@ -258,11 +260,15 @@ export class Refreshes {
     this.#running = true;
     this.#loop = (async () => {
       while (this.#running) {
-        const row = await sessionRow(this.schema, this.cookie).catch(() => null);
-        if (row === null) break;
-        const expiresAt = row.accessExpiresAt.getTime();
-        if (this.seen.at(-1)?.expiresAt !== expiresAt) this.seen.push({ at: Date.now(), expiresAt });
-        await new Promise((resolve) => setTimeout(resolve, 2_000));
+        try {
+          const row = await sessionRow(this.schema, this.cookie);
+          if (row === null) break;
+          const expiresAt = row.accessExpiresAt.getTime();
+          if (this.seen.at(-1)?.expiresAt !== expiresAt) this.seen.push({ at: Date.now(), expiresAt });
+        } catch (error) {
+          this.failedReads.push(error instanceof Error ? error.message : String(error));
+        }
+        await new Promise((resolve) => setTimeout(resolve, 1_000));
       }
     })();
   }
@@ -272,8 +278,10 @@ export class Refreshes {
     await this.#loop;
   }
 
-  after(instant: number): number {
-    return this.seen.filter((x) => x.at > instant).length;
+  // after counts the tokens the session held that expire later than the one it held at the instant:
+  // each is a refresh that succeeded after it.
+  after(expiresAtInstant: Date): number {
+    return this.seen.filter((x) => x.expiresAt > expiresAtInstant.getTime()).length;
   }
 }
 
