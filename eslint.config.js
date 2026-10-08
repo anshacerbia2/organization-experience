@@ -55,7 +55,7 @@ export default tseslint.config(
     },
   },
   {
-    files: ['bff/**/*.ts'],
+    files: ['bff/**/*.ts', 'e2e/**/*.ts'],
     languageOptions: { globals: globals.node },
   },
   {
