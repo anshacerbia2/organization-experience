@@ -49,6 +49,7 @@ On the server, already running:
 - **identity-control** with ADR-IAM-008, after its ceremony, so a provider can register a client in
   the `per-sign-in` form, and with `organization-control-api` registered.
 - **organization-control**, for the API this BFF proxies.
+- **PowerShell 7 (`pwsh`)** where identity-control's scripts run, for `scripts/dev-register-bff.ps1`.
 
 On the laptop: Node.js 24 and pnpm, and a local PostgreSQL for the session store.
 
@@ -64,10 +65,24 @@ On this machine, make the key pair. The private key stays here; only the public 
 node scripts/new-client-key.mjs     # keys/organization-experience-bff.pem and .jwk.json
 ```
 
-Whoever operates the development server then registers the client with a provider-scope token,
-an `Idempotency-Key` and an `X-Administrative-Reason`. It is registered for the `per-sign-in` form,
-which needs identity-control with ADR-IAM-008. Each sign-in then names one form: a Tenant with
-`?tenant=`, or the provider form:
+Whoever operates the development server then registers the client with `scripts/dev-register-bff.ps1`,
+on the server, where identity-control's checkout and `.env` are. It signs the bootstrap operator in with
+identity-control's `scripts/dev-token.ps1`, and sends the registration with an `Idempotency-Key` and an
+`X-Administrative-Reason` (STD-GLB-009 1.3.0: a procedure step is a script CI runs; the `stack-proof`
+workflow runs this one):
+
+```sh
+IDENTITY_CALLER_KEY_FILE=... IDENTITY_CALLER_PASSWORD=... IDENTITY_OPERATOR_TOTP_FILE=... \
+  pwsh ./scripts/dev-register-bff.ps1 -IdentityRepo /path/to/identity-control \
+  -JwkFile ./organization-experience-bff.jwk.json
+```
+
+The three variables are identity-control's `.env` values and its operator TOTP file, as for
+identity-control's `scripts/dev-smoke.ps1`. The script sends only the JWK's `kty`, `n` and `e`, refuses a
+file holding a private key, and stops when identity-control refuses the registration, as it refuses a
+client registered before. It registers the client for the `per-sign-in` form, which needs
+identity-control with ADR-IAM-008. Each sign-in then names one form: a Tenant with `?tenant=`, or the
+provider form. The registration it sends:
 
 ```text
 POST /v1/registrations
@@ -75,7 +90,7 @@ POST /v1/registrations
 {"client_key":"organization-experience-bff","profile":"confidential","audience_class":"privileged",
  "privileged_form":"per-sign-in","application_ref":"organization-experience",
  "redirect_uris":["http://127.0.0.1:8091/auth/callback"],"audience":["organization-control-api"],
- "public_key":<keys/organization-experience-bff.jwk.json>}
+ "public_key":{"kty":"RSA","n":...,"e":...}}
 ```
 
 The fields are those identity-control's `POST /v1/registrations` reads (`internal/httpapi/registrations.go`,

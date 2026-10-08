@@ -3,7 +3,7 @@ doc_meta:
   id: TDD-organization-experience-001
   title: Administrative Scope, Provider Mode, and Safe Bulk Operations
   owner: Core Platform Team
-  version: 1.6.0
+  version: 1.7.0
   status: approved
   classification: restricted
   review_cycle_days: 90
@@ -499,9 +499,9 @@ These are the defined checks:
   pass, contrast and target size in a real browser. The automated checks keep a known failure out;
   they do not certify conformance.
 
-### End to End (1.4.0)
+### End to End (1.7.0)
 
-No browser runs against a live stack here. Each control is exercised across the boundary it crosses:
+**At each boundary** (1.4.0), each control is exercised across the boundary it crosses:
 - **Provider mode, at the BFF:** a real PostgreSQL session store and a stand-in Organization Control
   API (`bff/test/scope.test.ts`). The step-up, the reason, the duration bound, approval, the
   targets, and the end at `ends_at` with the clock advanced past it. Leaving and signing out each end
@@ -513,13 +513,57 @@ No browser runs against a live stack here. Each control is exercised across the 
   continuation, through the scope guard in a Tenant scope.
 - **Bulk, in the application** (`bulk.test.tsx`): the recovery above.
 
-A browser end-to-end test needs what this repository does not hold:
-- the identity kernel's hosted login, for a fresh `aal2` provider sign-in;
-- an Organization Control with a second provider to approve;
-- the BFF, and a browser driver.
+**In a browser against the stack (1.7.0).** `.github/workflows/stack-proof.yml` is the stack-level
+proof of STD-GLB-009 §Stack-Level Proofs. This repository holds it because it is the one that consumes
+every stack the journeys need. The proof brings up:
+- identity-kernel, identity-control and organization-control, each with its own `deploy/dev` and
+  scripts, wired by organization-control's `scripts/dev-wire.ps1`, at `kernel_ref`, `identity_ref`
+  and `organization_ref`. The steps and their glue are organization-control's `deploy-dev`, kept the
+  same;
+- this BFF, with its client registered by `scripts/dev-register-bff.ps1`, the operator's script;
+- identity-experience's BFF and applications at `identity_experience_ref`;
+- the people, grants and Tenant of `e2e/seed.ps1`: a second provider with an eligible grant, a Tenant
+  administrator, a person with two devices, and an active Tenant with two administrators. Their
+  passwords are set through the kernel's administrator, as identity-control's `bootstrap.sh` sets the
+  bootstrap operator's. This is the development seed, in a stack the job throws away, and no production
+  default changes for it.
 
-That is a stack-level proof, and it belongs in a CI job that brings the stack up, as the system
-proofs of the services do. It is recorded in the ROADMAP's production gate.
+`e2e/` drives Chromium with Playwright, one worker, no retry (STD-GLB-FE-008 §3.4), through the
+kernel's own pages:
+1. **Sign-in.** A Tenant administrator signs in to the Tenant from the entry page, typing the password
+   and enrolling a TOTP the kernel asks for at `aal2`. The session cookie is `__Host-`, `HttpOnly`,
+   `Secure`, `SameSite=Lax`, path `/`, and the page holds nothing in browser storage.
+2. **Provider mode entry.** A second provider signs in to the provider form, a fresh `aal2`
+   authentication. The session reads as provider scope at `aal2` with a recent `auth_time`. A request
+   without a reason is refused in the browser, and nothing reaches the BFF. With a reason, one minute
+   and one Tenant, it is pending, and the banner says so.
+3. **Second-provider approval.** The bootstrap operator, another provider, reviews the requests with a
+   reason of their own and approves this one with a reason. The window opens in the first provider's
+   browser, which polls a pending window, and the Tenant is listed on the provider surface.
+4. **A Membership action.** The operator, signed in to the Tenant, grants a Membership and revokes the
+   Tenant administrator's. The revocation is shown by its evidence until it is `enforced`, never as
+   enforced on acceptance. The kernel still lists the administrator's sessions afterwards: a
+   revocation removes none (`ADR-IAM-006 §5.5`).
+5. **Scope expiry reaching the browser.** The window ends at `ends_at` with no action: the banner
+   returns to the provider sign-in, the provider surfaces close, and a provider read after `ends_at`
+   is refused.
+6. **Revocation reaching the browser.** The Tenant administrator's tab, in use throughout, ends when the
+   BFF's refresh is refused, within the bound `TDD-identity-experience-001` §Revocation states. No
+   request is served after the revocation is accepted. Their idle tab's first request after it is
+   refused, and a request after its token expired finds the session gone. The page then asks for a
+   sign-in. The figures go to the `stack-evidence` artifact.
+
+**What it found (1.7.0).** The Tenant sign-in form submitted itself to `/auth/login`, which redirects
+to the kernel, and Chromium checked that redirect against the BFF's `form-action 'self'` and refused it.
+The form now navigates by script, and the policy stays as the pattern sets it (STD-GLB-FE-003 2.1.0
+§3.5). It also records, without failing, whether moving from a provider sign-in to a Tenant on the same
+kernel session completes. On the kernel at `main` on 2026-10-08 it does not: the kernel answers its
+own error page, `invalid_user_credentials`, and the journey continues in a browser of its own. That is
+identity-kernel's to resolve, and the ROADMAP records it.
+
+**What it does not cover.** Bulk actions and offboarding stay at the boundaries above: STD-GLB-FE-008
+§3.4 limits a browser journey to the critical ones. One browser engine, a handful of people, and one
+Tenant: the figures show the mechanism, not its behaviour under load.
 
 ### Conformance
 
@@ -594,6 +638,9 @@ when its session store does not answer (1.5.0); the operator's steps are identit
 | Governed by | ADR-ORG-004 — bulk actions previewed by the server, revocation shown by its evidence (1.3.0) |
 | Governed by | ADR-ORG-002 — provider authority is an approved, time-bounded activation (1.2.0) |
 | Governed by | ADR-ORG-003 — Tenant administration grant (1.2.0) |
+| Conforms to | STD-GLB-009 §Stack-Level Proofs — the browser journeys against the stack, in this repository's `stack-proof` workflow (1.7.0) |
+| Conforms to | STD-GLB-FE-008 §3.4 — Playwright in Chromium, one worker, no retry, the stack's certificate authority trusted (1.7.0) |
+| Conforms to | STD-GLB-FE-003 §3.5 — a sign-in is a navigation, never a form submitted to the BFF (1.7.0) |
 
 ### Standalone Operation
 

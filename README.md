@@ -91,13 +91,24 @@ them, and lists every file that differs with the reason it differs. `pnpm check:
 fetches the pinned files and fails on a single changed byte, and CI runs it on every change. A fix
 to the pattern lands in identity-experience first, and reaches this repository by moving the pin.
 
+**The stack is proven in a browser.** `.github/workflows/stack-proof.yml` brings up identity-kernel,
+identity-control and organization-control, this BFF and identity-experience's, and drives Chromium
+through the kernel's hosted login (STD-GLB-009 §Stack-Level Proofs, TDD-organization-experience-001
+§End to End). It runs on every change, daily, and by hand with a `*_ref` input per producer, so a
+producer's branch is proven here before it merges:
+
+```sh
+gh workflow run stack-proof.yml -R anshacerbia2/organization-experience -f identity_ref=<branch>
+```
+
 ## Layout
 
 | Path             | Contents                                                                          |
 | :--------------- | :-------------------------------------------------------------------------------- |
 | `apps/admin/`    | Organization, Tenant, Workspace, Membership administration                        |
 | `bff/`           | Session and API proxy, conforming to the identity pattern; `bff/conformance.json` |
-| `scripts/`       | `check-bff-conformance.mjs`, `new-client-key.mjs`                                 |
+| `scripts/`       | `check-bff-conformance.mjs`, `new-client-key.mjs`, `dev-register-bff.ps1`         |
+| `e2e/`           | The stack-level proof's journeys in Chromium, and its seed (`stack-proof.yml`)    |
 | `deploy/dev/`    | How this BFF's client is registered on the development server                     |
 | `docs/designs/`  | Technical Design Documents                                                        |
 | `docs/runbooks/` | Provider-access review, bulk partial failure, stuck offboarding                   |
