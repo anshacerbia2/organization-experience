@@ -1,0 +1,17 @@
+{
+  "name": "@organization-experience/e2e",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "stack": "playwright test",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.63.0",
+    "@types/node": "24.19.0",
+    "@types/pg": "8.23.1",
+    "pg": "8.23.0",
+    "typescript": "6.0.3"
+  }
+}

@@ -1,3 +1,4 @@
 packages:
   - bff
   - apps/*
+  - e2e
