@@ -25,8 +25,7 @@ name: stack-proof
 
 on:
   push:
-    # stack-revocation-proof: until this workflow is on main, a push is how it runs on its branch.
-    branches: [main, stack-revocation-proof]
+    branches: [main]
   pull_request:
   # Daily: a producer's main can change under this repository unchanged (STD-GLB-009 §Stack-Level
   # Proofs, rule 4).
@@ -280,6 +279,8 @@ jobs:
       # so the kernel's container reaches its back-channel logout route on the gateway; the browser
       # still uses 127.0.0.1, the origin its client is registered with. This BFF listens on loopback,
       # as on a laptop the kernel cannot reach.
+      # Each BFF runs its build, node bff/dist/main.js: the code each README's own command serves, a
+      # watcher (pnpm dev:bff) or a script (dev-local.ps1) aside, with the settings each README lists.
       - name: start the two BFFs
         env:
           PGPASSWORD: bff
