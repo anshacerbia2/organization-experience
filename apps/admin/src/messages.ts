@@ -22,7 +22,7 @@ export const messages = {
   signOutFailed: 'Sign-out did not complete. Try again.',
   signInFailed: 'Sign-in did not complete. Try again; if it keeps failing, the reason is in the service log.',
   signInUnavailable:
-    'Keycloak could not be reached, so sign-in did not complete. Nothing was refused: try again in a moment.',
+    'The sign-in service could not be reached, so sign-in did not complete. Nothing was refused: try again in a moment.',
 
   // The active scope (TDD-organization-experience-001 §Scope Visibility).
   scopeRegion: 'Active scope',

@@ -1,6 +1,6 @@
 {
   "source": "anshacerbia2/identity-experience",
-  "commit": "d7381094af443bf6a3ee0192ffb7ff0cb47392a7",
+  "commit": "9899e2571c6dd8edbd61c59c748b5bb18f355df9",
   "identical": [
     "bff/migrations/0001_sessions.sql",
     "bff/migrations/0002_login_max_age.sql",
@@ -21,6 +21,7 @@
     "bff/src/session/sessions.ts",
     "bff/src/session/store.ts",
     "bff/test/oidc.test.ts",
+    "bff/test/store-outage.test.ts",
     "bff/test/support/client-key.ts",
     "bff/test/support/database.ts",
     "bff/test/support/identity-provider.ts",
@@ -76,11 +77,11 @@
     },
     {
       "path": "bff/src/scope/windows.ts",
-      "why": "Target-only: the provider window store."
+      "why": "Target-only: the provider window store. Its queries name a store outage as SessionStoreUnavailable, as the session store's do, so a scope route answers 503 rather than 500."
     },
     {
       "path": "bff/src/server.ts",
-      "why": "Serves one application at / and no Developer Console or account experience; passes organizationControlBaseUrl to the proxy. Registers the scope endpoints and the sign-out hook that ends a provider window's activation, and gives the proxy the provider windows."
+      "why": "Serves one application at / and no Developer Console or account experience; passes organizationControlBaseUrl to the proxy. Registers the scope endpoints and the sign-out hook that ends a provider window's activation, and gives the proxy the provider windows. Maps SessionStoreUnavailable to 503 in its error handler, as the source's does."
     },
     {
       "path": "bff/test/auth.test.ts",

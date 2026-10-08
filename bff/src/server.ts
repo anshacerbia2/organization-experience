@@ -18,7 +18,7 @@ import { endWindowOnSignOut, scopeRoutes } from './scope/routes.js';
 import { ProviderWindows } from './scope/windows.js';
 import { Sealer } from './session/seal.js';
 import { Sessions } from './session/sessions.js';
-import { SessionStore } from './session/store.js';
+import { SessionStore, SessionStoreUnavailable } from './session/store.js';
 
 export interface ServerDependencies {
   // now is the clock sessions expire by. A test moves it; nothing else does.
@@ -161,6 +161,13 @@ export async function buildServer(
       // The static handler refuses a directory with 403: to a caller it is a path with nothing there.
       const missing = status === 403 || status === 404 || status === 405;
       return sendProblem(request, reply, missing ? 'notFound' : 'validationFailed');
+    }
+    // A session store that does not answer, on a path that did not answer it itself (the proxy
+    // ending a session the API refused, a scope route), is an outage, not a fault: 503, as everywhere
+    // else (TDD-identity-experience-001 1.17.0 §Session-Store Outage).
+    if (error instanceof SessionStoreUnavailable) {
+      request.log.error({ err: error }, 'session store unavailable');
+      return sendProblem(request, reply, 'dependencyUnavailable');
     }
     request.log.error({ err: error }, 'request failed');
     return sendProblem(request, reply, 'internal');

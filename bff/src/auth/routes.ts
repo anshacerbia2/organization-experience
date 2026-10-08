@@ -18,7 +18,7 @@ import {
 import { sendProblem } from '../http/problem.js';
 import { digest, equalSecrets, randomToken } from '../session/seal.js';
 import type { Sessions } from '../session/sessions.js';
-import type { SessionStore } from '../session/store.js';
+import { SessionStoreUnavailable, type SessionStore } from '../session/store.js';
 
 export interface AuthRoutesOptions {
   readonly publicOrigin: string;
@@ -34,8 +34,9 @@ export interface AuthRoutesOptions {
 // Where a sign-in that did not complete lands: the root of the application it started from, with
 // a marker. `failed` is a refusal; the application offers to try again, and the reason stays in
 // the log, because it may describe what an attacker presented. `unavailable` is an identity kernel
-// that did not answer, where trying again can work, so the application says so. Before the
-// browser's own sign-in record is found, nothing says where it started, and it lands at the root.
+// or a session store that did not answer, where trying again can work, so the application says so.
+// Before the browser's own sign-in record is found, nothing says where it started, and it lands at
+// the root.
 export const signInLanding = (returnTo: string, outcome: 'failed' | 'unavailable'): string =>
   `${applicationRoot(returnTo)}?sign-in=${outcome}`;
 
@@ -59,6 +60,17 @@ export function safeReturnTo(value: unknown, publicOrigin: string): string {
 }
 
 const noStore = (reply: FastifyReply): FastifyReply => reply.header('cache-control', 'no-store');
+
+// storeOutage answers a request the session store could not serve: 503, the session kept, and the
+// browser's cookie left alone, so trying again works once the store answers (RFC 9110 §15.6.4,
+// TDD-identity-experience-001 §Session-Store Outage). Anything else is rethrown.
+function storeOutage(request: FastifyRequest, reply: FastifyReply, error: unknown): FastifyReply {
+  if (!(error instanceof SessionStoreUnavailable)) {
+    throw error;
+  }
+  request.log.error({ err: error }, 'session store unavailable');
+  return sendProblem(request, reply, 'dependencyUnavailable');
+}
 
 // The application-initiated actions the BFF passes to the kernel, and the outcomes it carries back
 // (TDD-identity-experience-001 §Step-Up). Anything else is ignored.
@@ -148,16 +160,26 @@ export function authRoutes(app: FastifyInstance, options: AuthRoutesOptions, don
     // BFF decides that by where the sign-in returns; a level the request names is its own.
     const acrValues =
       requestedLevel(request.query.acr_values) ?? (applicationRoot(returnTo) === '/' ? 'aal2' : null);
-    await store.putLoginState(digest(binding), {
-      state,
-      nonce,
-      codeVerifier,
-      returnTo,
-      expiresAt: new Date(now().getTime() + loginLifetimeSeconds * 1_000),
-      maxAge,
-      acrValues,
-      tenantId,
-    });
+    try {
+      await store.putLoginState(digest(binding), {
+        state,
+        nonce,
+        codeVerifier,
+        returnTo,
+        expiresAt: new Date(now().getTime() + loginLifetimeSeconds * 1_000),
+        maxAge,
+        acrValues,
+        tenantId,
+      });
+    } catch (error) {
+      // A navigation, so the answer is a page: the application says the sign-in service could not
+      // be reached and offers to try again, as for an identity kernel that does not answer.
+      if (!(error instanceof SessionStoreUnavailable)) {
+        throw error;
+      }
+      request.log.error({ err: error }, 'sign-in could not reach the session store');
+      return noStore(reply).redirect(signInLanding(returnTo, 'unavailable'), 302);
+    }
     const location = oidc.authorizationUrl({
       state,
       nonce,
@@ -180,6 +202,15 @@ export function authRoutes(app: FastifyInstance, options: AuthRoutesOptions, don
       request.log.warn({ reason, err: error }, 'sign-in refused');
       return reply.redirect(signInLanding(returnTo, 'failed'), 302);
     };
+    // The store did not answer: no session was made, and the browser lands where trying again is
+    // offered. A code already exchanged is spent; the next sign-in gets a new one.
+    const unavailable = (error: unknown): FastifyReply => {
+      if (!(error instanceof SessionStoreUnavailable)) {
+        throw error;
+      }
+      request.log.error({ err: error }, 'sign-in could not reach the session store');
+      return reply.redirect(signInLanding(returnTo, 'unavailable'), 302);
+    };
 
     // The login cookie binds this callback to the browser that started the sign-in. Without it, a
     // code and state captured from one browser and delivered to another would sign the second in
@@ -188,7 +219,12 @@ export function authRoutes(app: FastifyInstance, options: AuthRoutesOptions, don
     if (binding === undefined || binding === '') {
       return fail('no sign-in in flight in this browser');
     }
-    const login = await store.takeLoginState(digest(binding));
+    let login;
+    try {
+      login = await store.takeLoginState(digest(binding));
+    } catch (error) {
+      return unavailable(error);
+    }
     if (login !== null) {
       returnTo = login.returnTo;
     }
@@ -243,11 +279,16 @@ export function authRoutes(app: FastifyInstance, options: AuthRoutesOptions, don
 
     // A sign-in always issues a new session identifier, and the one the browser held before, if
     // any, is ended: an identifier planted before sign-in never becomes an authenticated one.
-    const previous = await sessions.resolve(readCookie(request, sessionCookie), false);
-    if (previous !== null) {
-      await sessions.destroy(previous);
+    let cookie;
+    try {
+      const previous = await sessions.resolve(readCookie(request, sessionCookie), false, request.log);
+      if (previous !== null) {
+        await sessions.destroy(previous);
+      }
+      ({ cookie } = await sessions.start({ ...grant, identity }));
+    } catch (error) {
+      return unavailable(error);
     }
-    const { cookie } = await sessions.start({ ...grant, identity });
     setSessionCookie(reply, cookie);
     return reply.redirect(withActionOutcome(login.returnTo, actionOutcome), 302);
   });
@@ -257,7 +298,12 @@ export function authRoutes(app: FastifyInstance, options: AuthRoutesOptions, don
   app.get('/auth/session', async (request, reply) => {
     noStore(reply);
     const presented = readCookie(request, sessionCookie);
-    const session = await sessions.resolve(presented, false);
+    let session;
+    try {
+      session = await sessions.resolve(presented, false, request.log);
+    } catch (error) {
+      return storeOutage(request, reply, error);
+    }
     if (session === null) {
       if (presented !== undefined) {
         clearSessionCookie(reply);
@@ -284,7 +330,13 @@ export function authRoutes(app: FastifyInstance, options: AuthRoutesOptions, don
     if (session === null) {
       return reply;
     }
-    await sessions.destroy(session);
+    // The cookie is cleared only once the row is gone: a sign-out the store could not record is
+    // answered 503 and can be repeated.
+    try {
+      await sessions.destroy(session);
+    } catch (error) {
+      return storeOutage(request, reply, error);
+    }
     clearSessionCookie(reply);
     if (!(await oidc.endKeycloakSession(session.tokens))) {
       request.log.warn('the identity kernel did not confirm the end of its session');
@@ -311,7 +363,19 @@ export function authRoutes(app: FastifyInstance, options: AuthRoutesOptions, don
       request.log.warn({ err: error }, 'back-channel logout refused');
       return sendProblem(request, reply, 'validationFailed', 'The logout token was refused');
     }
-    const ended = await store.destroyForLogout(target.subject, target.keycloakSessionId);
+    let ended;
+    try {
+      ended = await store.destroyForLogout(target.subject, target.keycloakSessionId);
+    } catch (error) {
+      // A logout that could not be recorded failed, which the specification answers 400, never 5xx
+      // (OpenID Connect Back-Channel Logout 1.0 §2.8). The refresh path still ends the session
+      // within one access token's lifetime of the store answering again.
+      if (!(error instanceof SessionStoreUnavailable)) {
+        throw error;
+      }
+      request.log.error({ err: error }, 'back-channel logout could not reach the session store');
+      return reply.code(400).send();
+    }
     request.log.info({ ended }, 'back-channel logout');
     return reply.code(200).send();
   });
