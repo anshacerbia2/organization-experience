@@ -265,9 +265,15 @@ jobs:
           gateway="$(docker network inspect -f '{{range .IPAM.Config}}{{println .Gateway}}{{end}}' "$network" | head -n 1)"
           [ -n "$gateway" ] || { echo "::error::no gateway for the kernel's network $network"; exit 1; }
           echo "KERNEL_GATEWAY=$gateway" >> "$GITHUB_ENV"
+          # An identity-control that does not take backchannel_logout_uri refuses a registration naming
+          # it, so it is declared only where the checked-out identity-control reads it.
+          back_channel=()
+          if grep -q '"backchannel_logout_uri"' .identity/internal/httpapi/registrations.go; then
+            back_channel=(-IdentityExperienceBackChannelUri "http://$gateway:8090/auth/back-channel-logout")
+          fi
           pwsh -NoProfile -File e2e/seed.ps1 -IdentityRepo .identity -WiringState "$RUNNER_TEMP/wiring/state.json" \
             -IdentityExperienceJwk .identity-experience/keys/identity-experience-bff.jwk.json -Out "$RUNNER_TEMP/seed.json" \
-            -IdentityExperienceBackChannelUri "http://$gateway:8090/auth/back-channel-logout"
+            "${back_channel[@]}"
 
       # Each BFF's session store, migrated as its owning role, served by a role with DML alone, as
       # each README's §One-off tasks runs it. The identity BFF listens on every address of the runner,

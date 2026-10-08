@@ -32,9 +32,10 @@ param(
     [Parameter(Mandatory = $true)] [string] $WiringState,
     [Parameter(Mandatory = $true)] [string] $IdentityExperienceJwk,
     [Parameter(Mandatory = $true)] [string] $Out,
-    # Where the kernel reaches the identity BFF's POST /auth/back-channel-logout. It is declared in the
-    # registration, and an identity-control that does not take backchannel_logout_uri ignores it, so the
-    # evidence reads what the kernel holds rather than what was sent.
+    # Where the kernel reaches the identity BFF's POST /auth/back-channel-logout, declared in its
+    # registration. The workflow passes it only to an identity-control that takes
+    # backchannel_logout_uri (TDD-identity-control-003 1.37.0), and the evidence reads what the kernel
+    # holds rather than what was sent.
     [string] $IdentityExperienceBackChannelUri = ""
 )
 
