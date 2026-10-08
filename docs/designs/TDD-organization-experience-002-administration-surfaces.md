@@ -3,7 +3,7 @@ doc_meta:
   id: TDD-organization-experience-002
   title: Organization, Tenant, Workspace, and Membership Administration Surfaces
   owner: Core Platform Team
-  version: 1.3.0
+  version: 1.4.0
   status: approved
   classification: restricted
   review_cycle_days: 90
@@ -186,6 +186,21 @@ sentence.
     reconciliation").
   - `failed` renders with its detail.
 
+**The reconciliation age, served (1.4.0).** From `TDD-organization-control-002` 1.13.0 each consumer,
+in the list and in the single read, carries its last reconciliation (§The Consumer List there):
+`last_reconciled_at`, `last_reconciled_mark`, `last_reconciled_findings` and
+`reconciliation_age_seconds`.
+- **Each consumer shows when it was last reconciled and how many findings that run reported.** A
+  clean run reports none, and the page says "no findings".
+- **The age is the service's.** `reconciliation_age_seconds` is computed when the response is built,
+  on the clock `last_reconciled_at` was written with. The page renders it as served and reads no
+  clock of its own.
+- **Absent fields mean no run yet.** The fields are omitted until Organization Control first
+  reconciles the consumer. The page then shows "never reconciled", never an age or a count of zero.
+- **The count is not classified.** The read carries how many findings a run produced, not their
+  kinds, so an `extra` finding is still raised by the reconciliation alert and the repair event, not
+  by this page.
+
 **The approval surface (1.2.0).** In production, another provider approves an activation
 (`ADR-ORG-002 §5.1`).
 - **Who uses it.** A provider session reaches it with or without a window of its own.
@@ -275,6 +290,10 @@ them all.
 Renders the consumer registry: who is registered, their declared freshness budget,
 their stale behavior, their last reported mark, and their reconciliation age.
 
+The reconciliation age is when Organization Control last reconciled the consumer, how long ago as
+the service computed it, and how many findings the run reported (1.4.0). A consumer the service has
+not yet reconciled carries none of these fields and renders as "never reconciled".
+
 A consumer past its declared budget renders as stale with its policy shown, because
 `use_with_marker`, `revalidate`, and `fail_closed` produce materially different
 consequences and an operator triaging an incident needs to know which applies.
@@ -334,6 +353,10 @@ An `extra` reconciliation finding renders as a security finding, matching how
 
 - A consumer past its budget renders as stale with its stale behavior shown.
 - An `extra` finding renders as a security finding.
+- A reconciled consumer shows its reconciliation age and its findings count; a clean run shows no
+  findings (1.4.0).
+- A consumer without the reconciliation fields renders as "never reconciled", with no age and no
+  count (1.4.0).
 
 ## Security Notes
 
@@ -376,6 +399,7 @@ investigation.
 | Depends on | `TDD-organization-control-003` — Tenant, Organization, and Workspace lifecycle |
 | Depends on | `TDD-organization-control-004` — the invitation join |
 | Depends on | `TDD-organization-control-002` — Membership, revocation, projection health |
+| Depends on | `TDD-organization-control-002` 1.13.0 §The Consumer List — the consumer's last reconciliation and its age (1.4.0) |
 | Conforms to | STD-GLB-001 §Pagination — keyset paging, no offsets (1.2.0) |
 | Conforms to | STD-GLB-FE-001 §Technology Stack — server state through TanStack Query (1.2.0) |
 | Governed by | ADR-ORG-002 — an activation approved by another provider (1.2.0) |

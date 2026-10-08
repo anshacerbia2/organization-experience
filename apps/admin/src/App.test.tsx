@@ -317,4 +317,37 @@ describe('provider mode', () => {
     render(<App />);
     expect(await screen.findByRole('status')).toHaveTextContent('Provider mode was denied by the approver.');
   });
+
+  // TDD-organization-experience-001 1.4.0: automatic expiry as the operator sees it. The window ends
+  // at its ends_at with no action from the operator; the application reads the scope again at that
+  // moment, and the provider surfaces go with it. The BFF's side is bff/test/scope.test.ts, "ends on
+  // its own at the end the API set".
+  it('ends on its own at ends_at: the scope is read again and the provider surfaces close', async () => {
+    const endsAt = Date.now() + 300;
+    const fetchMock = stubBff({
+      '/auth/session': () => respond(signedIn(null)),
+      '/auth/scope': () =>
+        respond(
+          Date.now() < endsAt
+            ? providerScope(providerWindow({ endsAt: new Date(endsAt).toISOString() }))
+            : providerScope(null, { closed: 'ended' }),
+        ),
+    });
+    render(<App />);
+    const banner = await screen.findByRole('region', { name: 'Active scope' });
+    await waitFor(() => {
+      expect(banner).toHaveTextContent('Provider mode. Tenants:');
+    });
+    const nav = screen.getByRole('navigation', { name: 'Sections' });
+    expect(within(nav).getByRole('link', { name: 'Organizations' })).toBeInTheDocument();
+
+    expect(await screen.findByRole('status', {}, { timeout: 3_000 })).toHaveTextContent(
+      'Provider mode has ended.',
+    );
+    expect(banner).not.toHaveTextContent('ends in');
+    expect(within(nav).queryByRole('link', { name: 'Organizations' })).not.toBeInTheDocument();
+    expect(screen.getByRole('form', { name: 'Enter provider mode' })).toBeInTheDocument();
+    // Nothing was left: the window closed by itself, not by the operator.
+    expect(fetchMock).not.toHaveBeenCalledWith('/auth/scope/provider/end', expect.anything());
+  });
 });

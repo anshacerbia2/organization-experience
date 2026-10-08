@@ -3,7 +3,7 @@ doc_meta:
   id: TDD-organization-experience-003
   title: Offboarding Workflow and Obligation Tracking Views
   owner: Core Platform Team
-  version: 1.3.0
+  version: 1.4.0
   status: approved
   classification: restricted
   review_cycle_days: 90
@@ -337,7 +337,9 @@ offboarding they cannot close. The right response is to find the blocking domain
 loosen the gate.
 
 Runbooks required before production: stalled offboarding obligation, unresolved
-deprovisioning, and legal hold release.
+deprovisioning, and legal hold release. They are written as one, "Stuck offboarding", in
+`docs/runbooks/organization-experience-operations.md` (1.4.0): its obligations, legal hold and
+release steps are these three.
 
 ## Traceability
 

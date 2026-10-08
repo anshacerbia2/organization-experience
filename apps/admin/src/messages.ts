@@ -1,5 +1,16 @@
 // Every user-visible string, in one catalogue (STD-GLB-FE-009 §3.6). One locale until the
 // application has more than one screen to translate.
+
+// Whole seconds as an operator reads them: seconds, then minutes, hours and days, each rounded down.
+const ageOf = (seconds: number): string =>
+  seconds < 120
+    ? `${String(seconds)} s`
+    : seconds < 7_200
+      ? `${String(Math.floor(seconds / 60))} min`
+      : seconds < 172_800
+        ? `${String(Math.floor(seconds / 3_600))} h`
+        : `${String(Math.floor(seconds / 86_400))} days`;
+
 export const messages = {
   title: 'Organization administration',
   checking: 'Checking session',
@@ -222,6 +233,21 @@ export const messages = {
   lastReported: (at: string): string => (at === '' ? 'never reported' : `last reported ${at}`),
   consumerStale: (behavior: string): string =>
     `Stale: past its budget. It applies its stale behaviour, ${behavior.replace(/_/g, ' ')}.`,
+  // The consumer's last reconciliation (TDD-002 1.4.0), absent until Organization Control has run one.
+  neverReconciled: 'never reconciled',
+  lastReconciled: (at: string, ageSeconds: number | undefined, findings: number | undefined): string =>
+    [
+      ageSeconds === undefined ? `reconciled ${at}` : `reconciled ${ageOf(ageSeconds)} ago (${at})`,
+      findings === undefined
+        ? null
+        : findings === 0
+          ? 'no findings'
+          : findings === 1
+            ? '1 finding'
+            : `${String(findings)} findings`,
+    ]
+      .filter((part) => part !== null)
+      .join(', '),
   provisioningState: (state: string, correlation: string, detail: string): string =>
     ({
       requested: `Provisioning requested (${correlation}). Membership cannot be granted yet.`,

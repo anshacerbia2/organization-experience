@@ -3,7 +3,7 @@ doc_meta:
   id: TDD-organization-experience-001
   title: Administrative Scope, Provider Mode, and Safe Bulk Operations
   owner: Core Platform Team
-  version: 1.3.0
+  version: 1.4.0
   status: approved
   classification: restricted
   review_cycle_days: 90
@@ -268,7 +268,7 @@ document naming the scope.
 
 | Active scope              | Reaches                                                                            |
 | :------------------------ | :--------------------------------------------------------------------------------- |
-| Tenant                    | `/v1/memberships…`, `/v1/workspaces…`, `/v1/invitations…` except the provider-only invitation routes. No path names a Tenant, and the API takes the Tenant from the token |
+| Tenant                    | `/v1/memberships…`, `/v1/membership-batches…`, `/v1/workspaces…`, `/v1/invitations…` except the provider-only invitation routes. No path names a Tenant, and the API takes the Tenant from the token |
 | Provider, no window       | `/v1/provider-activations…` alone, as the API admits an eligible caller              |
 | Provider, window pending  | The same                                                                           |
 | Provider, window in force | Every route, except a path or a JSON body naming a Tenant outside the window's targets |
@@ -282,6 +282,13 @@ In provider scope the BFF sets two headers on every forwarded request:
   model names is therefore on every record the window produced.
 
 A Tenant-scope request carries neither: the API records no privileged access for it.
+
+**Membership batches are a Tenant route (1.4.0).** The bulk actions of §Bulk Operations are
+`/v1/membership-batches`, tenant-scoped like the single transition (`TDD-organization-control-002`
+§Membership Batches). The path is a sibling of `/v1/memberships`, not under it. Until 1.4.0 the
+guard did not list it, so a bulk preview in a Tenant scope was refused before it left the BFF. The
+application's tests answer at `fetch` and never reached the guard, which is why the BFF now carries
+a bulk action through its own test (§Testing Strategy, End to End).
 
 ## Algorithms / Logic
 
@@ -440,6 +447,15 @@ Session, cookie, refresh, and client credential settings are inherited unchanged
 - Partial failure reports succeeded, failed, and not-attempted separately.
 - Resubmitting the failed subset does not repeat succeeded items.
 - A selection exceeding the preview limit is paged rather than truncated silently.
+- 1.4.0, recovery from a partial failure:
+  - An execution interrupted before its answer, by a gateway timeout or by the API's
+    `409 request-in-progress`, is shown as an error. Nothing is reported as done, and the control
+    stays.
+  - Sending it again resends the same `Idempotency-Key`. Organization Control adopts that key and
+    resumes the batch (`TDD-organization-control-002` §Resuming an execution), and the draft
+    standard has a retried key "respond with the result of the previously completed operation" [R4].
+  - The failed items alone are previewed again, continuing the first batch, and execute under a key
+    of their own. No item the first batch applied is sent twice.
 
 ### Honest Presentation
 
@@ -451,6 +467,45 @@ Session, cookie, refresh, and client credential settings are inherited unchanged
   the consumers on the projection health view (1.3.0).
 - A view feeding an irreversible operation reads the record again and sends the version
   it read; a change in between is shown as a conflict (1.3.0).
+
+### Accessibility (1.4.0)
+
+SAD-012 §9.3.2 answers an accessibility regression with a "CI hard block for defined automated
+checks".
+These are the defined checks:
+- **Every route,** in the scope that serves it and with a row of data, runs axe-core's WCAG 2.0,
+  2.1 and 2.2 rules at levels A and AA (`wcag2a`, `wcag2aa`, `wcag21a`, `wcag21aa`, `wcag22aa`) and
+  has no violation. The bulk outcome view is checked the same way.
+- **Only those rules run.** A failure is then a conformance failure, not a best-practice preference.
+- **What they cannot show.** axe-core finds "on average 57% of WCAG issues automatically", and
+  returns as incomplete what it "could not be certain" of, where "manual review is needed" [R3].
+  The tests run in jsdom, which lays nothing out. Colour contrast and WCAG 2.2's target size need
+  layout, so here they come back incomplete rather than passing.
+- **The production gate's conformance evidence stays manual:** keyboard operation, a screen reader
+  pass, contrast and target size in a real browser. The automated checks keep a known failure out;
+  they do not certify conformance.
+
+### End to End (1.4.0)
+
+No browser runs against a live stack here. Each control is exercised across the boundary it crosses:
+- **Provider mode, at the BFF:** a real PostgreSQL session store and a stand-in Organization Control
+  API (`bff/test/scope.test.ts`). The step-up, the reason, the duration bound, approval, the
+  targets, and the end at `ends_at` with the clock advanced past it. Leaving and signing out each end
+  the activation.
+- **Provider mode, in the application** (`App.test.tsx`): a window reaching its `ends_at` closes
+  with no action from the operator. The scope is read again at that moment, the banner and the
+  provider surfaces go, and the operator is told it ended.
+- **Bulk, at the BFF:** a preview, an interrupted execution sent again with the same key, and the
+  continuation, through the scope guard in a Tenant scope.
+- **Bulk, in the application** (`bulk.test.tsx`): the recovery above.
+
+A browser end-to-end test needs what this repository does not hold:
+- the identity kernel's hosted login, for a fresh `aal2` provider sign-in;
+- an Organization Control with a second provider to approve;
+- the BFF, and a browser driver.
+
+That is a stack-level proof, and it belongs in a CI job that brings the stack up, as the system
+proofs of the services do. It is recorded in the ROADMAP's production gate.
 
 ### Conformance
 
@@ -501,7 +556,8 @@ elevated to read something they could have read without elevating, which indicat
 tenant-scope views are missing information rather than that the operator did wrong.
 
 Runbooks required before production: provider-access review, bulk operation partial
-failure recovery, and stuck offboarding.
+failure recovery, and stuck offboarding. They are written in
+`docs/runbooks/organization-experience-operations.md` (1.4.0).
 
 ## Traceability
 
@@ -536,3 +592,5 @@ UI Platform ships its primitives (SAD-012 1.1.0 §7.3).
 | :-- | :-- |
 | R1 | Microsoft, *Configure Microsoft Entra role settings in Privileged Identity Management*, <https://learn.microsoft.com/en-us/entra/id-governance/privileged-identity-management/pim-how-to-change-default-settings>, accessed 2026-10-07: "You can require users to enter a business justification when they activate the eligible assignment"; "To enforce reauthentication on every role activation, configure the Conditional Access policy targeting your authentication context with sign-in frequency set to Every time under Session controls"; activation maximum duration "can be from one to 24 hours". |
 | R2 | OWASP, *Multi-Tenant Application Security Cheat Sheet*, §1, <https://cheatsheetseries.owasp.org/cheatsheets/Multi_Tenant_Security_Cheat_Sheet.html>, accessed 2026-10-04 (as quoted by ADR-IAM-006): "Treat client-supplied tenant identifiers as selectors only. Verify that the authenticated principal is authorized to act in the selected tenant." The window's targets and the entry page's Tenant are selectors; the API decides. |
+| R3 | Deque, *axe-core* README, <https://github.com/dequelabs/axe-core/blob/develop/README.md>, accessed 2026-10-07: "With axe-core, you can find on average 57% of WCAG issues automatically." and "Additionally, axe-core will return elements as "incomplete" where axe-core could not be certain, and manual review is needed." (1.4.0) |
+| R4 | IETF, *The Idempotency-Key HTTP Header Field*, draft-ietf-httpapi-idempotency-key-header-07, §2.6, <https://datatracker.ietf.org/doc/html/draft-ietf-httpapi-idempotency-key-header>, accessed 2026-10-07: "The request was retried after the original request completed. The resource SHOULD respond with the result of the previously completed operation, success or an error." (1.4.0) |
