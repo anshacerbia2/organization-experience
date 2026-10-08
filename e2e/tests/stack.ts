@@ -242,6 +242,41 @@ export async function sessionRow(schema: string, cookie: string): Promise<Sessio
   }
 }
 
+// Refreshes watches one session's row and records each new access token expiry it sees, and when: a
+// refresh the BFF made. After a revocation is applied, none may succeed.
+export class Refreshes {
+  readonly seen: { at: number; expiresAt: number }[] = [];
+  #running = false;
+  #loop: Promise<void> = Promise.resolve();
+
+  constructor(
+    private readonly schema: string,
+    private readonly cookie: string,
+  ) {}
+
+  start(): void {
+    this.#running = true;
+    this.#loop = (async () => {
+      while (this.#running) {
+        const row = await sessionRow(this.schema, this.cookie).catch(() => null);
+        if (row === null) break;
+        const expiresAt = row.accessExpiresAt.getTime();
+        if (this.seen.at(-1)?.expiresAt !== expiresAt) this.seen.push({ at: Date.now(), expiresAt });
+        await new Promise((resolve) => setTimeout(resolve, 2_000));
+      }
+    })();
+  }
+
+  async stop(): Promise<void> {
+    this.#running = false;
+    await this.#loop;
+  }
+
+  after(instant: number): number {
+    return this.seen.filter((x) => x.at > instant).length;
+  }
+}
+
 // --- the kernel, read as its console administrator -------------------------------------------------
 
 const kernelAdmin = required('KC_ADMIN_URL').replace(/\/+$/, '');
@@ -370,6 +405,15 @@ export class ActiveTab {
       }
       await new Promise((resolve) => setTimeout(resolve, Math.max(0, 1_000 - (Date.now() - sentAt))));
     }
+  }
+
+  // statuses counts the answers to the reads sent at or after the instant, by status.
+  statuses(instant: number): Record<string, number> {
+    const counts: Record<string, number> = {};
+    for (const sample of this.samples.filter((x) => x.sentAt >= instant)) {
+      counts[String(sample.status)] = (counts[String(sample.status)] ?? 0) + 1;
+    }
+    return counts;
   }
 
   // firstAfter is the first answer to a read sent at or after the instant with the given status.

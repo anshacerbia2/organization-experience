@@ -18,6 +18,7 @@ import {
   iso,
   kernel,
   kernelUserOf,
+  Refreshes,
   l0LifetimeSeconds,
   l0RevocationTargetSeconds,
   seconds,
@@ -52,9 +53,12 @@ test('a kernel session removed ends the identity BFF session within the remainin
     const signedIn = await sessionRow(schema, cookie);
     if (signedIn === null || signedIn.keycloakSessionId === null)
       throw new Error('no session row with a kernel sid');
+    const signedInAt = Date.now();
     const kernelSession = signedIn.keycloakSessionId;
     const tab = new ActiveTab(page, '/api/v1/me/sessions');
     tab.start();
+    const refreshes = new Refreshes(schema, cookie);
+    refreshes.start();
 
     // The second device ends the first one's session from the sessions page.
     const other = await second.newPage();
@@ -89,19 +93,46 @@ test('a kernel session removed ends the identity BFF session within the remainin
     );
     const atRemoval = (await sessionRow(schema, cookie)) ?? atAccept;
     const backChannel = await backChannelLogoutUrl('identity-experience-bff');
+    const bound = atRemoval.accessExpiresAt.getTime() - acceptedAt;
 
+    // What is known before the wait, kept even if the session never ends.
+    const known = {
+      class: 'Session',
+      subject:
+        'a session of the identity-experience BFF, ended from another device in the account application',
+      accepted_at: iso(acceptedAt),
+      kernel_session_removed_at: iso(removedAt),
+      access_token_lifetime_at_sign_in_seconds: seconds(signedIn.accessExpiresAt.getTime() - signedInAt),
+      access_token_expires_at_acceptance: iso(atAccept.accessExpiresAt),
+      access_token_expires_at_kernel_removal: iso(atRemoval.accessExpiresAt),
+      propagation_seconds: seconds(removedAt - acceptedAt),
+      bound_seconds: seconds(bound),
+      bound_formula: 'access token expiry at kernel removal - acceptance (SAD-001 §7.7, Session class)',
+      l0_lifetime_seconds: l0LifetimeSeconds,
+      l0_revocation_target_seconds: l0RevocationTargetSeconds,
+      back_channel: { registered: backChannel !== null, url: backChannel },
+      poll_interval_seconds: 1,
+    };
     await waitUntil(
       'the first device’s BFF session ends',
-      Math.max(0, acceptedAt + l0RevocationTargetSeconds * 1000 - Date.now()) + 30_000,
+      Math.max(l0RevocationTargetSeconds * 1000, bound) + 60_000 - (Date.now() - acceptedAt),
       250,
       () => Promise.resolve(tab.firstAfter(acceptedAt, 401) !== undefined),
-    );
+    ).catch((error: unknown) => {
+      writeEvidence('session-removal', {
+        ...known,
+        session_destroyed_at: null,
+        refreshes_after_kernel_removal: refreshes.after(removedAt),
+        answers_after_acceptance: tab.statuses(acceptedAt),
+      });
+      throw error;
+    });
     await tab.stop();
+    await refreshes.stop();
     const destroyed = tab.firstAfter(acceptedAt, 401);
     if (destroyed === undefined) throw new Error('no 401 was recorded');
     expect(await sessionRow(schema, cookie), 'the session row is gone').toBeNull();
     const measured = destroyed.at - acceptedAt;
-    const bound = atRemoval.accessExpiresAt.getTime() - acceptedAt;
     const afterRemoval = destroyed.at - removedAt;
     const lifetime = l0LifetimeSeconds * 1000;
 
@@ -109,31 +140,16 @@ test('a kernel session removed ends the identity BFF session within the remainin
     await expect(page.getByText('Where you are signed in')).toHaveCount(0);
 
     const evidence = {
-      class: 'Session',
-      subject:
-        'a session of the identity-experience BFF, ended from another device in the account application',
-      accepted_at: iso(acceptedAt),
-      kernel_session_removed_at: iso(removedAt),
-      access_token_expires_at_acceptance: iso(atAccept.accessExpiresAt),
-      access_token_expires_at_kernel_removal: iso(atRemoval.accessExpiresAt),
+      ...known,
       session_destroyed_at: iso(destroyed.at),
-      propagation_seconds: seconds(removedAt - acceptedAt),
       measured_seconds: seconds(measured),
-      bound_seconds: seconds(bound),
-      bound_formula: 'access token expiry at kernel removal - acceptance (SAD-001 §7.7, Session class)',
-      l0_lifetime_seconds: l0LifetimeSeconds,
-      l0_revocation_target_seconds: l0RevocationTargetSeconds,
       within_bound: measured <= bound,
-      back_channel: {
-        registered: backChannel !== null,
-        url: backChannel,
-        ended_after_kernel_removal_seconds: seconds(afterRemoval),
-      },
+      refreshes_after_kernel_removal: refreshes.after(removedAt),
+      back_channel: { ...known.back_channel, ended_after_kernel_removal_seconds: seconds(afterRemoval) },
       mechanism:
         backChannel !== null && afterRemoval < 10_000
           ? 'back-channel logout'
           : 'refresh refused by the kernel',
-      poll_interval_seconds: 1,
     };
     writeEvidence('session-removal', evidence);
     summarize([
@@ -156,6 +172,7 @@ test('a kernel session removed ends the identity BFF session within the remainin
     if (backChannel !== null) {
       expect(afterRemoval, 'a registered back-channel logout ends the session at once').toBeLessThan(10_000);
     }
+    expect(evidence.refreshes_after_kernel_removal, 'no refresh succeeds once the kernel removed it').toBe(0);
   } finally {
     await first.close();
     await second.close();
