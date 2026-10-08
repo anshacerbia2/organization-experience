@@ -53,7 +53,7 @@ test('a kernel session removed ends the identity BFF session within the remainin
     if (signedIn === null || signedIn.keycloakSessionId === null)
       throw new Error('no session row with a kernel sid');
     const kernelSession = signedIn.keycloakSessionId;
-    const tab = new ActiveTab(first, `${bff}/api/v1/me/sessions`);
+    const tab = new ActiveTab(page, '/api/v1/me/sessions');
     tab.start();
 
     // The second device ends the first one's session from the sessions page.
