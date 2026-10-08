@@ -10,7 +10,10 @@ to find everything else.
 
 ## Provider-access review
 
-**When.** On the cadence the platform owner sets, and after every use of an emergency grant.
+**When.** Weekly, and after every use of an emergency grant. A provider's access unreviewed seven
+days after it occurred is overdue (`ADR-ORG-002 §5.6`), as CIS asks: "Conduct reviews on a weekly, or
+more frequent, basis" [R4]. Who holds provider authority is reviewed on the cadence the platform
+owner sets.
 Privileged access needs are not fixed: "The need for access to privileged Azure resource and
 Microsoft Entra roles by your users changes over time. To reduce the risk associated with stale role
 assignments, you should regularly review access" [R1]. An emergency grant is also reviewed at least
@@ -18,14 +21,16 @@ every 90 days, as Microsoft's emergency access drill is [R2]
 (`TDD-organization-control-001` §Emergency Grant Validation).
 
 **Who.** A provider who is not the subject of what is being reviewed. Separation is the rule the API
-already holds for approval (`provider_activation_separation_check`).
+already holds for approval (`provider_activation_separation_check`), and it holds the review to it
+too: the **Access review** screen offers no review of your own access, and the API and the database
+refuse one.
 
 1. **Read the activations.** Sign in as a provider and open **Activation requests**. Without a window
    of your own, write a review reason first; the read is recorded as privileged access.
    - The page lists pending activations. `GET /v1/provider-activations` serves pending, in force,
      and the last 100, newest first (`TDD-organization-control-001` §Provider Activation).
-   - An activation past the last 100 is read from the privileged-access record. Organization
-     Control serves no route for it (see the last step).
+   - An activation past the last 100 is read from the privileged-access record: on **Access
+     review**, filter the holder's accesses by authority `activation`.
 2. **Check each activation against its own record:**
    - The reason names the work. A reason such as "investigation" names nothing to check against.
    - Another provider approved it. The database refuses a self-approval, so a self-approved row is
@@ -35,7 +40,11 @@ already holds for approval (`provider_activation_separation_check`).
    - The Tenants named were the ones needed. "Every Tenant" needs a reason that covers every Tenant.
 3. **Match the work to the window.** Every provider request carries the window's correlation
    identifier (`TDD-organization-experience-001` §The Scope Guard).
-   - Find the privileged-access records under that correlation.
+   - Enter provider mode and open **Access review**. It lists each provider with access no review
+     covers: the count, the emergency uses, the oldest and the due date. Choose one.
+   - Its accesses for the period are listed, each with the authority, the operation, the Tenant it
+     named, the reason and the correlation. Filter by the window's correlation identifier to find
+     the records the window produced.
    - A window with no records beyond the activation routes is the "Provider mode entered without a
      subsequent action" signal (`TDD-organization-experience-001` §Operational Notes). It usually
      means the Tenant-scope views lack something the operator needed. Record which view; it is a
@@ -60,12 +69,15 @@ already holds for approval (`provider_activation_separation_check`).
    - End an activation still in force: `POST /v1/provider-activations/{id}/end`, by its holder or a
      provider in force, with a reason.
    - Revoke the grant, and raise the incident with the correlation identifiers.
-7. **Record the review.** In the ticket that scheduled it: the period, the activation identifiers,
-   the findings and the actions taken.
+7. **Record the review.** On **Access review**, for each provider reviewed: choose the outcome,
+   *Appropriate* or *Escalated as possible misuse*, write the statement (what you checked, and the
+   ticket), and record it. The answer shows how many accesses, and emergency uses, the period held;
+   check them against what you read. The review is kept and cannot be changed. Put the grants kept
+   and revoked in the ticket that scheduled the review.
 
-**Not served yet.** No Organization Control route reads `audit.privileged_access`. Step 3, and any
-activation older than the last 100, needs the record read some other way. Choosing that way, and its
-access control, is an owner decision recorded in the ROADMAP.
+**A Tenant's view.** A Tenant administrator reads, on **Provider access** in Tenant scope, the
+provider access that named their Tenant, with the reason each provider gave. A provider read across
+every Tenant names none and is not shown there; it is reviewed here (`ADR-ORG-002 §5.6`).
 
 ## Bulk operation partial failure
 
@@ -203,3 +215,4 @@ application's prefix: `ORGANIZATION_EXPERIENCE_DATABASE_URL`, `ORGANIZATION_EXPE
 | R1 | Microsoft, *Create an access review of Azure resource and Microsoft Entra roles in PIM*, <https://learn.microsoft.com/en-us/entra/id-governance/privileged-identity-management/pim-create-roles-and-resource-roles-review>, accessed 2026-10-07: "The need for access to privileged Azure resource and Microsoft Entra roles by your users changes over time. To reduce the risk associated with stale role assignments, you should regularly review access." |
 | R2 | Microsoft, *Manage emergency access admin accounts*, <https://learn.microsoft.com/en-us/entra/identity/role-based-access-control/security-emergency-access>, accessed 2026-10-07: "Maintain at least two emergency access accounts for redundancy."; "Validate account functionality at least every 90 days."; a post-mortem determines whether the account was used "For a planned drill to validate its suitability", "In response to an actual emergency where no administrator could use their regular accounts", or "As a result of misuse or unauthorized usage of the account"; "Next, examine the logs to determine what actions the individual with the emergency access account took to ensure that those actions align with the authorized use of the account." |
 | R3 | IETF, *The Idempotency-Key HTTP Header Field*, draft-ietf-httpapi-idempotency-key-header-07, §2.6, <https://datatracker.ietf.org/doc/html/draft-ietf-httpapi-idempotency-key-header>, accessed 2026-10-07: "The request was retried after the original request completed. The resource SHOULD respond with the result of the previously completed operation, success or an error." |
+| R4 | Center for Internet Security, *CIS Controls Assessment Specification v8.1*, Safeguard 8.11, <https://cas.docs.cisecurity.org/en/latest/source/Controls8/>, accessed 2026-10-08: "Conduct reviews of audit logs to detect anomalies or abnormal events that could indicate a potential threat. Conduct reviews on a weekly, or more frequent, basis." |

@@ -3,7 +3,7 @@ doc_meta:
   id: TDD-organization-experience-001
   title: Administrative Scope, Provider Mode, and Safe Bulk Operations
   owner: Core Platform Team
-  version: 1.5.0
+  version: 1.6.0
   status: approved
   classification: restricted
   review_cycle_days: 90
@@ -276,7 +276,7 @@ document naming the scope.
 
 | Active scope              | Reaches                                                                            |
 | :------------------------ | :--------------------------------------------------------------------------------- |
-| Tenant                    | `/v1/memberships…`, `/v1/membership-batches…`, `/v1/workspaces…`, `/v1/invitations…` except the provider-only invitation routes. No path names a Tenant, and the API takes the Tenant from the token |
+| Tenant                    | `/v1/memberships…`, `/v1/membership-batches…`, `/v1/workspaces…`, `/v1/invitations…` except the provider-only invitation routes, and `/v1/provider-access` (1.6.0). No path names a Tenant, and the API takes the Tenant from the token |
 | Provider, no window       | `/v1/provider-activations…` alone, as the API admits an eligible caller              |
 | Provider, window pending  | The same                                                                           |
 | Provider, window in force | Every route, except a path or a JSON body naming a Tenant outside the window's targets |
@@ -297,6 +297,12 @@ A Tenant-scope request carries neither: the API records no privileged access for
 guard did not list it, so a bulk preview in a Tenant scope was refused before it left the BFF. The
 application's tests answer at `fetch` and never reached the guard, which is why the BFF now carries
 a bulk action through its own test (§Testing Strategy, End to End).
+
+**The provider access to a Tenant is a Tenant route (1.6.0).** `GET /v1/provider-access` is a Tenant
+administrator's read of the provider access that named its Tenant (`ADR-ORG-002 §5.6`,
+`TDD-organization-experience-002` 1.5.0). It names no Tenant, and the guard lists it. The provider
+routes of the same record, `/v1/privileged-access…`, need a window in force like every provider
+route.
 
 ## Algorithms / Logic
 

@@ -250,5 +250,11 @@ offboarding.
 - ⏳ **Manual WCAG 2.2 AA evidence is still needed:** keyboard, screen reader, contrast and target
   size in a real browser. Automated checks find only part of what conformance needs.
 - ✅ **Runbooks:** `docs/runbooks/organization-experience-operations.md`.
-- ⏳ **The provider-access review needs `audit.privileged_access` to be readable.** Organization
-  Control serves no route for it, and how a reviewer reads it is an owner decision.
+- ✅ **The provider-access review reads and records against `audit.privileged_access`**
+  (`ADR-ORG-002 §5.6`, `TDD-organization-experience-002` 1.5.0, 2026-10-08).
+  - **Access review**, in provider mode, lists each provider with access no review covers, reads
+    one provider's accesses over a period with the API's filters, and records a review with an
+    outcome and a statement. The operator's own access offers no review; the API refuses one.
+  - **Provider access**, in Tenant scope, lists the provider access that named the Tenant. The scope
+    guard admits `/v1/provider-access` in a Tenant scope (`TDD-organization-experience-001` 1.6.0).
+  - Served by Organization Control from `TDD-organization-control-001` 1.21.0 (its backlog item 40).

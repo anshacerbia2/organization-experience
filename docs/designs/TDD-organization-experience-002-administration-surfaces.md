@@ -3,12 +3,12 @@ doc_meta:
   id: TDD-organization-experience-002
   title: Organization, Tenant, Workspace, and Membership Administration Surfaces
   owner: Core Platform Team
-  version: 1.4.0
+  version: 1.5.0
   status: approved
   classification: restricted
   review_cycle_days: 90
   created_date: 2026-08-11
-  last_reviewed: 2026-10-07
+  last_reviewed: 2026-10-08
   parent_sad: SAD-012
 ---
 
@@ -35,6 +35,7 @@ interface or it will be misread.
 - Membership grant, suspend, revoke, restore, and the invitation path.
 - Context switching for operators holding many Memberships.
 - Projection consumer health.
+- The provider-access review, and a Tenant's read of the provider access to it (1.5.0).
 
 **Out of scope**
 
@@ -68,6 +69,8 @@ Each is rendered as its own state here, with the consequence stated.
 | `MembershipAdmin` | Grant, suspend, revoke, restore, and the invitation path |
 | `ContextSwitcher` | Operator's eligible contexts and the switch |
 | `ProjectionHealth` | Consumer registry, freshness, reconciliation status |
+| `AccessReview` | Provider access no one has reviewed, one provider's access over a period, and the review recorded (1.5.0) |
+| `TenantProviderAccess` | A Tenant administrator's read of the provider access that named its Tenant (1.5.0) |
 
 ## Data Model
 
@@ -211,6 +214,49 @@ in the list and in the single read, carries its last reconciliation (§The Consu
 - **The operator's own request** is shown as theirs, with no decision control. The API refuses a
   self-approval regardless.
 
+**The provider-access review (1.5.0).** `ADR-ORG-002 §5.6` makes the privileged-access record
+readable, and `TDD-organization-control-001` 1.21.0 §Privileged Access Review serves it. Until 1.5.0
+the operations runbook read it some other way, and nothing recorded the review.
+
+```text
+Provider mode, window in force                                   Tenant scope
+GET   /api/v1/privileged-access:unreviewed                       GET  /api/v1/provider-access
+GET   /api/v1/privileged-access   ?actor_id&tenant_id&correlation_id&authority&from&to      ?authority&from&to
+GET   /api/v1/privileged-access/reviews   ?actor_id
+POST  /api/v1/privileged-access/reviews   {"actor_id", "from", "to", "outcome"}
+```
+
+- **Who reviews.** A provider in force, so the surface is a provider-mode one, and the window's reason
+  and correlation go with every read. A grant holder with nothing in force reaches only the
+  activation routes, at the API and at the scope guard.
+- **What the reviewer sees first:** each Principal with provider access no review covers, oldest
+  first. Each shows the number unreviewed, how many were emergency uses, the oldest, and the date it
+  falls due. One past its date is marked overdue. The review is due weekly (CIS 8.11).
+- **The operator's own access** is shown as theirs, with no review control. Another provider reviews
+  it, and the API refuses a self-review with `403` regardless. This is the approval surface's rule,
+  for the same reason.
+- **Choosing a Principal** opens its accesses for the period, oldest first, from its oldest
+  unreviewed access to now. Each access shows when, the authority (an emergency use named as one,
+  an activation with its identifier), the operation, the Tenant it named or "across Tenants", the
+  reason, and the correlation. The filters are the API's: authority, Tenant, correlation, and the
+  period's `from` and `to`. The list pages by keyset; a filter change starts again.
+- **Recording the review.** The reviewer states the outcome, `appropriate` or `escalated`, and a
+  statement, which is the command's reason and is required. The period is the one shown, `from`
+  inclusive and `to` exclusive. The command carries an `Idempotency-Key` per distinct request and the
+  session's CSRF token, as every command does. The answer is shown as recorded: how many accesses,
+  and how many emergency ones, the period held. Those counts are the API's, taken when the review was
+  recorded, and the reviewer compares them with what they read.
+- **The Principal's past reviews** are listed beside it, in the order they were recorded, paged by keyset, each with its period,
+  outcome, statement, counts and reviewer.
+- **A Tenant administrator** reads the provider access that named their Tenant, in Tenant scope:
+  when, the authority, the operation, the reason and the correlation, with the authority filter and
+  the period. The page says what it does not show: a provider read across Tenants names no Tenant,
+  and is reviewed by providers. It records nothing, because a Tenant reading its own record is not
+  provider access, and it offers no review: the review is the providers'.
+- **Times are entered and shown in the operator's zone and sent with their offset.** A `from` or
+  `to` without an offset is refused by the API (`STD-GLB-001` 1.5.0), so the page sends each as an
+  RFC 3339 instant in UTC.
+
 ## Algorithms / Logic
 
 ### Tenant States Are Rendered Individually
@@ -321,6 +367,18 @@ An `extra` reconciliation finding renders as a security finding, matching how
 - The approval surface lists pending activations and decides with a reason. It never offers the
   operator their own request.
 
+### Provider-Access Review (1.5.0)
+
+- The unreviewed list renders each Principal with its counts and due date, and an overdue one as
+  overdue. The operator's own Principal renders as theirs, with no review control.
+- A Principal's accesses read with the filters set, page by `next`, and render an emergency use and
+  an access across Tenants as such.
+- Recording a review sends `actor_id`, the period, the outcome, the statement as
+  `X-Administrative-Reason`, an `Idempotency-Key` and the CSRF token, and shows the counts the API
+  answered. A missing statement is refused before sending, and a refusal shows the API's sentence.
+- The Tenant's page lists its provider access with the authority filter and says what it leaves out.
+- Both pages pass axe-core's WCAG 2.2 A and AA rules with a row of data.
+
 ### Lifecycle Rendering
 
 - `requested`, `provisioning`, `unresolved`, `failed`, `active`, and `suspended` each
@@ -403,3 +461,6 @@ investigation.
 | Conforms to | STD-GLB-001 §Pagination — keyset paging, no offsets (1.2.0) |
 | Conforms to | STD-GLB-FE-001 §Technology Stack — server state through TanStack Query (1.2.0) |
 | Governed by | ADR-ORG-002 — an activation approved by another provider (1.2.0) |
+| Governed by | ADR-ORG-002 §5.6 — the privileged-access record read and reviewed (1.5.0) |
+| Depends on | `TDD-organization-control-001` 1.21.0 §Privileged Access Review — the routes this review reads and writes (1.5.0) |
+| Conforms to | STD-GLB-001 1.5.0 §Pagination — the time window, `from` inclusive and `to` exclusive (1.5.0) |
