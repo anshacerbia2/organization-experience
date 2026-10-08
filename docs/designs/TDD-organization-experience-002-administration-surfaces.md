@@ -254,7 +254,7 @@ POST  /api/v1/privileged-access/reviews   {"actor_id", "from", "to", "outcome"}
   and is reviewed by providers. It records nothing, because a Tenant reading its own record is not
   provider access, and it offers no review: the review is the providers'.
 - **Times are entered and shown in the operator's zone and sent with their offset.** A `from` or
-  `to` without an offset is refused by the API (`STD-GLB-001` 1.5.0), so the page sends each as an
+  `to` without an offset is refused by the API (`STD-GLB-001` 1.6.0), so the page sends each as an
   RFC 3339 instant in UTC.
 
 ## Algorithms / Logic
@@ -463,4 +463,4 @@ investigation.
 | Governed by | ADR-ORG-002 — an activation approved by another provider (1.2.0) |
 | Governed by | ADR-ORG-002 §5.6 — the privileged-access record read and reviewed (1.5.0) |
 | Depends on | `TDD-organization-control-001` 1.21.0 §Privileged Access Review — the routes this review reads and writes (1.5.0) |
-| Conforms to | STD-GLB-001 1.5.0 §Pagination — the time window, `from` inclusive and `to` exclusive (1.5.0) |
+| Conforms to | STD-GLB-001 1.6.0 §Pagination — the time window, `from` inclusive and `to` exclusive (1.5.0) |

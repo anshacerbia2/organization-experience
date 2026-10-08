@@ -57,7 +57,7 @@ const providerAuthorities: readonly Authority[] = ['emergency', 'activation', 'e
 const tenantAuthorities: readonly Authority[] = ['emergency', 'activation', 'eligible'];
 
 // The period is entered in the operator's zone, to the minute, and sent as an RFC 3339 instant in UTC:
-// the API refuses an instant without its offset (STD-GLB-001 1.5.0).
+// the API refuses an instant without its offset (STD-GLB-001 1.6.0).
 const pad = (value: number): string => String(value).padStart(2, '0');
 export const toLocalInput = (instant: Date): string =>
   `${String(instant.getFullYear())}-${pad(instant.getMonth() + 1)}-${pad(instant.getDate())}T${pad(
