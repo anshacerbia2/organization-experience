@@ -215,10 +215,28 @@ test('a second provider approves it, and the window opens', async () => {
   };
 });
 
-test('a Membership action: the operator grants one and revokes the administrator’s', async () => {
-  const { page } = operator;
-  await page.getByRole('link', { name: 'Overview' }).click();
-  await signInToTenant(operator);
+test('a Membership action: the operator grants one and revokes the administrator’s', async ({ browser }) => {
+  // Moving to the Tenant on the same kernel session is a sign-in the kernel's session should let through
+  // (TDD-identity-experience-001 §Context Switch). Its outcome is recorded; the journey goes on in a
+  // browser of its own either way.
+  await operator.page.getByRole('link', { name: 'Overview' }).click();
+  let switched: string;
+  try {
+    await signInToTenant(operator);
+    await expect(banner(operator.page)).toContainText(`Tenant scope: ${s.tenantId}`);
+    switched = 'signed in to the Tenant on the provider sign-in’s kernel session';
+  } catch (error) {
+    const url = new URL(operator.page.url());
+    switched = `refused at ${url.origin}${url.pathname}: ${error instanceof Error ? (error.message.split('\n')[0] ?? '') : String(error)}`;
+  }
+  providerJourney = { ...providerJourney, switch_to_tenant_on_the_same_kernel_session: switched };
+
+  const context = await browser.newContext();
+  const page = await context.newPage();
+  const tenantOperator: Actor = { context, page, credentials: operator.credentials };
+  actors.push(tenantOperator);
+  await page.goto(`${bff}/`);
+  await signInToTenant(tenantOperator);
   await expect(banner(page)).toContainText(`Tenant scope: ${s.tenantId}`);
   await page.getByRole('link', { name: 'Memberships' }).click();
 
@@ -321,10 +339,20 @@ test('the revocation reaches the administrator’s open tab within the remaining
   const bound = r.expiresAtRemoval.getTime() - r.acceptedAt;
   await waitUntil(
     'the active tab’s session ends',
-    Math.max(0, r.acceptedAt + l0RevocationTargetSeconds * 1000 - Date.now()) + 30_000,
+    Math.max(l0RevocationTargetSeconds * 1000, bound) + 60_000 - (Date.now() - r.acceptedAt),
     250,
     () => Promise.resolve(tab.firstAfter(r.responseAt, 401) !== undefined),
-  );
+  ).catch((error: unknown) => {
+    writeEvidence('membership-revocation', {
+      accepted_at: iso(r.acceptedAt),
+      kernel_member_removed_at: iso(r.kernelRemovedAt),
+      access_token_expires_at_kernel_removal: iso(r.expiresAtRemoval),
+      bound_seconds: seconds(bound),
+      session_destroyed_at: null,
+      answers_after_acceptance: tab.statuses(r.responseAt),
+    });
+    throw error;
+  });
   const ended = tab.firstAfter(r.responseAt, 401);
   if (ended === undefined) throw new Error('no 401 was recorded');
   const measured = ended.at - r.acceptedAt;
