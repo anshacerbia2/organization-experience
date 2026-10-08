@@ -202,8 +202,12 @@ export async function signIn(page: Page, bff: string, credentials: Credentials):
 
 export const sessionCookie = '__Host-ident_session';
 
+// sessionCookieOf reads the context's session cookie. Asked for by an http:// URL, Playwright leaves
+// out a Secure cookie, and every cookie here is Secure on a loopback origin, so the context's whole jar
+// is read: each context signs in to one BFF, on one host.
 export async function sessionCookieOf(context: BrowserContext, origin: string): Promise<string> {
-  const cookie = (await context.cookies(origin)).find((c) => c.name === sessionCookie);
+  const host = new URL(origin).hostname;
+  const cookie = (await context.cookies()).find((c) => c.name === sessionCookie && c.domain === host);
   if (cookie === undefined) {
     throw new Error(`no ${sessionCookie} for ${origin}`);
   }
