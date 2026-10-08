@@ -308,6 +308,15 @@ export async function kernel<T>(pathAndQuery: string): Promise<T> {
   return (await response.json()) as T;
 }
 
+// kernelEvents reads the kernel's own record of a user's events of one type, newest first (the realm
+// records user events, TDD-identity-kernel-003): which sessions they named, and when.
+export async function kernelEvents(
+  userId: string,
+  type: string,
+): Promise<{ time: number; sessionId?: string; error?: string }[]> {
+  return kernel(`/events?user=${encodeURIComponent(userId)}&type=${encodeURIComponent(type)}&max=50`);
+}
+
 export async function kernelUserOf(principalId: string): Promise<string> {
   const users = await kernel<{ id: string }[]>(`/users?q=scnehaux_principal_id:${principalId}&exact=true`);
   const user = users[0];
