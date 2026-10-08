@@ -76,13 +76,18 @@ test('a kernel session removed ends the identity BFF session within the remainin
     const ended = other.waitForResponse(
       (r) => r.url().endsWith(':terminate') && r.request().method() === 'POST',
     );
+    const clickedAt = Date.now();
     await rows.getByRole('button', { name: 'End' }).click();
     const response = await ended;
-    const acceptedAt = Date.now();
+    const respondedAt = Date.now();
     expect([200, 202]).toContain(response.status());
-    const atAccept = await sessionRow(schema, cookie);
-    if (atAccept === null)
-      throw new Error('the first device’s session ended before the removal was accepted');
+    // Accepted is the security operation's own instant, as identity-control records it.
+    const operation = (await response.json()) as { created_at?: string };
+    const acceptedAt = operation.created_at === undefined ? respondedAt : Date.parse(operation.created_at);
+    // With a back channel the BFF may have ended the session before the answer reached this browser:
+    // the operation's read-back waits for the kernel, whose removal posts the logout token.
+    const rowAtAccept = await sessionRow(schema, cookie);
+    const atAccept = rowAtAccept ?? signedIn;
     await expect(
       other.getByText('Ended. That device signs in again to continue', { exact: false }),
     ).toBeVisible();
@@ -103,6 +108,7 @@ test('a kernel session removed ends the identity BFF session within the remainin
       subject:
         'a session of the identity-experience BFF, ended from another device in the account application',
       accepted_at: iso(acceptedAt),
+      session_ended_before_the_answer: rowAtAccept === null,
       kernel_session_removed_at: iso(removedAt),
       access_token_lifetime_at_sign_in_seconds: seconds(signedIn.accessExpiresAt.getTime() - signedInAt),
       access_token_expires_at_acceptance: iso(atAccept.accessExpiresAt),
@@ -119,7 +125,7 @@ test('a kernel session removed ends the identity BFF session within the remainin
       'the first device’s BFF session ends',
       Math.max(l0RevocationTargetSeconds * 1000, bound) + 60_000 - (Date.now() - acceptedAt),
       250,
-      () => Promise.resolve(tab.firstAfter(acceptedAt, 401) !== undefined),
+      () => Promise.resolve(tab.firstAfter(clickedAt, 401) !== undefined),
     ).catch((error: unknown) => {
       // What the kernel itself recorded, to say which side kept the session alive.
       return Promise.all([
@@ -132,7 +138,7 @@ test('a kernel session removed ends the identity BFF session within the remainin
           session_destroyed_at: null,
           refreshes_after_kernel_removal: refreshes.after(atRemoval.accessExpiresAt),
           refreshes_seen: refreshes.seen.map((x) => ({ at: iso(x.at), expires_at: iso(x.expiresAt) })),
-          answers_after_acceptance: tab.statuses(acceptedAt),
+          answers_after_acceptance: tab.statuses(clickedAt),
           kernel_sessions_after: sessions.map((x) => x.id),
           ended_session: kernelSession,
           kernel_refresh_events: refreshed.map((e) => ({ at: iso(e.time), session: e.sessionId ?? null })),
@@ -147,7 +153,7 @@ test('a kernel session removed ends the identity BFF session within the remainin
     });
     await tab.stop();
     await refreshes.stop();
-    const destroyed = tab.firstAfter(acceptedAt, 401);
+    const destroyed = tab.firstAfter(clickedAt, 401);
     if (destroyed === undefined) throw new Error('no 401 was recorded');
     expect(await sessionRow(schema, cookie), 'the session row is gone').toBeNull();
     const measured = destroyed.at - acceptedAt;
