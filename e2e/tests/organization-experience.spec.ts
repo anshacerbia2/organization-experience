@@ -20,6 +20,7 @@ import { expect, test, type BrowserContext, type Page } from '@playwright/test';
 import {
   ActiveTab,
   backChannelLogoutUrl,
+  fetchIn,
   FileCodes,
   iso,
   kernel,
@@ -129,7 +130,7 @@ test('a Tenant administrator signs in through the kernel’s hosted login', asyn
   await expect(page.getByRole('listitem').filter({ hasText: s.administrator.principalId })).toBeVisible();
 
   // The tab stays in use from here on.
-  activeTab = new ActiveTab(context, `${bff}/api/v1/memberships?limit=1`);
+  activeTab = new ActiveTab(page, '/api/v1/memberships?limit=1');
   activeTab.start();
 
   // A second session of the same person, left idle: no request until step 6.
@@ -148,7 +149,7 @@ test('provider mode is entered with a step-up and a reason', async () => {
   await expect(banner(page)).toContainText('Provider sign-in: provider mode is not active');
 
   // The session is a fresh aal2 provider sign-in: no Tenant, and an auth_time of just now.
-  const scope = (await (await page.request.get(`${bff}/auth/scope`)).json()) as {
+  const scope = JSON.parse((await fetchIn(page, '/auth/scope')).body) as {
     scope: string;
     acr: string | null;
     authTime: string | null;
@@ -294,12 +295,12 @@ test('provider mode ends on its own at ends_at, in the browser that held it', as
   await expect(held.getByText('This section opens in provider mode.', { exact: false })).toBeVisible();
   await expect(held.getByRole('link', { name: 'Tenants' })).toHaveCount(0);
   // The API stops honouring the activation at ends_at whatever the browser does.
-  const after = await held.request.get(`${bff}/api/v1/tenants?limit=1`, { failOnStatusCode: false });
-  expect(after.status(), 'a provider read after ends_at').toBe(403);
+  const after = await fetchIn(held, '/api/v1/tenants?limit=1');
+  expect(after.status, 'a provider read after ends_at').toBe(403);
   providerJourney = {
     ...providerJourney,
     closed_seen_in_browser_after_ends_at_seconds: seconds(closedSeenAt - windowEndsAt),
-    read_after_ends_at_status: after.status(),
+    read_after_ends_at_status: after.status,
   };
   writeEvidence('provider-mode', providerJourney);
 });
@@ -313,10 +314,8 @@ test('the revocation reaches the administrator’s open tab within the remaining
   // or the BFF's refresh is refused. Never served.
   const idleCookie = await sessionCookieOf(idleAdministrator.context, bff);
   const idleRow = await sessionRow(schema, idleCookie);
-  const idleEarly = await idleAdministrator.page.request.get(`${bff}/api/v1/memberships?limit=1`, {
-    failOnStatusCode: false,
-  });
-  expect([401, 403], 'the idle tab’s first request after the revocation').toContain(idleEarly.status());
+  const idleEarly = await fetchIn(idleAdministrator.page, '/api/v1/memberships?limit=1');
+  expect([401, 403], 'the idle tab’s first request after the revocation').toContain(idleEarly.status);
 
   // The active tab: the session ends when the BFF's refresh is refused.
   const bound = r.expiresAtRemoval.getTime() - r.acceptedAt;
@@ -344,11 +343,7 @@ test('the revocation reaches the administrator’s open tab within the remaining
     await new Promise((resolve) =>
       setTimeout(resolve, Math.max(0, idleRow.accessExpiresAt.getTime() - Date.now()) + 2_000),
     );
-    idleLate = (
-      await idleAdministrator.page.request.get(`${bff}/api/v1/memberships?limit=1`, {
-        failOnStatusCode: false,
-      })
-    ).status();
+    idleLate = (await fetchIn(idleAdministrator.page, '/api/v1/memberships?limit=1')).status;
   }
 
   // And the browser shows it: the page asks for a sign-in.
@@ -383,7 +378,7 @@ test('the revocation reaches the administrator’s open tab within the remaining
       why: 'A Membership revocation removes no kernel session (ADR-IAM-006 §5.5), so the kernel sends no logout token for it; the refresh path alone bounds it.',
     },
     idle_tab: {
-      first_request_after_revocation_status: idleEarly.status(),
+      first_request_after_revocation_status: idleEarly.status,
       request_after_token_expiry_status: idleLate,
     },
     poll_interval_seconds: 1,

@@ -7,7 +7,7 @@ import { createHash, createHmac } from 'node:crypto';
 import { appendFileSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 
-import type { APIResponse, BrowserContext, Page } from '@playwright/test';
+import type { BrowserContext, Page } from '@playwright/test';
 import pg from 'pg';
 
 export function required(name: string): string {
@@ -309,6 +309,19 @@ export async function waitUntil(
   throw new Error(`${label}: not within ${timeoutMs / 1000} s`);
 }
 
+// fetchIn makes a request from the page itself, with the cookie the browser holds and the page's own
+// origin: the request an open tab makes. Playwright's request context does not stand in for it, since
+// it leaves a Secure cookie out of a request to an http:// loopback origin, which Chromium sends.
+export async function fetchIn(page: Page, path: string): Promise<{ status: number; body: string }> {
+  return page.evaluate(async (target) => {
+    const response = await fetch(target, {
+      credentials: 'same-origin',
+      headers: { accept: 'application/json' },
+    });
+    return { status: response.status, body: await response.text() };
+  }, path);
+}
+
 // --- an active tab ----------------------------------------------------------------------------
 
 export interface Sample {
@@ -317,8 +330,8 @@ export interface Sample {
   readonly status: number;
 }
 
-// ActiveTab is a tab in use: it reads an API route through the BFF once a second with the context's
-// cookie, as an open page that keeps working does. Every read is a request that presents the session's
+// ActiveTab is a tab in use: the page reads an API route through the BFF once a second, as an open
+// page that keeps working does. Every read is a request that presents the session's
 // access token, so the BFF refreshes it near expiry (TDD-identity-experience-001 §Refresh).
 export class ActiveTab {
   readonly samples: Sample[] = [];
@@ -326,8 +339,8 @@ export class ActiveTab {
   #loop: Promise<void> = Promise.resolve();
 
   constructor(
-    private readonly context: BrowserContext,
-    private readonly url: string,
+    private readonly page: Page,
+    private readonly path: string,
   ) {}
 
   start(): void {
@@ -343,14 +356,14 @@ export class ActiveTab {
   async #run(): Promise<void> {
     while (this.#running) {
       const sentAt = Date.now();
-      let response: APIResponse | null = null;
+      let status = 0;
       try {
-        response = await this.context.request.get(this.url, { failOnStatusCode: false, maxRedirects: 0 });
+        status = (await fetchIn(this.page, this.path)).status;
       } catch {
-        response = null;
+        status = 0;
       }
-      this.samples.push({ sentAt, at: Date.now(), status: response?.status() ?? 0 });
-      if (response?.status() === 401) {
+      this.samples.push({ sentAt, at: Date.now(), status });
+      if (status === 401) {
         // The session is gone; a further read only repeats it.
         this.#running = false;
         break;
