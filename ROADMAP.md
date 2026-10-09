@@ -56,12 +56,14 @@ BFF; cookie properties match exactly.
 
 ## Week 2 · Scope
 
-- `ScopeContext`: active scope exposed to every view, ambiguous state refused
-- Provider mode entry: step-up, reason collected **before** the scope opens, target
+- ✅ `ScopeContext`: active scope exposed to every view, ambiguous state refused
+- ✅ Provider mode entry: step-up, reason collected **before** the scope opens, target
   selection, duration
-- `ScopeBanner`: persistent, non-dismissible, naming scope, target, and remaining time
-- Automatic expiry independent of session expiry
-- Scope correlation identifier carried on every action
+- ✅ `ScopeBanner`: persistent, non-dismissible, naming scope, target, and remaining time
+- ✅ Automatic expiry independent of session expiry
+- ✅ Scope correlation identifier carried on every action. The scope correlation is the provider
+  window's, so it is on every provider request; a Tenant-scope request carries none
+  (TDD-organization-experience-001 §The Scope Guard)
 
 **Exit:** an operator in tenant scope cannot issue a request naming another Tenant, and
 the attempt is refused before it leaves the BFF; provider mode without a reason cannot
@@ -101,15 +103,15 @@ is never asked".
 
 ## Week 3 · Administration surfaces
 
-- The provider activation approval surface: requests awaiting the operator's decision, approve
+- ✅ The provider activation approval surface: requests awaiting the operator's decision, approve
   or deny with a reason, never the operator's own
-
-- Organization registry views
-- Tenant lifecycle: activate, suspend, restore
-- Workspace administration within one Tenant
-- Membership grant, suspend, revoke, restore
-- Every mutation carrying idempotency key, optimistic version, reason, correlation
-- Version conflict surfaced, never retried
+- ✅ Organization registry views
+- ✅ Tenant lifecycle: activate, suspend, restore
+- ✅ Workspace administration within one Tenant
+- ✅ Membership grant, suspend, revoke, restore
+- ✅ Every mutation carrying idempotency key, optimistic version, reason, correlation. The
+  correlation is the provider window's, in provider mode only
+- ✅ Version conflict surfaced, never retried
 
 **Exit:** a mutation on a record that changed since it was displayed returns a conflict
 the operator can see and resolve.
@@ -153,12 +155,15 @@ conflict as one, and reads the list again rather than retrying".
 
 ## Week 4 · Bulk, freshness, and offboarding
 
-- Bulk preview: per-item current state, resulting state, and refusal reasons
-- Execution reusing the preview's idempotency key
-- Partial failure reported as succeeded, failed, and not-attempted, separately
-- Freshness markers rendered inline; irreversible paths calling the fresh check
-- Revocation shown as accepted, propagating, enforced, or over budget
-- Offboarding presented as staged and resumable, never as one button
+- ✅ Bulk preview: per-item current state, resulting state, and refusal reasons
+- ✅ Execution reusing the preview's idempotency key. As served, the preview is a batch resource,
+  and execution commits it with the key generated for that batch (ADR-ORG-004 §5.1)
+- ✅ Partial failure reported as succeeded, failed, and not-attempted, separately
+- ✅ Freshness markers rendered inline; irreversible paths calling the fresh check. As built, the
+  administrative reads are authoritative and carry no marker, and an irreversible operation
+  re-reads the record (Built block below)
+- ✅ Revocation shown as accepted, propagating, enforced, or over budget
+- ✅ Offboarding presented as staged and resumable, never as one button
 
 **Exit:** a bulk operation never reports a single aggregate success; a queued revocation
 is never shown as enforced.
