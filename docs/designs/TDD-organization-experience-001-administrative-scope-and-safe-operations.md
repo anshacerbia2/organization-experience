@@ -3,12 +3,12 @@ doc_meta:
   id: TDD-organization-experience-001
   title: Administrative Scope, Provider Mode, and Safe Bulk Operations
   owner: Core Platform Team
-  version: 1.7.0
+  version: 1.8.0
   status: approved
   classification: restricted
   review_cycle_days: 90
   created_date: 2026-08-11
-  last_reviewed: 2026-10-08
+  last_reviewed: 2026-10-09
   parent_sad: SAD-012
 ---
 
@@ -540,8 +540,9 @@ kernel's own pages:
 3. **Second-provider approval.** The bootstrap operator, another provider, reviews the requests with a
    reason of their own and approves this one with a reason. The window opens in the first provider's
    browser, which polls a pending window, and the Tenant is listed on the provider surface.
-4. **A Membership action.** The operator, signed in to the Tenant, grants a Membership and revokes the
-   Tenant administrator's. The revocation is shown by its evidence until it is `enforced`, never as
+4. **A Membership action.** The operator moves from the provider sign-in to the Tenant in the same
+   browser, and the BFF session the Tenant sign-in makes names the provider sign-in's kernel session
+   (1.8.0). There they grant a Membership and revoke the Tenant administrator's. The revocation is shown by its evidence until it is `enforced`, never as
    enforced on acceptance. The kernel still lists the administrator's sessions afterwards: a
    revocation removes none (`ADR-IAM-006 §5.5`).
 5. **Scope expiry reaching the browser.** The window ends at `ends_at` with no action: the banner
@@ -556,10 +557,18 @@ kernel's own pages:
 **What it found (1.7.0).** The Tenant sign-in form submitted itself to `/auth/login`, which redirects
 to the kernel, and Chromium checked that redirect against the BFF's `form-action 'self'` and refused it.
 The form now navigates by script, and the policy stays as the pattern sets it (STD-GLB-FE-003 2.1.0
-§3.5). It also records, without failing, whether moving from a provider sign-in to a Tenant on the same
-kernel session completes. On the kernel at `main` on 2026-10-08 it does not: the kernel answers its
-own error page, `invalid_user_credentials`, and the journey continues in a browser of its own. That is
-identity-kernel's to resolve, and the ROADMAP records it.
+§3.5). It also found that moving from a provider sign-in to a Tenant on the same kernel session failed:
+the kernel answered its own error page, `invalid_user_credentials`. Until 1.8.0 the proof recorded that
+outcome and went on in a browser of its own.
+
+**The same kernel session (1.8.0).** identity-kernel#63 fixed it in the realm: its browser flow,
+`scnehaux-browser-v4`, adds Keycloak's Organization Identity-First step after the cookie, so a sign-in
+naming an Organization on a session that has identified a person completes
+(`TDD-identity-kernel-001` 1.18.0 §Authentication Levels). Stack-proof run
+[37916092312](https://github.com/anshacerbia2/organization-experience/actions/runs/37916092312), with
+`kernel_ref` at that change, recorded the switch completing. Step 4 now requires it, in the operator's
+own browser, and the separate browser is gone. The BFF needed no change: it already sends the request
+`ADR-IAM-008` §5.2 specifies.
 
 **What it does not cover.** Bulk actions and offboarding stay at the boundaries above: STD-GLB-FE-008
 §3.4 limits a browser journey to the critical ones. One browser engine, a handful of people, and one
@@ -631,7 +640,7 @@ when its session store does not answer (1.5.0); the operator's steps are identit
 | Conforms to | STD-IAM-002 §3.1 — `privileged` audience class |
 | Enterprise constraint | EAD-006 — privileged access is scoped, time-bounded, attributable, and evidenced |
 | Depends on | `organization-control` — the Organization Control API, which reauthorizes every command |
-| Depends on | `identity-kernel` — hosted login and step-up |
+| Depends on | `identity-kernel` — hosted login and step-up, and a Tenant sign-in on a provider sign-in's kernel session (`TDD-identity-kernel-001` 1.18.0, 1.8.0) |
 | Build-time dependency | `scnehaux-ui-platform` — design system packages, once shipped (SAD-012 1.1.0 §1, §7.3) |
 | Conforms to | SAD-012 1.1.0 — a React SPA built with Vite behind the identity Fastify BFF, as ADR-GLB-FE-003 §5 and ADR-GLB-FE-011 §5.2 place an internal tool |
 | Governed by | ADR-IAM-008 — one client, the privileged form chosen per sign-in (1.2.0) |

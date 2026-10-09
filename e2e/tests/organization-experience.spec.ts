@@ -1,5 +1,5 @@
 // Organization Experience in a real browser against the stack (TDD-organization-experience-001 §End to
-// End, 1.6.0), and the measured Membership revocation of TDD-identity-experience-001 §Revocation:
+// End, 1.8.0), and the measured Membership revocation of TDD-identity-experience-001 §Revocation:
 //
 //   1. a Tenant administrator signs in through the kernel's hosted login, enrolling a TOTP, and a
 //      second session of theirs is left idle;
@@ -7,7 +7,8 @@
 //      refused provider mode without a reason, and requests it with one, for one Tenant and one minute;
 //   3. the bootstrap operator, another provider, approves it, and the window opens in the first
 //      provider's browser;
-//   4. the operator, in the Tenant, grants a Membership and revokes the administrator's;
+//   4. the operator moves to the Tenant on the same kernel session, grants a Membership there and
+//      revokes the administrator's;
 //   5. the window ends on its own at ends_at, in the browser that held it;
 //   6. the revocation reaches the administrator's open tab within the remaining L0 lifetime, by the
 //      refresh path, and their idle tab's first request after it is refused.
@@ -215,29 +216,28 @@ test('a second provider approves it, and the window opens', async () => {
   };
 });
 
-test('a Membership action: the operator grants one and revokes the administrator’s', async ({ browser }) => {
-  // Moving to the Tenant on the same kernel session is a sign-in the kernel's session should let through
-  // (TDD-identity-experience-001 §Context Switch). Its outcome is recorded; the journey goes on in a
-  // browser of its own either way.
-  await operator.page.getByRole('link', { name: 'Overview' }).click();
-  let switched: string;
-  try {
-    await signInToTenant(operator);
-    await expect(banner(operator.page)).toContainText(`Tenant scope: ${s.tenantId}`);
-    switched = 'signed in to the Tenant on the provider sign-in’s kernel session';
-  } catch (error) {
-    const url = new URL(operator.page.url());
-    switched = `refused at ${url.origin}${url.pathname}: ${error instanceof Error ? (error.message.split('\n')[0] ?? '') : String(error)}`;
-  }
-  providerJourney = { ...providerJourney, switch_to_tenant_on_the_same_kernel_session: switched };
-
-  const context = await browser.newContext();
-  const page = await context.newPage();
-  const tenantOperator: Actor = { context, page, credentials: operator.credentials };
-  actors.push(tenantOperator);
-  await page.goto(`${bff}/`);
-  await signInToTenant(tenantOperator);
+test('a Membership action: the operator grants one and revokes the administrator’s', async () => {
+  // Moving to the Tenant is a sign-in on the provider sign-in's kernel session (TDD-identity-experience-001
+  // §Context Switch), which the kernel completes through its Organization Identity-First step
+  // (identity-kernel#63, TDD-identity-kernel-001 1.18.0 §Authentication Levels). The BFF session is
+  // replaced; the kernel session it names is the same one.
+  const { page, context } = operator;
+  const providerSession = await sessionRow(schema, await sessionCookieOf(context, bff));
+  expect(providerSession?.keycloakSessionId, 'the provider sign-in’s kernel session').toBeTruthy();
+  await page.getByRole('link', { name: 'Overview' }).click();
+  const shown = await signInToTenant(operator);
   await expect(banner(page)).toContainText(`Tenant scope: ${s.tenantId}`);
+  const tenantSession = await sessionRow(schema, await sessionCookieOf(context, bff));
+  expect(tenantSession?.keycloakSessionId, 'the Tenant sign-in’s kernel session').toBe(
+    providerSession?.keycloakSessionId,
+  );
+  providerJourney = {
+    ...providerJourney,
+    switch_to_tenant_on_the_same_kernel_session: {
+      kernel_session_kept: true,
+      kernel_pages_shown: shown,
+    },
+  };
   await page.getByRole('link', { name: 'Memberships' }).click();
 
   const grant = page.getByRole('form', { name: 'Grant membership' });
