@@ -260,11 +260,15 @@ offboarding.
 - ✅ **It found a defect, fixed here.** The Tenant sign-in form submitted itself to `/auth/login`, and
   Chromium refused the redirect to the kernel under the BFF's `form-action 'self'`. The form now
   navigates by script (STD-GLB-FE-003 2.1.0 §3.5, `App.test.tsx`).
-- ⏳ **Moving from a provider sign-in to a Tenant on the same kernel session fails at the kernel.** The
-  kernel answers its own error page (`AuthenticationFlowException`, `invalid_user_credentials`, no user)
-  for `organization:<tenant_id>` at `aal2` on a session whose provider sign-in used `max_age=0`. A sign-in
-  in a new browser succeeds. The proof records the outcome on every run (`provider-mode.json`) and goes on
-  in a browser of its own. Resolving it is identity-kernel's.
+- ✅ **Moving from a provider sign-in to a Tenant on the same kernel session works, and the proof requires
+  it.** The kernel answered its own error page (`AuthenticationFlowException`, `invalid_user_credentials`)
+  for `organization:<tenant_id>` on a provider sign-in's session. identity-kernel
+  [#63](https://github.com/anshacerbia2/identity-kernel/pull/63) fixed it in the realm
+  (`scnehaux-browser-v4`, an Organization Identity-First step after the cookie). Run
+  [37916092312](https://github.com/anshacerbia2/organization-experience/actions/runs/37916092312), with
+  `kernel_ref=batch3`, recorded "signed in to the Tenant on the provider sign-in's kernel session". Step 4
+  now asserts the switch in the operator's own browser, on the same kernel session, and the separate
+  browser is gone (TDD-organization-experience-001 1.8.0).
 - ✅ **Bulk partial-failure recovery is exercised,** in the application and through the BFF.
   - Covered: an interrupted execution sent again with the same key, then the failed items
     continued as a new batch.
