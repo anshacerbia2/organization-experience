@@ -1,0 +1,397 @@
+name: stack-proof
+
+# The stack-level proof of STD-GLB-009 §Stack-Level Proofs: every stack these experiences depend on,
+# brought up together the way a development server runs them, and the two BFFs and their applications
+# beside them, then driven in a real browser.
+#
+#   - identity-kernel's stack and realm, identity-control's stack and ceremony, and organization-control's
+#     stack, wired by organization-control's scripts/dev-wire.ps1. The steps and their glue are
+#     organization-control's deploy-dev, kept the same;
+#   - this repository's BFF client registered with scripts/dev-register-bff.ps1, the operator's file,
+#     and the journeys' people, grants and Tenant made by e2e/seed.ps1;
+#   - this BFF and identity-experience's BFF, each built from its checkout, with its session store
+#     migrated into a PostgreSQL of the job's own, serving their applications on 127.0.0.1:8091 and
+#     127.0.0.1:8090 as on a laptop;
+#   - e2e/, Playwright in Chromium: sign-in through the kernel's hosted login, provider mode with its
+#     step-up and reason, a second provider's approval, a Membership granted and revoked, the window's
+#     end and the revocation reaching the browser (TDD-organization-experience-001 §End to End), and
+#     the measured time from a revocation to the session's end against its L0 bound
+#     (TDD-identity-experience-001 §Revocation).
+#
+# Its evidence is the stack-evidence artifact: one JSON file per measurement, with its bound.
+#
+# This repository holds the proof because it is the one that consumes every stack the proof needs.
+# A producer proves a branch against it by dispatch, with the matching *_ref input.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  # Daily: a producer's main can change under this repository unchanged (STD-GLB-009 §Stack-Level
+  # Proofs, rule 4).
+  schedule:
+    - cron: '29 4 * * *'
+  workflow_dispatch:
+    inputs:
+      kernel_ref:
+        description: identity-kernel branch, tag or commit
+        required: false
+        default: main
+      identity_ref:
+        description: identity-control branch, tag or commit
+        required: false
+        default: main
+      organization_ref:
+        description: organization-control branch, tag or commit
+        required: false
+        default: main
+      identity_experience_ref:
+        description: identity-experience branch, tag or commit
+        required: false
+        default: main
+
+permissions:
+  contents: read
+
+env:
+  GO_VERSION: '1.26'
+  KERNEL_REF: ${{ inputs.kernel_ref || 'main' }}
+  IDENTITY_REF: ${{ inputs.identity_ref || 'main' }}
+  ORGANIZATION_REF: ${{ inputs.organization_ref || 'main' }}
+  IDENTITY_EXPERIENCE_REF: ${{ inputs.identity_experience_ref || 'main' }}
+
+jobs:
+  stack:
+    runs-on: ubuntu-latest
+    timeout-minutes: 75
+
+    # The two BFFs' session stores, one schema each, as each laptop keeps its own. Pinned by digest,
+    # the server the BFF suites are verified against.
+    services:
+      postgres:
+        image: postgres:17-alpine@sha256:742f40ea20b9ff2ff31db5458d127452988a2164df9e17441e191f3b72252193
+        env:
+          POSTGRES_USER: bff
+          POSTGRES_PASSWORD: bff
+          POSTGRES_DB: bff
+        ports:
+          - 127.0.0.1:55432:5432
+        options: >-
+          --health-cmd "pg_isready -U bff"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          repository: anshacerbia2/identity-kernel
+          ref: ${{ env.KERNEL_REF }}
+          path: .kernel
+
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          repository: anshacerbia2/identity-control
+          ref: ${{ env.IDENTITY_REF }}
+          path: .identity
+
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          repository: anshacerbia2/organization-control
+          ref: ${{ env.ORGANIZATION_REF }}
+          path: .organization
+
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          repository: anshacerbia2/identity-experience
+          ref: ${{ env.IDENTITY_EXPERIENCE_REF }}
+          path: .identity-experience
+
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          check-latest: false
+
+      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '24'
+          cache: pnpm
+          cache-dependency-path: |
+            pnpm-lock.yaml
+            .identity-experience/pnpm-lock.yaml
+
+      # --- the three server stacks: organization-control's deploy-dev, kept the same ---------------
+
+      - name: start the kernel and apply its realm
+        working-directory: .kernel/deploy/dev
+        run: |
+          {
+            echo "KEYCLOAK_HOSTNAME=localhost"
+            echo "ADMIN_ALLOW_CIDRS=192.0.2.1/32"
+            echo "POSTGRES_PASSWORD=$(openssl rand -hex 16)"
+            echo "KC_BOOTSTRAP_ADMIN_USERNAME=admin"
+            echo "KC_BOOTSTRAP_ADMIN_PASSWORD=$(openssl rand -hex 16)"
+          } > .env
+          docker compose -f compose.yaml -f compose.ci.yaml up -d --wait --wait-timeout 300 postgres keycloak caddy
+          docker compose -f compose.yaml -f compose.ci.yaml up -d realm-apply
+          code="$(docker wait "$(docker compose -f compose.yaml -f compose.ci.yaml ps -aq realm-apply)")"
+          docker compose -f compose.yaml -f compose.ci.yaml logs --no-color realm-apply
+          [ "$code" = "0" ] || { echo "::error::the kernel's realm-apply job exited $code"; exit 1; }
+          bash ./new-client-key.sh realm-apply ./keys "$(id -u):$(id -g)"
+          bash ./create-apply-client.sh > "$RUNNER_TEMP/kernel-client.env"
+          set -a; . "$RUNNER_TEMP/kernel-client.env"; set +a
+          export KEYCLOAK_ADMIN_CLIENT_KEY_FILE="$PWD/keys/realm-apply.pem"
+          cd ../..
+          go run ./cmd/realm-apply -environment development -url http://localhost:8080 -apply
+
+      - name: start identity-control and perform its ceremony
+        working-directory: .identity/deploy/dev
+        run: |
+          kernel_password="$(grep '^KC_BOOTSTRAP_ADMIN_PASSWORD=' ../../../.kernel/deploy/dev/.env | cut -d= -f2-)"
+          {
+            echo "KEYCLOAK_ISSUER=https://localhost/realms/scnehaux"
+            echo "POSTGRES_PASSWORD=$(openssl rand -hex 16)"
+            echo "IDENTITY_APP_PASSWORD=$(openssl rand -hex 16)"
+            echo "IDENTITY_CALLER_PASSWORD=$(openssl rand -hex 16)"
+            echo "KERNEL_KEYCLOAK_CONTAINER=scnehaux-identity-dev-keycloak-1"
+            echo "KC_BOOTSTRAP_ADMIN_USERNAME=admin"
+            echo "KC_BOOTSTRAP_ADMIN_PASSWORD=$kernel_password"
+            echo "KERNEL_DEPLOY_DIR=$GITHUB_WORKSPACE/.kernel/deploy/dev"
+            echo "KEYS_OWNER=$(id -u):$(id -g)"
+          } > .env
+          bash ./create-kernel-clients.sh >> .env
+          bash ./create-registration-client.sh >> .env
+          bash ./create-security-ref-key.sh
+          docker compose up -d --build
+          for i in $(seq 1 60); do
+            curl -fsS http://127.0.0.1:8082/readyz >/dev/null 2>&1 && break
+            [ "$i" = 60 ] && { echo "::error::identity-control did not report ready"; docker compose logs --no-color; exit 1; }
+            sleep 2
+          done
+          bash ./bootstrap.sh "ci@scnehaux.local" "stack-proof workflow"
+
+      # The kernel's hostname is https://localhost behind Caddy's local CA, as identity-control's
+      # deploy-dev trusts it, so sign-in runs over TLS end to end. The browser trusts it through the
+      # NSS shared DB Chromium reads on Linux, and the BFFs through NODE_EXTRA_CA_CERTS: neither
+      # ignores a certificate error (STD-GLB-FE-008 §3.4).
+      - name: trust the kernel proxy's local certificate authority
+        run: |
+          docker cp scnehaux-identity-dev-caddy-1:/data/caddy/pki/authorities/local/root.crt "$RUNNER_TEMP/caddy-root.crt"
+          sudo cp "$RUNNER_TEMP/caddy-root.crt" /usr/local/share/ca-certificates/caddy-local-root.crt
+          sudo update-ca-certificates
+          curl -fsS https://localhost/realms/scnehaux/.well-known/openid-configuration >/dev/null
+          sudo apt-get update -qq && sudo apt-get install -y -qq libnss3-tools >/dev/null
+          for db in "$HOME/.pki/nssdb" "$HOME/.local/share/pki/nssdb"; do
+            mkdir -p "$db"
+            [ -f "$db/cert9.db" ] || certutil -d "sql:$db" -N --empty-password
+            certutil -d "sql:$db" -A -t "C,," -n caddy-local-root -i "$RUNNER_TEMP/caddy-root.crt"
+          done
+
+      - name: start Organization Control
+        working-directory: .organization/deploy/dev
+        run: |
+          {
+            echo "KEYCLOAK_ISSUER=https://localhost/realms/scnehaux"
+            for name in POSTGRES_PASSWORD ORGANIZATION_RUNTIME_PASSWORD ORGANIZATION_PROVIDER_PASSWORD \
+                        ORGANIZATION_DISPATCH_PASSWORD ORGANIZATION_RESOLUTION_PASSWORD ORGANIZATION_CONSUMER_PASSWORD; do
+              echo "$name=$(openssl rand -hex 16)"
+            done
+            echo "KEYS_OWNER=$(id -u):$(id -g)"
+          } > .env
+          mkdir -p keys
+          docker compose up -d --build
+          for i in $(seq 1 60); do
+            curl -fsS http://127.0.0.1:8083/readyz >/dev/null 2>&1 && break
+            [ "$i" = 60 ] && { echo "::error::organization-control did not report ready"; docker compose logs --no-color; exit 1; }
+            sleep 2
+          done
+
+      - name: wire the two services (organization-control README §Wiring to other services)
+        run: |
+          # The caller's two secrets alone: the rest of identity-control's .env would override
+          # organization-control's own when the script runs docker compose there.
+          export IDENTITY_CALLER_PASSWORD="$(grep '^IDENTITY_CALLER_PASSWORD=' .identity/deploy/dev/.env | cut -d= -f2-)"
+          export IDENTITY_CALLER_KEY_FILE="$(grep '^IDENTITY_CALLER_KEY_FILE=' .identity/deploy/dev/.env | cut -d= -f2-)"
+          export KC_BASE_URL=https://localhost
+          export IDENTITY_OPERATOR_TOTP_FILE="$RUNNER_TEMP/operator-totp.json"
+          mkdir -p "$RUNNER_TEMP/wiring"
+          pwsh -NoProfile -File .organization/scripts/dev-wire.ps1 -IdentityRepo .identity -KernelDeployDir .kernel/deploy/dev \
+            -Operator "ci@scnehaux.local" -State "$RUNNER_TEMP/wiring/state.json" -ServiceKeysOwner "$(id -u):$(id -g)"
+
+      # --- the two experiences --------------------------------------------------------------------
+
+      - name: install and build both experiences
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm build
+          (cd .identity-experience && pnpm install --frozen-lockfile && pnpm build)
+
+      # Playwright's own command, Chromium alone and its system dependencies, not cached
+      # (STD-GLB-FE-008 §3.4).
+      - name: install Chromium for Playwright
+        working-directory: e2e
+        run: pnpm exec playwright install --with-deps chromium
+
+      - name: make the two BFFs' client keys
+        run: |
+          node scripts/new-client-key.mjs
+          node .identity-experience/scripts/new-client-key.mjs
+
+      # deploy/dev/README.md §Registering it, as the operator runs it.
+      - name: register this BFF's client
+        run: |
+          export IDENTITY_CALLER_PASSWORD="$(grep '^IDENTITY_CALLER_PASSWORD=' .identity/deploy/dev/.env | cut -d= -f2-)"
+          export IDENTITY_CALLER_KEY_FILE="$(grep '^IDENTITY_CALLER_KEY_FILE=' .identity/deploy/dev/.env | cut -d= -f2-)"
+          export KC_BASE_URL=https://localhost
+          export IDENTITY_OPERATOR_TOTP_FILE="$RUNNER_TEMP/operator-totp.json"
+          pwsh -NoProfile -File scripts/dev-register-bff.ps1 -IdentityRepo .identity \
+            -JwkFile keys/organization-experience-bff.jwk.json
+
+      - name: seed the journeys' people, grants and Tenant
+        run: |
+          export IDENTITY_CALLER_PASSWORD="$(grep '^IDENTITY_CALLER_PASSWORD=' .identity/deploy/dev/.env | cut -d= -f2-)"
+          export KC_BOOTSTRAP_ADMIN_PASSWORD="$(grep '^KC_BOOTSTRAP_ADMIN_PASSWORD=' .kernel/deploy/dev/.env | cut -d= -f2-)"
+          export KC_BASE_URL=https://localhost KC_ADMIN_URL=http://localhost:8080
+          export IDENTITY_OPERATOR_TOTP_FILE="$RUNNER_TEMP/operator-totp.json"
+          # The kernel's container reaches this runner on its Docker network's gateway, as
+          # identity-control's deploy-dev reaches its logout receiver, so the identity BFF listens there
+          # too, and its back-channel logout URI names that address.
+          network="$(docker inspect -f '{{range $name, $_ := .NetworkSettings.Networks}}{{println $name}}{{end}}' scnehaux-identity-dev-keycloak-1 | head -n 1)"
+          gateway="$(docker network inspect -f '{{range .IPAM.Config}}{{println .Gateway}}{{end}}' "$network" | head -n 1)"
+          [ -n "$gateway" ] || { echo "::error::no gateway for the kernel's network $network"; exit 1; }
+          echo "KERNEL_GATEWAY=$gateway" >> "$GITHUB_ENV"
+          # An identity-control that does not take backchannel_logout_uri refuses a registration naming
+          # it, so it is declared only where the checked-out identity-control reads it.
+          back_channel=()
+          if grep -q '"backchannel_logout_uri"' .identity/internal/httpapi/registrations.go; then
+            back_channel=(-IdentityExperienceBackChannelUri "http://$gateway:8090/auth/back-channel-logout")
+          fi
+          pwsh -NoProfile -File e2e/seed.ps1 -IdentityRepo .identity -WiringState "$RUNNER_TEMP/wiring/state.json" \
+            -IdentityExperienceJwk .identity-experience/keys/identity-experience-bff.jwk.json -Out "$RUNNER_TEMP/seed.json" \
+            "${back_channel[@]}"
+
+      # Each BFF's session store, migrated as its owning role, served by a role with DML alone, as
+      # each README's §One-off tasks runs it. The identity BFF listens on every address of the runner,
+      # so the kernel's container reaches its back-channel logout route on the gateway; the browser
+      # still uses 127.0.0.1, the origin its client is registered with. This BFF listens on loopback,
+      # as on a laptop the kernel cannot reach.
+      # Each BFF runs its build, node bff/dist/main.js: the code each README's own command serves, a
+      # watcher (pnpm dev:bff) or a script (dev-local.ps1) aside, with the settings each README lists.
+      - name: start the two BFFs
+        env:
+          PGPASSWORD: bff
+        run: |
+          owner="postgres://bff:bff@127.0.0.1:55432/bff"
+          for app in organization_experience identity_experience; do
+            psql "$owner" -v ON_ERROR_STOP=1 -q \
+              -c "CREATE SCHEMA $app" \
+              -c "CREATE ROLE ${app}_bff LOGIN PASSWORD '${app}_bff'" \
+              -c "GRANT USAGE ON SCHEMA $app TO ${app}_bff" \
+              -c "ALTER ROLE ${app}_bff SET search_path = $app"
+          done
+          # The migrator creates its tables in the schema the connection's search_path names.
+          search() { printf 'options=-c%%20search_path%%3D%s' "$1"; }
+
+          ORGANIZATION_EXPERIENCE_MIGRATION_DATABASE_URL="$owner?$(search organization_experience)" \
+          ORGANIZATION_EXPERIENCE_RUNTIME_ROLE=organization_experience_bff \
+            pnpm --filter @organization-experience/bff migrate
+          (cd .identity-experience && \
+            IDENTITY_EXPERIENCE_MIGRATION_DATABASE_URL="$owner?$(search identity_experience)" \
+            IDENTITY_EXPERIENCE_RUNTIME_ROLE=identity_experience_bff \
+            pnpm --filter @identity-experience/bff migrate)
+
+          mkdir -p "$RUNNER_TEMP/bff"
+          export NODE_EXTRA_CA_CERTS="$RUNNER_TEMP/caddy-root.crt"
+          ORGANIZATION_EXPERIENCE_PUBLIC_ORIGIN=http://127.0.0.1:8091 \
+          ORGANIZATION_EXPERIENCE_LISTEN_HOST=127.0.0.1 \
+          ORGANIZATION_EXPERIENCE_LISTEN_PORT=8091 \
+          ORGANIZATION_EXPERIENCE_REDIRECT_URI=http://127.0.0.1:8091/auth/callback \
+          ORGANIZATION_EXPERIENCE_WEB_ROOT="$GITHUB_WORKSPACE/apps/admin/dist" \
+          ORGANIZATION_EXPERIENCE_ISSUER=https://localhost/realms/scnehaux \
+          ORGANIZATION_EXPERIENCE_CLIENT_ID=organization-experience-bff \
+          ORGANIZATION_EXPERIENCE_CLIENT_KEY_FILE="$GITHUB_WORKSPACE/keys/organization-experience-bff.pem" \
+          ORGANIZATION_EXPERIENCE_DATABASE_URL="postgres://organization_experience_bff:organization_experience_bff@127.0.0.1:55432/bff" \
+          ORGANIZATION_EXPERIENCE_ORGANIZATION_CONTROL_URL=http://127.0.0.1:8083 \
+          ORGANIZATION_EXPERIENCE_SESSION_KEY="$(openssl rand -base64 32)" \
+            nohup node bff/dist/main.js > "$RUNNER_TEMP/bff/organization-experience.log" 2>&1 &
+          IDENTITY_EXPERIENCE_PUBLIC_ORIGIN=http://127.0.0.1:8090 \
+          IDENTITY_EXPERIENCE_LISTEN_HOST=0.0.0.0 \
+          IDENTITY_EXPERIENCE_LISTEN_PORT=8090 \
+          IDENTITY_EXPERIENCE_REDIRECT_URI=http://127.0.0.1:8090/auth/callback \
+          IDENTITY_EXPERIENCE_WEB_ROOT="$GITHUB_WORKSPACE/.identity-experience/apps/admin/dist" \
+          IDENTITY_EXPERIENCE_DEVELOPER_WEB_ROOT="$GITHUB_WORKSPACE/.identity-experience/apps/developer/dist" \
+          IDENTITY_EXPERIENCE_ACCOUNT_WEB_ROOT="$GITHUB_WORKSPACE/.identity-experience/apps/account/dist" \
+          IDENTITY_EXPERIENCE_ISSUER=https://localhost/realms/scnehaux \
+          IDENTITY_EXPERIENCE_CLIENT_ID=identity-experience-bff \
+          IDENTITY_EXPERIENCE_CLIENT_KEY_FILE="$GITHUB_WORKSPACE/.identity-experience/keys/identity-experience-bff.pem" \
+          IDENTITY_EXPERIENCE_DATABASE_URL="postgres://identity_experience_bff:identity_experience_bff@127.0.0.1:55432/bff" \
+          IDENTITY_CONTROL_BASE_URL=http://127.0.0.1:8082 \
+          IDENTITY_EXPERIENCE_SESSION_KEY="$(openssl rand -base64 32)" \
+            nohup node .identity-experience/bff/dist/main.js > "$RUNNER_TEMP/bff/identity-experience.log" 2>&1 &
+          for port in 8091 8090; do
+            for i in $(seq 1 30); do
+              curl -fsS "http://127.0.0.1:$port/auth/session" >/dev/null 2>&1 && break
+              [ "$i" = 30 ] && { echo "::error::the BFF on $port did not answer"; cat "$RUNNER_TEMP"/bff/*.log; exit 1; }
+              sleep 1
+            done
+          done
+
+      - name: the journeys in Chromium
+        working-directory: e2e
+        run: |
+          export IDENTITY_CALLER_PASSWORD="$(grep '^IDENTITY_CALLER_PASSWORD=' ../.identity/deploy/dev/.env | cut -d= -f2-)"
+          export KC_BOOTSTRAP_ADMIN_PASSWORD="$(grep '^KC_BOOTSTRAP_ADMIN_PASSWORD=' ../.kernel/deploy/dev/.env | cut -d= -f2-)"
+          export KC_ADMIN_URL=http://localhost:8080
+          export IDENTITY_OPERATOR_TOTP_FILE="$RUNNER_TEMP/operator-totp.json"
+          export STACK_SEED_FILE="$RUNNER_TEMP/seed.json"
+          export STACK_EVIDENCE_DIR="$RUNNER_TEMP/stack-evidence"
+          export ORGANIZATION_EXPERIENCE_URL=http://127.0.0.1:8091 IDENTITY_EXPERIENCE_URL=http://127.0.0.1:8090
+          export ORGANIZATION_EXPERIENCE_BFF_LOG="$RUNNER_TEMP/bff/organization-experience.log"
+          export BFF_DATABASE_URL="postgres://bff:bff@127.0.0.1:55432/bff"
+          export IDENTITY_EXPERIENCE_DIR="$GITHUB_WORKSPACE/.identity-experience"
+          pnpm stack
+
+      - name: keep the evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: stack-evidence
+          path: ${{ runner.temp }}/stack-evidence/*.json
+          if-no-files-found: ignore
+          retention-days: 90
+
+      # The report and the traces of a failed journey. A trace holds the pages the browser showed,
+      # which are a throwaway stack's.
+      - name: keep the Playwright report
+        if: failure()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: playwright-report
+          path: |
+            e2e/playwright-report/
+            e2e/test-results/
+          if-no-files-found: ignore
+          retention-days: 14
+
+      # The BFFs' own logs: request lines and refusals, never a token (TDD-identity-experience-001
+      # §Token Containment).
+      - name: keep the BFF logs
+        if: failure()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: bff-logs
+          path: ${{ runner.temp }}/bff/*.log
+          if-no-files-found: ignore
+          retention-days: 14
+
+      - name: stack logs
+        if: failure()
+        run: |
+          cat "$RUNNER_TEMP"/bff/*.log 2>/dev/null | tail -n 300 || true
+          (cd .organization/deploy/dev && docker compose logs --no-color --tail 200 organization-control) || true
+          (cd .identity/deploy/dev && docker compose logs --no-color --tail 200 identity-control) || true
+          (cd .kernel/deploy/dev && docker compose -f compose.yaml -f compose.ci.yaml logs --no-color --tail 200 keycloak) || true

@@ -197,6 +197,49 @@ const cases: readonly {
     },
     shows: 'someone-else',
   },
+  {
+    path: '/access-review',
+    scope: providerInForce,
+    bodies: {
+      '/api/v1/privileged-access:unreviewed': {
+        review_due_days: 7,
+        actors: [
+          {
+            actor_id: 'provider-b',
+            unreviewed: 3,
+            emergency: 1,
+            oldest_at: '2026-09-28T09:00:00Z',
+            due_at: '2026-10-05T09:00:00Z',
+            overdue: true,
+          },
+        ],
+      },
+    },
+    shows: 'provider-b',
+  },
+  {
+    path: '/provider-access',
+    scope: tenantScope,
+    bodies: {
+      '/api/v1/provider-access': {
+        accesses: [
+          {
+            access_id: 'acc-1',
+            actor_id: 'provider-b',
+            authority: 'activation',
+            activation_id: 'act-1',
+            tenant_id: tenantA,
+            operation: 'POST /v1/tenants/{tenant_id}/suspend',
+            correlation_id: 'corr-1',
+            reason: 'Suspending after the contract lapsed',
+            occurred_at: '2026-10-01T10:00:00Z',
+          },
+        ],
+        next: null,
+      },
+    },
+    shows: 'Suspending after the contract lapsed',
+  },
   // The provider mode form, offered to a provider sign-in with no window.
   { path: '/', scope: providerIdle, bodies: {}, shows: 'Enter provider mode' },
 ];

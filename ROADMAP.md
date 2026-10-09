@@ -238,9 +238,28 @@ offboarding.
   - At the BFF, against PostgreSQL and a stand-in Organization Control: the window ends at
     `ends_at`.
   - In the application: the scope is read again at `ends_at`, and the provider surfaces close.
-- ⏳ **A browser end to end against the stack is not built.** It needs the kernel's hosted login, an
-  Organization Control with a second provider to approve, and a browser driver: a CI job that brings
-  the stack up (TDD-organization-experience-001 §Testing Strategy, End to End).
+- ✅ **A browser end to end against the stack** (TDD-organization-experience-001 1.7.0 §End to End).
+  `.github/workflows/stack-proof.yml` brings up the kernel, identity-control and organization-control
+  as organization-control's `deploy-dev` does, both BFFs beside them, and drives Chromium through the
+  kernel's hosted login (STD-GLB-009 §Stack-Level Proofs). It runs on pull requests, on `main`, daily
+  and on dispatch with a `*_ref` per producer, in about 15 minutes. Covered, in run
+  [37853070937](https://github.com/anshacerbia2/organization-experience/actions/runs/37853070937):
+  - sign-in, with the TOTP the kernel asks for at `aal2`, and the cookie as the pattern sets it;
+  - provider mode: a fresh `aal2` sign-in, refused without a reason in the browser, requested with one
+    for one minute and one Tenant;
+  - a second provider's approval, after which the window opened in the requester's browser in 9.3 s;
+  - a Membership granted, and one revoked, shown by its evidence until `enforced`;
+  - the window's end reaching the browser 0.6 s after `ends_at`, and a provider read after it refused;
+  - the revocation reaching the revoked administrator's open tab in 162.9 s, against a bound of 192.6 s
+    (`TDD-identity-experience-001` §Revocation), with no request served after it was accepted.
+- ✅ **It found a defect, fixed here.** The Tenant sign-in form submitted itself to `/auth/login`, and
+  Chromium refused the redirect to the kernel under the BFF's `form-action 'self'`. The form now
+  navigates by script (STD-GLB-FE-003 2.1.0 §3.5, `App.test.tsx`).
+- ⏳ **Moving from a provider sign-in to a Tenant on the same kernel session fails at the kernel.** The
+  kernel answers its own error page (`AuthenticationFlowException`, `invalid_user_credentials`, no user)
+  for `organization:<tenant_id>` at `aal2` on a session whose provider sign-in used `max_age=0`. A sign-in
+  in a new browser succeeds. The proof records the outcome on every run (`provider-mode.json`) and goes on
+  in a browser of its own. Resolving it is identity-kernel's.
 - ✅ **Bulk partial-failure recovery is exercised,** in the application and through the BFF.
   - Covered: an interrupted execution sent again with the same key, then the failed items
     continued as a new batch.
@@ -250,5 +269,11 @@ offboarding.
 - ⏳ **Manual WCAG 2.2 AA evidence is still needed:** keyboard, screen reader, contrast and target
   size in a real browser. Automated checks find only part of what conformance needs.
 - ✅ **Runbooks:** `docs/runbooks/organization-experience-operations.md`.
-- ⏳ **The provider-access review needs `audit.privileged_access` to be readable.** Organization
-  Control serves no route for it, and how a reviewer reads it is an owner decision.
+- ✅ **The provider-access review reads and records against `audit.privileged_access`**
+  (`ADR-ORG-002 §5.6`, `TDD-organization-experience-002` 1.5.0, 2026-10-08).
+  - **Access review**, in provider mode, lists each provider with access no review covers, reads
+    one provider's accesses over a period with the API's filters, and records a review with an
+    outcome and a statement. The operator's own access offers no review; the API refuses one.
+  - **Provider access**, in Tenant scope, lists the provider access that named the Tenant. The scope
+    guard admits `/v1/provider-access` in a Tenant scope (`TDD-organization-experience-001` 1.6.0).
+  - Served by Organization Control from `TDD-organization-control-001` 1.21.0 (its backlog item 40).

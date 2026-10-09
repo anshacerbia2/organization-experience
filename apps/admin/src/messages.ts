@@ -336,6 +336,59 @@ export const messages = {
   approve: 'Approve',
   deny: 'Deny',
 
+  // The provider-access review (TDD-organization-experience-002 1.5.0, ADR-ORG-002 §5.6).
+  accessReview: 'Access review',
+  accessReviewExplained:
+    'What providers did with their authority, from the privileged-access record. Each provider’s access is reviewed weekly by another provider, and each review is recorded.',
+  unreviewedAccess: 'Provider access no one has reviewed',
+  nothingUnreviewed: 'Every provider access is covered by a review.',
+  unreviewedCount: (count: number): string => `${String(count)} accesses`,
+  emergencyCount: (count: number): string => `${String(count)} emergency uses`,
+  oldestAt: (at: string): string => `oldest ${at}`,
+  dueAt: (at: string): string => `review due ${at}`,
+  reviewOverdue: 'The review is overdue: an access has gone unreviewed for more than seven days.',
+  yourOwnAccess: 'Your own access. Another provider reviews it.',
+  reviewThis: 'Review',
+  accessOf: (principal: string): string => `Access by ${principal}`,
+  periodFrom: 'From',
+  periodTo: 'Until (not included)',
+  authority: 'Authority',
+  authorityName: (authority: string): string =>
+    ({
+      emergency: 'emergency use',
+      activation: 'activation',
+      eligible: 'eligible, nothing in force',
+      consumer: 'projection consumer',
+    })[authority] ?? authority,
+  activationNamed: (activation: string): string => `activation ${activation}`,
+  noOperation: 'operation not recorded',
+  acrossTenants: 'across Tenants',
+  inTenantId: (tenant: string): string => `in Tenant ${tenant}`,
+  correlationId: 'Correlation identifier',
+  accessesInPeriod: 'Accesses in the period',
+  noAccessInPeriod: 'No access in this period matches.',
+  recordReview: 'Record review',
+  recordReviewExplained:
+    'The review covers the period shown. State the outcome and what you checked; the statement is recorded with the review and cannot be changed.',
+  outcome: 'Outcome',
+  outcomeName: (outcome: string): string =>
+    ({ appropriate: 'Appropriate', escalated: 'Escalated as possible misuse' })[outcome] ?? outcome,
+  reviewScopeNote: (principal: string): string =>
+    `This records your review of ${principal}’s access in the period shown.`,
+  reviewRecorded: (accesses: number, emergency: number, at: string): string =>
+    `Review recorded ${at}: the period held ${String(accesses)} accesses, ${String(emergency)} of them emergency uses.`,
+  pastReviews: 'Past reviews',
+  noReviews: 'No review of this provider is recorded.',
+  periodOf: (from: string, to: string): string => `${from} to ${to}`,
+  reviewedBy: (who: string, at: string): string => `reviewed by ${who}, ${at}`,
+  statementGiven: (statement: string): string => `Statement: ${statement}`,
+  providerAccess: 'Provider access',
+  providerAccessExplained:
+    'What the platform’s providers did that named this Tenant, from Organization Control’s privileged-access record, with the reason each gave.',
+  noProviderAccess: 'No provider access to this Tenant matches.',
+  providerAccessLeavesOut:
+    'Not shown: a provider read across every Tenant, or of a record addressed by its own identifier, names no Tenant. Providers review those.',
+
   leaveUnconfirmed:
     'Provider mode is closed here, but Organization Control did not confirm the activation ended. It ends at its own time.',
 } as const;

@@ -30,8 +30,15 @@ export type GuardDecision =
 // The routes a Tenant administrator reaches. None names a Tenant: the API takes it from the token.
 // Two invitation routes are the provider's, and stay out. Membership batches are the bulk actions,
 // tenant-scoped like the single transition (TDD-organization-control-002 §Membership Batches); they
-// are a sibling of /v1/memberships, not under it, so they are listed (1.4.0).
-const tenantRoutes = ['/v1/memberships', '/v1/membership-batches', '/v1/workspaces', '/v1/invitations'];
+// are a sibling of /v1/memberships, not under it, so they are listed (1.4.0). /v1/provider-access is a
+// Tenant administrator's read of the provider access that named its Tenant (ADR-ORG-002 §5.6, 1.6.0).
+const tenantRoutes = [
+  '/v1/memberships',
+  '/v1/membership-batches',
+  '/v1/workspaces',
+  '/v1/invitations',
+  '/v1/provider-access',
+];
 const providerOnlyInvitationRoutes = ['/v1/invitations/verify-identity', '/v1/invitations/expire-lapsed'];
 
 // The routes a provider reaches with no authority in force: the activation routes alone, as the API

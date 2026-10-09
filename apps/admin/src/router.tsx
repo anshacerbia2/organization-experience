@@ -4,6 +4,7 @@ import { ApprovalsPage } from './features/approvals';
 import { OffboardingDetail, OffboardingsPage } from './features/offboarding';
 import { ProjectionsPage } from './features/projections';
 import { OrganizationsPage, TenantsPage } from './features/provider';
+import { AccessReviewPage, TenantProviderAccessPage } from './features/review';
 import { InvitationsPage, MembershipsPage, WorkspacesPage } from './features/tenant';
 import { Home, RequireScope, Shell } from './Shell';
 
@@ -66,6 +67,20 @@ const projections = createRoute({
   component: () => <RequireScope scope="provider-mode">{() => <ProjectionsPage />}</RequireScope>,
 });
 
+// The provider-access review needs a window in force: the record is read by a provider in force
+// (ADR-ORG-002 §5.6). A Tenant's read of the provider access to it is a Tenant surface.
+const accessReview = createRoute({
+  getParentRoute: () => root,
+  path: '/access-review',
+  component: () => <RequireScope scope="provider-mode">{() => <AccessReviewPage />}</RequireScope>,
+});
+
+const providerAccess = createRoute({
+  getParentRoute: () => root,
+  path: '/provider-access',
+  component: () => <RequireScope scope="tenant">{() => <TenantProviderAccessPage />}</RequireScope>,
+});
+
 const approvals = createRoute({
   getParentRoute: () => root,
   path: '/approvals',
@@ -82,6 +97,8 @@ const routeTree = root.addChildren([
   offboardings,
   offboarding,
   projections,
+  accessReview,
+  providerAccess,
   approvals,
 ]);
 
