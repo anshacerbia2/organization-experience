@@ -51,7 +51,9 @@ On the server, already running:
 - **organization-control**, for the API this BFF proxies.
 - **PowerShell 7 (`pwsh`)** where identity-control's scripts run, for `scripts/dev-register-bff.ps1`.
 
-On the laptop: Node.js 24 and pnpm, and a local PostgreSQL for the session store.
+On the laptop: Node.js 24 and pnpm, PowerShell 7 (`pwsh`) for `scripts/dev-local.ps1`, a local
+PostgreSQL for the session store, and `devtunnel connect` to the server's tunnel, which forwards
+organization-control's 8083 to `127.0.0.1:8083`.
 
 From the server's operator: the client, registered with this laptop's public key.
 
@@ -101,20 +103,25 @@ client's token lifetime from its audience's resource registration, and refuses o
 
 The BFF's own configuration is `.env.example`: `ORGANIZATION_EXPERIENCE_CLIENT_ID` names this client,
 `ORGANIZATION_EXPERIENCE_CLIENT_KEY_FILE` the private key, and `ORGANIZATION_EXPERIENCE_REDIRECT_URI`
-the callback above. Copy it to `.env`, fill in `ORGANIZATION_EXPERIENCE_ISSUER`,
-`ORGANIZATION_EXPERIENCE_DATABASE_URL` and `ORGANIZATION_EXPERIENCE_SESSION_KEY` (its comment shows how
-to make one), and export the values: the BFF reads its environment and nothing else. Then:
+the callback above. Copy it to `.env` and set `ORGANIZATION_EXPERIENCE_DATABASE_URL` to the local
+PostgreSQL, keeping its `search_path` option. The issuer and organization-control's
+`127.0.0.1:8083` are the development server's already. Then:
 
 ```sh
 pnpm install
-pnpm build
-pnpm --filter @organization-experience/bff migrate   # the session store, as below
-pnpm dev:bff
+pwsh -NoProfile -File ./scripts/dev-local.ps1
 ```
 
-The migration runs as the owning role, with `ORGANIZATION_EXPERIENCE_MIGRATION_DATABASE_URL` naming the
-database and `ORGANIZATION_EXPERIENCE_RUNTIME_ROLE` the serving role it grants. Open
+`dev-local.ps1` exports every value in `.env` (the BFF reads its environment and nothing else), makes
+`ORGANIZATION_EXPERIENCE_SESSION_KEY` and writes it back when it is empty, builds the application and
+the BFF, creates the schema the `search_path` names, applies the session store's migrations, and
+serves on `http://127.0.0.1:8091` until Ctrl+C. `-NoBuild` skips the build. Open
 `http://127.0.0.1:8091` and sign in.
+
+The migration runs as `ORGANIZATION_EXPERIENCE_MIGRATION_DATABASE_URL`, the owning role, when it is set,
+and otherwise as `ORGANIZATION_EXPERIENCE_DATABASE_URL`; `ORGANIZATION_EXPERIENCE_RUNTIME_ROLE`, when
+set, names the serving role it grants. Without the script, export `.env` and run
+`pnpm build`, `pnpm --filter @organization-experience/bff migrate` and `pnpm dev:bff` yourself.
 
 **Provider mode on the development server.** The bootstrap provider holds an emergency grant
 (`ADR-ORG-002 §5.2`). Its window opens at once with no activation, and still ends at the duration
@@ -125,15 +132,15 @@ approver uses the Activation requests page (`/approvals`), which calls
 
 ## Updating
 
-On the laptop, `git pull`, then `pnpm build`, the session store's migration, and `pnpm dev:bff` again.
+On the laptop, `git pull`, `pnpm install`, then `./scripts/dev-local.ps1` again: it rebuilds and
+applies any new session store migration.
 On the server, nothing is updated for this application. A change to the client is a change to its
 registration in identity-control, never a change in the Keycloak console.
 
 ## One-off tasks
 
-None on the server. On the laptop, the session store's migration
-(`pnpm --filter @organization-experience/bff migrate`) runs before a run that needs a new migration;
-the BFF never runs it itself.
+None on the server. On the laptop, `dev-local.ps1` runs the session store's migration
+(`pnpm --filter @organization-experience/bff migrate`) every time; the BFF never runs it itself.
 
 ## Wiring to other services
 
@@ -174,7 +181,7 @@ POST /v1/registrations/{registration_id}/keys
 
 Nothing here needs a backup. The client lives in the kernel's database and its registration in
 identity-control's, and each stack backs up its own. The laptop's session store, in the database
-`ORGANIZATION_EXPERIENCE_DATABASE_URL` names, is disposable: clear it and apply the migration again,
+`ORGANIZATION_EXPERIENCE_DATABASE_URL` names, is disposable: drop its schema and `dev-local.ps1` makes it again,
 and you sign in again. A lost private key is replaced by a new one, registered as a rotation.
 
 ## Never do
@@ -190,12 +197,12 @@ and you sign in again. A lost private key is replaced by a new one, registered a
 
 ## Troubleshooting
 
-| Symptom                                                              | Cause                                                                                         | Fix                                                                                                   |
-| :------------------------------------------------------------------- | :-------------------------------------------------------------------------------------------- | :---------------------------------------------------------------------------------------------------- |
-| After sign-in, the browser lands back on Keycloak instead of the BFF | The BFF ran on a port the tunnel forwards, and the tunnel rewrote the redirect                | Serve on `http://127.0.0.1:8091`. Use `127.0.0.1`, not `localhost`, for the callback                  |
-| Keycloak refuses the redirect URI                                    | The BFF's origin is not exactly the registered `http://127.0.0.1:8091/auth/callback`          | Keep `ORGANIZATION_EXPERIENCE_PUBLIC_ORIGIN` and `ORGANIZATION_EXPERIENCE_REDIRECT_URI` as registered |
-| The registration is refused                                          | identity-control without ADR-IAM-008, a `lifetime_class` declared, or a client named in `aud` | Update identity-control; declare the body as above                                                    |
-| Signing in to this BFF signs the browser out of the identity BFF     | Both set `__Host-ident_session`, and a browser scopes cookies by host, not by port            | One BFF at a time, or two browser profiles                                                            |
-| `/api/*` answers 503                                                 | organization-control does not listen on `ORGANIZATION_EXPERIENCE_ORGANIZATION_CONTROL_URL`    | Start it there, or point the variable at where it runs                                                |
-| Every session ends when the BFF restarts                             | `ORGANIZATION_EXPERIENCE_SESSION_KEY` changed or was empty                                    | Make it once and keep it in `.env`                                                                    |
-| An eligible provider's window does not open                          | Organization Control's `ORGANIZATION_PROVIDER_ACTIVATION_APPROVAL` is `required` by default   | Another provider approves it on the Activation requests page (`/approvals`)                           |
+| Symptom                                                              | Cause                                                                                         | Fix                                                                                                    |
+| :------------------------------------------------------------------- | :-------------------------------------------------------------------------------------------- | :----------------------------------------------------------------------------------------------------- |
+| After sign-in, the browser lands back on Keycloak instead of the BFF | The BFF ran on a port the tunnel forwards, and the tunnel rewrote the redirect                | Serve on `http://127.0.0.1:8091`. Use `127.0.0.1`, not `localhost`, for the callback                   |
+| Keycloak refuses the redirect URI                                    | The BFF's origin is not exactly the registered `http://127.0.0.1:8091/auth/callback`          | Keep `ORGANIZATION_EXPERIENCE_PUBLIC_ORIGIN` and `ORGANIZATION_EXPERIENCE_REDIRECT_URI` as registered  |
+| The registration is refused                                          | identity-control without ADR-IAM-008, a `lifetime_class` declared, or a client named in `aud` | Update identity-control; declare the body as above                                                     |
+| Signing in to this BFF signs the browser out of the identity BFF     | Both set `__Host-ident_session`, and a browser scopes cookies by host, not by port            | One BFF at a time, or two browser profiles                                                             |
+| `/api/*` answers 503                                                 | organization-control does not answer at `ORGANIZATION_EXPERIENCE_ORGANIZATION_CONTROL_URL`    | Run `devtunnel connect` so `127.0.0.1:8083` reaches the server, or point the variable at where it runs |
+| Every session ends when the BFF restarts                             | `ORGANIZATION_EXPERIENCE_SESSION_KEY` changed or was empty                                    | Make it once and keep it in `.env`                                                                     |
+| An eligible provider's window does not open                          | Organization Control's `ORGANIZATION_PROVIDER_ACTIVATION_APPROVAL` is `required` by default   | Another provider approves it on the Activation requests page (`/approvals`)                            |
