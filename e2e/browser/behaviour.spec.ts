@@ -32,6 +32,29 @@ for (const theme of themes) {
     await expect(banner).toContainText('ends in');
   });
 
+  // The rail's surface and edge run the full height of a long page, and what it holds stays in view.
+  for (const [persona, path, ready] of [
+    ['provider-mode', '/tenants', 'Zeta Freight'],
+    ['provider-mode', `/offboardings/0192f0e0-bbbb-7000-8000-00000000b001`, 'ticket system refused'],
+    ['tenant', '/memberships', '0199a1b2-1111-7e5f-8a9b-000000000004'],
+  ] as const) {
+    test(`the rail spans a long page and stays in view, ${path}, ${theme}`, async ({ page, baseURL }) => {
+      await page.setViewportSize({ width: 1440, height: 600 });
+      await open(page, baseURL ?? '', persona, theme, path);
+      await expect(page.getByText(ready, { exact: false }).first()).toBeVisible();
+      const height = Number(await page.evaluate('document.documentElement.scrollHeight'));
+      expect(height).toBeGreaterThan(900);
+      const rail = page.locator('aside');
+      await expect
+        .poll(async () => (await rail.boundingBox())?.height ?? 0)
+        .toBeGreaterThanOrEqual(height - 1);
+      await page.mouse.wheel(0, 5_000);
+      await expect.poll(() => page.evaluate('window.scrollY')).toBeGreaterThan(200);
+      await expect(page.getByRole('navigation', { name: 'Sections' })).toBeInViewport();
+      await expect(page.getByRole('link', { name: 'Scnehaux Organization' })).toBeInViewport();
+    });
+  }
+
   for (const forcedColors of ['none', 'active'] as const) {
     test(`a field and a button show focus as an outline, ${theme}, forced colours ${forcedColors}`, async ({
       page,

@@ -28,22 +28,33 @@
     }
   }
 
+  // This repository's change: the rail is the full height of the page, so its surface and its edge
+  // run beside the longest page, and what it holds sticks in view at the viewport's height while the
+  // page scrolls. identity-experience makes the rail itself sticky at 100dvh, so the column's surface
+  // ends at the first screen's height in a full-page rendering of a long page.
   .rail {
-    display: flex;
-    flex-direction: column;
-    gap: var(--ds-spacing-lg);
-    padding: var(--ds-spacing-md);
     border-block-end: var(--ds-stroke-thin) solid var(--ds-color-neutral-border-subtle-default);
     background: var(--ds-color-neutral-surface-sunken-default);
     backdrop-filter: blur(20px);
 
     @media (width >= 60rem) {
-      position: sticky;
-      inset-block-start: 0;
-      block-size: 100dvh;
-      padding: var(--ds-spacing-lg) var(--ds-spacing-md);
       border-block-end: 0;
       border-inline-end: var(--ds-stroke-thin) solid var(--ds-color-neutral-border-subtle-default);
+    }
+  }
+
+  .railInner {
+    display: flex;
+    flex-direction: column;
+    gap: var(--ds-spacing-lg);
+    padding: var(--ds-spacing-md);
+
+    @media (width >= 60rem) {
+      position: sticky;
+      inset-block-start: 0;
+      max-block-size: 100dvh;
+      overflow-y: auto;
+      padding: var(--ds-spacing-lg) var(--ds-spacing-md);
     }
   }
 
@@ -204,7 +215,7 @@
   // so a tablet reaches the page without scrolling past a column of links. The section labels stay
   // in the accessibility tree, naming their lists.
   @media (width < 60rem) {
-    .rail {
+    .railInner {
       flex-flow: row wrap;
       align-items: center;
       gap: var(--ds-spacing-sm) var(--ds-spacing-lg);

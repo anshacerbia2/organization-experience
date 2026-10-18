@@ -41,13 +41,15 @@ export function AppFrame({
       </a>
 
       <aside className={styles['rail']}>
-        <Link to="/" className={styles['brand']} activeProps={{ 'aria-current': undefined }}>
-          <span className={styles['brandMark']} aria-hidden="true">
-            <Icon name="shield" />
-          </span>
-          <span className={styles['brandName']}>{messages.brand}</span>
-        </Link>
-        {nav}
+        <div className={styles['railInner']}>
+          <Link to="/" className={styles['brand']} activeProps={{ 'aria-current': undefined }}>
+            <span className={styles['brandMark']} aria-hidden="true">
+              <Icon name="shield" />
+            </span>
+            <span className={styles['brandName']}>{messages.brand}</span>
+          </Link>
+          {nav}
+        </div>
       </aside>
 
       <div className={styles['column']}>

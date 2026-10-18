@@ -287,6 +287,7 @@ fields in a grid, the filters in a toolbar, then the records.
 | The theme follows the system's `prefers-color-scheme` until the viewer chooses one, and only a choice is stored, in this origin's `localStorage` | Opens dark, and stores the preference | MDN: the feature "is used to detect if a user has requested light or dark color themes" [R6]. Following it needs no storage, so the page still "holds nothing in browser storage" after a sign-in (§End to End). The hosted login follows the system too (`TDD-identity-kernel-004` §Visual Language) |
 | The bar holds the application's `h1` and the session; the scope banner sticks under it | The bar holds the environment, the session, the language and the theme | §Scope Visibility. This application has no environment setting and one locale, so there is no environment pill and no language switch |
 | Under 60rem the rail is a bar with its links in a row | The rail is a column above the page | A tablet reaches the page without scrolling past a column of links |
+| The rail is the page's full height, and what it holds sticks in view at the viewport's height | The rail itself is sticky at `100dvh`, so a full-page rendering of a long page shows its surface and edge ending at the first screen | The column reads as one surface beside the longest page; `behaviour.spec.ts` asserts the rail spans the page and its navigation stays in view after a scroll, on Tenants, an offboarding and Memberships |
 | `Notice`, `Facts`, `Rows`, `Page` and the field classes | `TextField`, `SelectField`, `TextAreaField` own their ids and errors | This application's forms already own the ids, hints and errors their tests read, so they take Identity Experience's field styles as classes rather than its components |
 | No modal dialog | Has none to port | A confirmation stays in the row it acts on, beside the record it names |
 
@@ -608,7 +609,8 @@ command. The stand-in proves no BFF behaviour: `bff/test` and the stack-proof wo
   the screenshots, never passed. At 1.9.0 that is colour contrast alone, on every view, 8 to 92 nodes:
   the canvas is gradients and the surfaces are translucent over it, so axe resolves no single
   background. The contrast test computes those pairs instead (§Visual Language).
-- `behaviour.spec.ts`, in each theme: the scope banner stays in view on a scrolled page; a field and a
+- `behaviour.spec.ts`, in each theme: the scope banner stays in view on a scrolled page; the rail spans
+  a long page and its navigation stays in view; a field and a
   button reached by Tab show a 2px solid outline 2px off them, with and without forced colours; a link
   is underlined at rest; a destructive action takes the danger variant and its confirmation names the
   scope.
