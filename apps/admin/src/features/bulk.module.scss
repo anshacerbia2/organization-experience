@@ -1,0 +1,39 @@
+// The bulk outcome (TDD-organization-experience-001 §Bulk Operations): each outcome under its own
+// heading, marked by its words and an edge in its scheme, never one aggregate success.
+@layer components {
+  .counts {
+    font-size: var(--ds-font-size-sm);
+    font-weight: var(--ds-font-weight-medium);
+    font-variant-numeric: tabular-nums;
+    color: var(--ds-color-neutral-text-strong-default);
+  }
+
+  .outcome {
+    padding-inline-start: var(--ds-spacing-sm);
+    border-inline-start: 3px solid var(--ds-color-neutral-border-strong-default);
+    font-size: var(--ds-font-size-sm);
+    font-weight: var(--ds-font-weight-semibold);
+    color: var(--ds-color-neutral-text-strong-default);
+  }
+
+  .outcome[data-outcome='succeeded'] {
+    border-inline-start-color: var(--ds-color-success-solid-default-default);
+  }
+
+  .outcome[data-outcome='failed'] {
+    border-inline-start-color: var(--ds-color-danger-solid-default-default);
+  }
+
+  .items {
+    display: flex;
+    flex-direction: column;
+    gap: var(--ds-spacing-xs);
+    padding-inline-start: var(--ds-spacing-md);
+    font-size: var(--ds-font-size-sm);
+    list-style: disc;
+  }
+
+  .refusal {
+    color: var(--ds-color-danger-text-default-default);
+  }
+}

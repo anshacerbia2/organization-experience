@@ -3,6 +3,7 @@ import { type ReactElement } from 'react';
 
 import { apiGet } from '../api/client';
 import { messages } from '../messages';
+import { Loading, Notice, toneOf } from '../ui';
 import { ApiErrorMessage, formatTime } from './common';
 
 // A Membership transition shown by its evidence (ADR-ORG-004 §5.2, TDD-organization-experience-001
@@ -40,7 +41,11 @@ export function EnforcementStatus({ membershipId }: { readonly membershipId: str
     refetchInterval: (current) => (settled(current.state.data?.state) ? false : pollMs),
   });
   if (query.isPending) {
-    return <p role="status">{messages.loading}</p>;
+    return (
+      <div role="status">
+        <Loading />
+      </div>
+    );
   }
   if (query.isError) {
     return <ApiErrorMessage error={query.error} />;
@@ -52,7 +57,14 @@ export function EnforcementStatus({ membershipId }: { readonly membershipId: str
   );
   const pending = enforcement.consumers.filter((consumer) => consumer.evidence !== 'consumer_applied');
   return (
-    <div role="status" data-enforcement={enforcement.state}>
+    <Notice
+      tone={enforcement.state === 'accepted' ? 'neutral' : toneOf(enforcement.state)}
+      icon={
+        enforcement.state === 'enforced' ? 'check' : enforcement.state === 'over_budget' ? 'alert' : 'pulse'
+      }
+      role="status"
+      data-enforcement={enforcement.state}
+    >
       <p>
         <strong>{messages.enforcementState(enforcement.state)}</strong>{' '}
         {messages.enforcementTiming(
@@ -72,6 +84,6 @@ export function EnforcementStatus({ membershipId }: { readonly membershipId: str
         </ul>
       )}
       {enforcement.state === 'over_budget' ? <p>{messages.overBudgetEscalation}</p> : null}
-    </div>
+    </Notice>
   );
 }

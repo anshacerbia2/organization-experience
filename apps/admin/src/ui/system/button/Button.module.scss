@@ -1,0 +1,108 @@
+// Ported from identity-experience at c723e417c0eee97db6b1d5b6dab608fe6a406ac2, packages/ui/src/system/button/Button.module.scss
+// (TDD-organization-experience-001 §Visual Language).
+@layer components {
+  .root {
+    --btn-surface: var(--ds-color-neutral-surface-subtle-default);
+    --btn-text: var(--ds-color-neutral-text-strong-default);
+    --btn-border: var(--ds-color-neutral-border-default-default);
+    --btn-glow: transparent;
+
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--ds-spacing-xs);
+    min-block-size: var(--ds-size-control-md);
+    padding-inline: var(--ds-spacing-md);
+    border: var(--ds-stroke-thin) solid var(--btn-border);
+    border-radius: var(--ds-radius-md);
+    font-size: var(--ds-font-size-sm);
+    font-weight: var(--ds-font-weight-semibold);
+    letter-spacing: 0.01em;
+    color: var(--btn-text);
+    background: var(--btn-surface);
+    box-shadow: 0 0 0 0 var(--btn-glow);
+    transition:
+      background-color var(--ds-duration-fast) var(--ds-easing-standard),
+      border-color var(--ds-duration-fast) var(--ds-easing-standard),
+      box-shadow var(--ds-duration-normal) var(--ds-easing-standard),
+      transform var(--ds-duration-fast) var(--ds-easing-standard);
+    white-space: nowrap;
+    cursor: pointer;
+    user-select: none;
+
+    &:hover:not([data-disabled]) {
+      --btn-surface: var(--ds-color-neutral-surface-default-hover);
+    }
+
+    &:active:not([data-disabled]) {
+      transform: translateY(1px);
+    }
+
+    // Focus is the outline every focusable element takes (foundations/_base.scss); the dark theme's
+    // glow is added to it, never in its place (STD-GLB-FE-005 §3.9).
+    &:focus-visible {
+      box-shadow: var(--ds-shadow-focus);
+    }
+
+    &[data-disabled] {
+      cursor: not-allowed;
+      opacity: 0.45;
+    }
+  }
+
+  .root[data-size='sm'] {
+    min-block-size: var(--ds-size-control-sm);
+    padding-inline: var(--ds-spacing-sm);
+    font-size: var(--ds-font-size-xs);
+  }
+
+  // Primary: a luminous solid that glows faintly on hover.
+  .root[data-variant='primary'] {
+    --btn-surface: var(--ds-color-primary-solid-default-default);
+    --btn-text: var(--ds-color-primary-text-contrast-default);
+    --btn-border: transparent;
+
+    &:hover:not([data-disabled]) {
+      --btn-surface: var(--ds-color-primary-solid-default-hover);
+      --btn-glow: var(--ds-color-primary-shadow-default-default);
+
+      box-shadow: 0 0 22px 0 var(--btn-glow);
+    }
+  }
+
+  .root[data-variant='ghost'] {
+    --btn-surface: transparent;
+    --btn-border: transparent;
+    --btn-text: var(--ds-color-neutral-text-default-default);
+  }
+
+  .root[data-variant='danger'] {
+    --btn-surface: var(--ds-color-danger-surface-default-default);
+    --btn-text: var(--ds-color-danger-text-default-default);
+    --btn-border: var(--ds-color-danger-border-default-default);
+
+    &:hover:not([data-disabled]) {
+      --btn-surface: var(--ds-color-danger-surface-default-hover);
+    }
+  }
+
+  // A pressed toggle is told apart by an edge and a surface, not by colour alone: the edge meets
+  // 3:1 against the bar it sits in (WCAG 2.2 SC 1.4.11, "states"). After the variants, so it wins
+  // over the ghost variant the toggles use.
+  .root[aria-pressed='true'] {
+    --btn-surface: var(--ds-color-neutral-surface-default-selected);
+    --btn-text: var(--ds-color-neutral-text-strong-default);
+    --btn-border: var(--ds-color-neutral-border-strong-default);
+  }
+
+  .icon {
+    display: inline-flex;
+    inline-size: var(--ds-size-icon-sm);
+    block-size: var(--ds-size-icon-sm);
+  }
+
+  .label {
+    display: inline-flex;
+  }
+}

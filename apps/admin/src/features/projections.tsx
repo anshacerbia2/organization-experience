@@ -1,7 +1,8 @@
 import { type ReactElement } from 'react';
 
 import { messages } from '../messages';
-import { facts, formatTime, ListState, LoadMore, usePagedList } from './common';
+import { Facts, Notice, Page, PageHeader, PageTitle, Row, RowMain, Rows, RowTitle } from '../ui';
+import { formatTime, ListState, LoadMore, usePagedList } from './common';
 
 // Projection health (TDD-organization-experience-002 §Projection Health): every registered consumer,
 // its declared budget and stale behaviour, and where it last reported. A consumer past its budget is
@@ -40,29 +41,39 @@ const lastReconciliation = (consumer: Consumer): string =>
 export function ProjectionsPage(): ReactElement {
   const { query, items } = usePagedList<Consumer>('consumers', '/v1/projections/consumers', 'consumers', {});
   return (
-    <section aria-labelledby="projections-heading">
-      <h2 id="projections-heading">{messages.projectionHealth}</h2>
+    <Page aria-labelledby="projections-heading">
+      <PageHeader>
+        <PageTitle id="projections-heading">{messages.projectionHealth}</PageTitle>
+      </PageHeader>
       <ListState query={query} empty={messages.noConsumers} count={items.length} />
-      <ul>
+      <Rows>
         {items.map((consumer) => (
-          <li key={consumer.consumer_id} data-stale={consumer.stale === true ? 'true' : 'false'}>
-            <strong>{consumer.consumer_id}</strong>{' '}
-            {facts(
-              consumer.state,
-              consumer.max_accepted_age_seconds === undefined
-                ? null
-                : messages.budgetOf(consumer.max_accepted_age_seconds),
-              consumer.stale_behavior === undefined ? null : messages.staleBehavior(consumer.stale_behavior),
-              messages.lastReported(formatTime(consumer.last_reported_at)),
-              lastReconciliation(consumer),
-            )}
+          <Row key={consumer.consumer_id} data-stale={consumer.stale === true ? 'true' : 'false'}>
+            <RowMain>
+              <RowTitle>{consumer.consumer_id}</RowTitle>{' '}
+              <Facts
+                items={[
+                  consumer.state === undefined ? null : { status: consumer.state, label: consumer.state },
+                  consumer.max_accepted_age_seconds === undefined
+                    ? null
+                    : messages.budgetOf(consumer.max_accepted_age_seconds),
+                  consumer.stale_behavior === undefined
+                    ? null
+                    : messages.staleBehavior(consumer.stale_behavior),
+                  messages.lastReported(formatTime(consumer.last_reported_at)),
+                  lastReconciliation(consumer),
+                ]}
+              />
+            </RowMain>
             {consumer.stale === true ? (
-              <p role="status">{messages.consumerStale(consumer.stale_behavior ?? '')}</p>
+              <Notice tone="warning" icon="clock" role="status">
+                <p>{messages.consumerStale(consumer.stale_behavior ?? '')}</p>
+              </Notice>
             ) : null}
-          </li>
+          </Row>
         ))}
-      </ul>
+      </Rows>
       <LoadMore query={query} />
-    </section>
+    </Page>
   );
 }

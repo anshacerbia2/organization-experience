@@ -1,0 +1,69 @@
+// Ported from identity-experience at c723e417c0eee97db6b1d5b6dab608fe6a406ac2, packages/ui/src/system/panel/Panel.module.scss
+// (TDD-organization-experience-001 §Visual Language).
+@layer components {
+  .root {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: var(--ds-spacing-md);
+    padding: var(--ds-spacing-lg);
+    border: var(--ds-stroke-thin) solid var(--ds-color-neutral-border-subtle-default);
+    border-radius: var(--ds-radius-lg);
+    background: var(--ds-color-neutral-surface-raised-default);
+    box-shadow: var(--ds-shadow-low);
+    backdrop-filter: blur(18px) saturate(140%);
+    container-type: inline-size;
+
+    // A hairline of light along the top edge: the one detail that makes glass read as glass.
+    &::before {
+      position: absolute;
+      inset-block-start: 0;
+      inset-inline: var(--ds-spacing-lg);
+      block-size: 1px;
+      content: '';
+      background: linear-gradient(
+        90deg,
+        transparent,
+        var(--ds-color-primary-border-default-default),
+        transparent
+      );
+    }
+  }
+
+  .root[data-elevation='floating'] {
+    background: var(--ds-color-neutral-surface-floating-default);
+    box-shadow: var(--ds-shadow-medium);
+  }
+
+  .header {
+    display: flex;
+    flex-direction: column;
+    gap: var(--ds-spacing-2xs);
+  }
+
+  .title {
+    font-size: var(--ds-font-size-md);
+    font-weight: var(--ds-font-weight-semibold);
+    letter-spacing: var(--ds-letter-spacing-tight);
+    color: var(--ds-color-neutral-text-strong-default);
+  }
+
+  .description {
+    font-size: var(--ds-font-size-sm);
+    color: var(--ds-color-neutral-text-subtle-default);
+  }
+
+  .body {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--ds-spacing-sm);
+  }
+
+  @media (forced-colors: active) {
+    .root {
+      border-color: CanvasText;
+      backdrop-filter: none;
+    }
+  }
+}

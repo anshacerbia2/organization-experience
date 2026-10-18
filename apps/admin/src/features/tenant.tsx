@@ -6,17 +6,24 @@ import { useIdempotencyKey } from '../api/idempotency';
 import { messages } from '../messages';
 import { useSignedIn } from '../SessionContext';
 import { BulkMembershipAction } from './bulk';
-import {
-  Action,
-  ApiErrorMessage,
-  Countdown,
-  facts,
-  Field,
-  ListState,
-  LoadMore,
-  usePagedList,
-} from './common';
+import { Action, ApiErrorMessage, Countdown, Field, ListState, LoadMore, usePagedList } from './common';
 import { EnforcementStatus } from './enforcement';
+import {
+  Button,
+  Facts,
+  fieldClasses,
+  layout,
+  Notice,
+  Page,
+  PageHeader,
+  PageTitle,
+  Panel,
+  Row,
+  RowMain,
+  Rows,
+  RowTitle,
+  rowClasses,
+} from '../ui';
 
 // The Tenant-scope surfaces (TDD-organization-experience-002 1.2.0): Workspaces, Memberships and
 // invitations in the one Tenant the session holds. No path names the Tenant: the API takes it from
@@ -80,6 +87,7 @@ function StatusFilter({
       {(id) => (
         <select
           id={id}
+          className={fieldClasses.select}
           value={value}
           onChange={(event) => {
             onChange(event.target.value);
@@ -125,60 +133,86 @@ export function WorkspacesPage({ tenantId }: { readonly tenantId: string }): Rea
   const scopeNote = messages.inTenant(tenantId);
 
   return (
-    <section aria-labelledby="workspaces-heading">
-      <h2 id="workspaces-heading">{messages.workspaces}</h2>
-      <form
-        aria-label={messages.createWorkspace}
-        onSubmit={(event) => {
-          event.preventDefault();
-          create.mutate({ body: { display_name: name.trim(), type: type.trim() } });
-        }}
-      >
-        <Field label={messages.displayName}>
-          {(id) => (
-            <input
-              id={id}
-              required
-              value={name}
-              onChange={(event) => {
-                setName(event.target.value);
-              }}
-            />
-          )}
-        </Field>
-        <Field label={messages.workspaceType}>
-          {(id) => (
-            <input
-              id={id}
-              required
-              value={type}
-              onChange={(event) => {
-                setType(event.target.value);
-              }}
-            />
-          )}
-        </Field>
-        <button type="submit" disabled={create.isPending}>
+    <Page aria-labelledby="workspaces-heading">
+      <PageHeader>
+        <PageTitle id="workspaces-heading">{messages.workspaces}</PageTitle>
+      </PageHeader>
+      <Panel.Root>
+        <Panel.Title level={3} id="create-workspace-heading">
           {messages.createWorkspace}
-        </button>
-        {create.isError ? <ApiErrorMessage error={create.error} /> : null}
-      </form>
+        </Panel.Title>
+        <form
+          aria-labelledby="create-workspace-heading"
+          className={layout.form}
+          onSubmit={(event) => {
+            event.preventDefault();
+            create.mutate({ body: { display_name: name.trim(), type: type.trim() } });
+          }}
+        >
+          <Field label={messages.displayName}>
+            {(id) => (
+              <input
+                id={id}
+                className={fieldClasses.input}
+                required
+                value={name}
+                onChange={(event) => {
+                  setName(event.target.value);
+                }}
+              />
+            )}
+          </Field>
+          <Field label={messages.workspaceType}>
+            {(id) => (
+              <input
+                id={id}
+                className={fieldClasses.input}
+                required
+                value={type}
+                onChange={(event) => {
+                  setType(event.target.value);
+                }}
+              />
+            )}
+          </Field>
+          <div className={layout.actions}>
+            <Button type="submit" disabled={create.isPending}>
+              {messages.createWorkspace}
+            </Button>
+          </div>
+          {create.isError ? (
+            <div className={layout.formWide}>
+              <ApiErrorMessage error={create.error} />
+            </div>
+          ) : null}
+        </form>
+      </Panel.Root>
 
-      <StatusFilter
-        label={messages.status}
-        value={status}
-        options={['active', 'archived', 'retired']}
-        onChange={setStatus}
-      />
+      <div className={layout.toolbar}>
+        <StatusFilter
+          label={messages.status}
+          value={status}
+          options={['active', 'archived', 'retired']}
+          onChange={setStatus}
+        />
+      </div>
       <ListState query={query} empty={messages.noWorkspaces} count={items.length} />
-      <ul>
+      <Rows>
         {items.map((workspace) => {
           const versioned = { expected_version: workspace.version };
           const base = `/v1/workspaces/${workspace.workspace_id}` as const;
           return (
-            <li key={workspace.workspace_id}>
-              <strong>{workspace.display_name}</strong>{' '}
-              {facts(workspace.type, messages.state(workspace.status), messages.versionOf(workspace.version))}{' '}
+            <Row key={workspace.workspace_id}>
+              <RowMain>
+                <RowTitle>{workspace.display_name}</RowTitle>{' '}
+                <Facts
+                  items={[
+                    workspace.type,
+                    { status: workspace.status, label: messages.state(workspace.status) },
+                    messages.versionOf(workspace.version),
+                  ]}
+                />
+              </RowMain>{' '}
               {workspace.status === 'active' ? (
                 <Action
                   label={messages.archive}
@@ -197,6 +231,7 @@ export function WorkspacesPage({ tenantId }: { readonly tenantId: string }): Rea
                   />{' '}
                   <Action
                     label={messages.retire}
+                    tone="danger"
                     path={`${base}/retire`}
                     body={versioned}
                     reason="required"
@@ -206,12 +241,12 @@ export function WorkspacesPage({ tenantId }: { readonly tenantId: string }): Rea
                   />
                 </>
               ) : null}
-            </li>
+            </Row>
           );
         })}
-      </ul>
+      </Rows>
       <LoadMore query={query} />
-    </section>
+    </Page>
   );
 }
 
@@ -235,85 +270,105 @@ export function MembershipsPage({ tenantId }: { readonly tenantId: string }): Re
   const scopeNote = messages.inTenant(tenantId);
 
   return (
-    <section aria-labelledby="memberships-heading">
-      <h2 id="memberships-heading">{messages.memberships}</h2>
-      <form
-        aria-label={messages.grantMembership}
-        onSubmit={(event) => {
-          event.preventDefault();
-          create.mutate({
-            body: {
-              principal_id: principal.trim(),
-              ...(workspace.trim() === '' ? {} : { workspace_id: workspace.trim() }),
-              subject_type: subjectType,
-              provenance: provenance.trim(),
-              valid_from: new Date().toISOString(),
-            },
-          });
-        }}
-      >
-        <Field label={messages.principalId}>
-          {(id) => (
-            <input
-              id={id}
-              required
-              value={principal}
-              onChange={(event) => {
-                setPrincipal(event.target.value);
-              }}
-            />
-          )}
-        </Field>
-        <Field label={messages.workspaceIdOptional}>
-          {(id) => (
-            <input
-              id={id}
-              value={workspace}
-              onChange={(event) => {
-                setWorkspace(event.target.value);
-              }}
-            />
-          )}
-        </Field>
-        <Field label={messages.subjectType}>
-          {(id) => (
-            <select
-              id={id}
-              value={subjectType}
-              onChange={(event) => {
-                setSubjectType(event.target.value);
-              }}
-            >
-              <option value="human">{messages.subjectHuman}</option>
-              <option value="workload">{messages.subjectWorkload}</option>
-            </select>
-          )}
-        </Field>
-        <Field label={messages.provenance} hint={messages.provenanceHint}>
-          {(id, hintId) => (
-            <input
-              id={id}
-              required
-              aria-describedby={hintId}
-              value={provenance}
-              onChange={(event) => {
-                setProvenance(event.target.value);
-              }}
-            />
-          )}
-        </Field>
-        <button type="submit" disabled={create.isPending}>
+    <Page aria-labelledby="memberships-heading">
+      <PageHeader>
+        <PageTitle id="memberships-heading">{messages.memberships}</PageTitle>
+      </PageHeader>
+      <Panel.Root>
+        <Panel.Title level={3} id="grant-membership-heading">
           {messages.grantMembership}
-        </button>
-        {create.isError ? <ApiErrorMessage error={create.error} /> : null}
-      </form>
+        </Panel.Title>
+        <form
+          aria-labelledby="grant-membership-heading"
+          className={layout.form}
+          onSubmit={(event) => {
+            event.preventDefault();
+            create.mutate({
+              body: {
+                principal_id: principal.trim(),
+                ...(workspace.trim() === '' ? {} : { workspace_id: workspace.trim() }),
+                subject_type: subjectType,
+                provenance: provenance.trim(),
+                valid_from: new Date().toISOString(),
+              },
+            });
+          }}
+        >
+          <Field label={messages.principalId}>
+            {(id) => (
+              <input
+                id={id}
+                className={fieldClasses.input}
+                required
+                value={principal}
+                onChange={(event) => {
+                  setPrincipal(event.target.value);
+                }}
+              />
+            )}
+          </Field>
+          <Field label={messages.workspaceIdOptional}>
+            {(id) => (
+              <input
+                id={id}
+                className={fieldClasses.input}
+                value={workspace}
+                onChange={(event) => {
+                  setWorkspace(event.target.value);
+                }}
+              />
+            )}
+          </Field>
+          <Field label={messages.subjectType}>
+            {(id) => (
+              <select
+                id={id}
+                className={fieldClasses.select}
+                value={subjectType}
+                onChange={(event) => {
+                  setSubjectType(event.target.value);
+                }}
+              >
+                <option value="human">{messages.subjectHuman}</option>
+                <option value="workload">{messages.subjectWorkload}</option>
+              </select>
+            )}
+          </Field>
+          <Field label={messages.provenance} hint={messages.provenanceHint}>
+            {(id, hintId) => (
+              <input
+                id={id}
+                className={fieldClasses.input}
+                required
+                aria-describedby={hintId}
+                value={provenance}
+                onChange={(event) => {
+                  setProvenance(event.target.value);
+                }}
+              />
+            )}
+          </Field>
+          <div className={layout.actions}>
+            <Button type="submit" disabled={create.isPending}>
+              {messages.grantMembership}
+            </Button>
+          </div>
+          {create.isError ? (
+            <div className={layout.formWide}>
+              <ApiErrorMessage error={create.error} />
+            </div>
+          ) : null}
+        </form>
+      </Panel.Root>
 
-      <StatusFilter
-        label={messages.status}
-        value={status}
-        options={['active', 'suspended', 'revoked']}
-        onChange={setStatus}
-      />
+      <div className={layout.toolbar}>
+        <StatusFilter
+          label={messages.status}
+          value={status}
+          options={['active', 'suspended', 'revoked']}
+          onChange={setStatus}
+        />
+      </div>
       <ListState query={query} empty={messages.noMemberships} count={items.length} />
       {selected.size === 0 ? null : bulk ? (
         <BulkMembershipAction
@@ -325,49 +380,55 @@ export function MembershipsPage({ tenantId }: { readonly tenantId: string }): Re
           }}
         />
       ) : (
-        <p>
-          <button
-            type="button"
+        <div className={layout.actions}>
+          <Button
+            variant="secondary"
             onClick={() => {
               setBulk(true);
             }}
           >
             {messages.bulkActOn(selected.size)}
-          </button>
-        </p>
+          </Button>
+        </div>
       )}
-      <ul>
+      <Rows>
         {items.map((membership) => {
           const versioned = { expected_version: membership.version };
           const base = `/v1/memberships/${membership.membership_id}` as const;
           return (
-            <li key={membership.membership_id}>
-              <input
-                type="checkbox"
-                aria-label={messages.selectMembership(membership.principal_id)}
-                checked={selected.has(membership.membership_id)}
-                onChange={(event) => {
-                  const next = new Set(selected);
-                  if (event.target.checked) {
-                    next.add(membership.membership_id);
-                  } else {
-                    next.delete(membership.membership_id);
-                  }
-                  setSelected(next);
-                }}
-              />{' '}
-              <strong>{membership.principal_id}</strong>{' '}
-              {facts(
-                membership.subject_type,
-                messages.state(membership.status),
-                messages.versionOf(membership.version),
-                membership.workspace_id === undefined || membership.workspace_id === null
-                  ? null
-                  : messages.workspaceRef(membership.workspace_id),
-              )}{' '}
+            <Row key={membership.membership_id}>
+              <RowMain>
+                <input
+                  type="checkbox"
+                  className={rowClasses.select}
+                  aria-label={messages.selectMembership(membership.principal_id)}
+                  checked={selected.has(membership.membership_id)}
+                  onChange={(event) => {
+                    const next = new Set(selected);
+                    if (event.target.checked) {
+                      next.add(membership.membership_id);
+                    } else {
+                      next.delete(membership.membership_id);
+                    }
+                    setSelected(next);
+                  }}
+                />{' '}
+                <RowTitle mono>{membership.principal_id}</RowTitle>{' '}
+                <Facts
+                  items={[
+                    membership.subject_type,
+                    { status: membership.status, label: messages.state(membership.status) },
+                    messages.versionOf(membership.version),
+                    membership.workspace_id === undefined || membership.workspace_id === null
+                      ? null
+                      : messages.workspaceRef(membership.workspace_id),
+                  ]}
+                />
+              </RowMain>{' '}
               {membership.status === 'active' ? (
                 <Action
                   label={messages.suspend}
+                  tone="danger"
                   path={`${base}/suspend`}
                   body={versioned}
                   reason="optional"
@@ -389,6 +450,7 @@ export function MembershipsPage({ tenantId }: { readonly tenantId: string }): Re
               {membership.status !== 'revoked' ? (
                 <Action<MembershipResult>
                   label={messages.revoke}
+                  tone="danger"
                   path={`${base}/revoke`}
                   body={versioned}
                   reason="required"
@@ -402,12 +464,12 @@ export function MembershipsPage({ tenantId }: { readonly tenantId: string }): Re
               {followed.has(membership.membership_id) ? (
                 <EnforcementStatus membershipId={membership.membership_id} />
               ) : null}
-            </li>
+            </Row>
           );
         })}
-      </ul>
+      </Rows>
       <LoadMore query={query} />
-    </section>
+    </Page>
   );
 }
 
@@ -426,111 +488,143 @@ export function InvitationsPage(): ReactElement {
   const [token, setToken] = useState<string | null>(null);
 
   return (
-    <section aria-labelledby="invitations-heading">
-      <h2 id="invitations-heading">{messages.invitations}</h2>
-      <form
-        aria-label={messages.sendInvitation}
-        onSubmit={(event) => {
-          event.preventDefault();
-          setToken(null);
-          create.mutate(
-            {
-              body: {
-                target_identifier: target.trim(),
-                subject_type: subjectType,
-                ttl_seconds: Math.round(Number(days) * 86_400),
-              },
-            },
-            {
-              onSuccess: (issued) => {
-                setToken(issued.token);
-              },
-            },
-          );
-        }}
-      >
-        <Field label={messages.invitee} hint={messages.inviteeHint}>
-          {(id, hintId) => (
-            <input
-              id={id}
-              required
-              aria-describedby={hintId}
-              autoComplete="off"
-              value={target}
-              onChange={(event) => {
-                setTarget(event.target.value);
-              }}
-            />
-          )}
-        </Field>
-        <Field label={messages.subjectType}>
-          {(id) => (
-            <select
-              id={id}
-              value={subjectType}
-              onChange={(event) => {
-                setSubjectType(event.target.value);
-              }}
-            >
-              <option value="human">{messages.subjectHuman}</option>
-              <option value="workload">{messages.subjectWorkload}</option>
-            </select>
-          )}
-        </Field>
-        <Field label={messages.validForDays}>
-          {(id) => (
-            <input
-              id={id}
-              type="number"
-              min={1}
-              max={30}
-              value={days}
-              onChange={(event) => {
-                setDays(event.target.value);
-              }}
-            />
-          )}
-        </Field>
-        <button type="submit" disabled={create.isPending}>
+    <Page aria-labelledby="invitations-heading">
+      <PageHeader>
+        <PageTitle id="invitations-heading">{messages.invitations}</PageTitle>
+      </PageHeader>
+      <Panel.Root>
+        <Panel.Title level={3} id="send-invitation-heading">
           {messages.sendInvitation}
-        </button>
-        {create.isError ? <ApiErrorMessage error={create.error} /> : null}
-      </form>
+        </Panel.Title>
+        <form
+          aria-labelledby="send-invitation-heading"
+          className={layout.form}
+          onSubmit={(event) => {
+            event.preventDefault();
+            setToken(null);
+            create.mutate(
+              {
+                body: {
+                  target_identifier: target.trim(),
+                  subject_type: subjectType,
+                  ttl_seconds: Math.round(Number(days) * 86_400),
+                },
+              },
+              {
+                onSuccess: (issued) => {
+                  setToken(issued.token);
+                },
+              },
+            );
+          }}
+        >
+          <Field label={messages.invitee} hint={messages.inviteeHint}>
+            {(id, hintId) => (
+              <input
+                id={id}
+                className={fieldClasses.input}
+                required
+                aria-describedby={hintId}
+                autoComplete="off"
+                value={target}
+                onChange={(event) => {
+                  setTarget(event.target.value);
+                }}
+              />
+            )}
+          </Field>
+          <Field label={messages.subjectType}>
+            {(id) => (
+              <select
+                id={id}
+                className={fieldClasses.select}
+                value={subjectType}
+                onChange={(event) => {
+                  setSubjectType(event.target.value);
+                }}
+              >
+                <option value="human">{messages.subjectHuman}</option>
+                <option value="workload">{messages.subjectWorkload}</option>
+              </select>
+            )}
+          </Field>
+          <Field label={messages.validForDays}>
+            {(id) => (
+              <input
+                id={id}
+                className={fieldClasses.input}
+                type="number"
+                min={1}
+                max={30}
+                value={days}
+                onChange={(event) => {
+                  setDays(event.target.value);
+                }}
+              />
+            )}
+          </Field>
+          <div className={layout.actions}>
+            <Button type="submit" disabled={create.isPending}>
+              {messages.sendInvitation}
+            </Button>
+          </div>
+          {create.isError ? (
+            <div className={layout.formWide}>
+              <ApiErrorMessage error={create.error} />
+            </div>
+          ) : null}
+        </form>
+      </Panel.Root>
       {token === null ? null : (
-        <div role="status">
+        <Notice tone="success" icon="key" role="status">
           <p>{messages.invitationToken}</p>
-          <code>{token}</code>
-        </div>
+          <code className={layout.token}>{token}</code>
+        </Notice>
       )}
 
-      <StatusFilter
-        label={messages.status}
-        value={state}
-        options={['pending', 'identity_verified', 'accepted', 'expired', 'revoked']}
-        onChange={setState}
-      />
+      <div className={layout.toolbar}>
+        <StatusFilter
+          label={messages.status}
+          value={state}
+          options={['pending', 'identity_verified', 'accepted', 'expired', 'revoked']}
+          onChange={setState}
+        />
+      </div>
       <ListState query={query} empty={messages.noInvitations} count={items.length} />
-      <ul>
+      <Rows>
         {items.map((invitation) => (
-          <li key={invitation.invitation_id}>
-            <strong>{invitation.invitation_id}</strong>{' '}
-            {facts(invitation.subject_type, messages.invitationState(invitation.state))}
+          <Row key={invitation.invitation_id}>
+            <RowMain>
+              <RowTitle mono>{invitation.invitation_id}</RowTitle>{' '}
+              <Facts
+                items={[
+                  invitation.subject_type,
+                  { status: invitation.state, label: messages.invitationState(invitation.state) },
+                ]}
+              />
+              {openInvitation(invitation.state) ? (
+                <span className={rowClasses.note}>
+                  {messages.separator}
+                  {messages.expiresIn} <Countdown until={invitation.expires_at} />
+                </span>
+              ) : null}
+            </RowMain>
             {openInvitation(invitation.state) ? (
               <>
-                {messages.separator}
-                {messages.expiresIn} <Countdown until={invitation.expires_at} />{' '}
+                {' '}
                 <Action
                   label={messages.revoke}
+                  tone="danger"
                   path={`/v1/invitations/${invitation.invitation_id}/revoke`}
                   body={{}}
                   invalidates={[invitationsKey]}
                 />
               </>
             ) : null}
-          </li>
+          </Row>
         ))}
-      </ul>
+      </Rows>
       <LoadMore query={query} />
-    </section>
+    </Page>
   );
 }

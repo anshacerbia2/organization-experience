@@ -1,0 +1,80 @@
+// The offboarding views (TDD-organization-experience-003) in identity-experience's tokens: the stage
+// timeline as steps, the legal hold as a warning that names what it blocks.
+@layer components {
+  .recordLink {
+    font-family: var(--ds-font-family-mono);
+    font-size: var(--ds-font-size-xs);
+    font-weight: var(--ds-font-weight-semibold);
+    color: var(--ds-color-primary-text-default-default);
+    text-decoration: underline;
+    text-underline-offset: 0.2em;
+
+    &:hover {
+      text-decoration-thickness: 2px;
+    }
+  }
+
+  .stages {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 12rem), 1fr));
+    gap: var(--ds-spacing-sm);
+    padding: 0;
+    list-style: none;
+  }
+
+  // A stage: its marker, its name, what it stops. The current one is told by its edge, its weight and
+  // aria-current; a passed one by its check, never by colour alone.
+  .stage {
+    display: flex;
+    flex-direction: column;
+    gap: var(--ds-spacing-2xs);
+    padding: var(--ds-spacing-sm) var(--ds-spacing-md);
+    border: var(--ds-stroke-thin) solid var(--ds-color-neutral-border-subtle-default);
+    border-radius: var(--ds-radius-md);
+    font-size: var(--ds-font-size-sm);
+    color: var(--ds-color-neutral-text-subtle-default);
+    background: var(--ds-color-neutral-surface-sunken-default);
+
+    strong {
+      color: var(--ds-color-neutral-text-strong-default);
+    }
+  }
+
+  .stage[aria-current='step'] {
+    border: var(--ds-stroke-default) solid var(--ds-color-primary-solid-default-default);
+    color: var(--ds-color-neutral-text-default-default);
+    background: var(--ds-color-primary-surface-subtle-default);
+  }
+
+  .marker {
+    display: grid;
+    place-items: center;
+    inline-size: var(--ds-size-icon-lg);
+    block-size: var(--ds-size-icon-lg);
+    border: var(--ds-stroke-thin) solid var(--ds-color-neutral-border-strong-default);
+    border-radius: var(--ds-radius-full);
+    font-size: var(--ds-size-icon-xs);
+    color: var(--ds-color-success-icon-default-default);
+  }
+
+  .stage[aria-current='step'] .marker {
+    border-color: var(--ds-color-primary-solid-default-default);
+    background: var(--ds-color-primary-solid-default-default);
+  }
+
+  .holdList {
+    display: flex;
+    flex-direction: column;
+    gap: var(--ds-spacing-3xs);
+    padding-inline-start: var(--ds-spacing-md);
+    list-style: disc;
+  }
+
+  .holdList > [data-blocks='true'] {
+    font-weight: var(--ds-font-weight-semibold);
+  }
+
+  .when {
+    white-space: nowrap;
+  }
+}

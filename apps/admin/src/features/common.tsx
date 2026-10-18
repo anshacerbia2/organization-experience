@@ -7,6 +7,16 @@ import { messages } from '../messages';
 import { maxReasonLength, minReasonLength, normalizeReason, reasonProblem, remaining } from '../scope';
 import { providerSignInHref } from '../session';
 import { useSignedIn } from '../SessionContext';
+import {
+  Button,
+  EmptyState,
+  fieldClasses,
+  layout,
+  Loading,
+  Notice,
+  rowClasses,
+  type ButtonVariant,
+} from '../ui';
 
 // What every administration surface shares (TDD-organization-experience-002 1.2.0): keyset lists, the
 // mutation contract, and how a refusal is shown.
@@ -49,15 +59,18 @@ export function LoadMore({
     return null;
   }
   return (
-    <button
-      type="button"
-      disabled={query.isFetchingNextPage}
-      onClick={() => {
-        void query.fetchNextPage();
-      }}
-    >
-      {query.isFetchingNextPage ? messages.loading : messages.loadMore}
-    </button>
+    <div className={layout.actions}>
+      <Button
+        variant="secondary"
+        size="sm"
+        disabled={query.isFetchingNextPage}
+        onClick={() => {
+          void query.fetchNextPage();
+        }}
+      >
+        {query.isFetchingNextPage ? messages.loading : messages.loadMore}
+      </Button>
+    </div>
   );
 }
 
@@ -65,38 +78,50 @@ export function LoadMore({
 // gave any. A version conflict says so plainly: the record changed since it was shown.
 export function ApiErrorMessage({ error }: { readonly error: unknown }): ReactElement {
   if (!(error instanceof ApiError)) {
-    return <p role="alert">{messages.dependencyUnavailable}</p>;
+    return (
+      <Notice tone="danger" role="alert">
+        <p>{messages.dependencyUnavailable}</p>
+      </Notice>
+    );
   }
   if (error.stepUp) {
     return (
-      <p role="alert">
-        {messages.stepUpNeeded}{' '}
-        <a href={providerSignInHref(window.location.pathname)}>{messages.stepUpAction}</a>
-      </p>
+      <Notice tone="warning" icon="shield" role="alert">
+        <p>
+          {messages.stepUpNeeded}{' '}
+          <a href={providerSignInHref(window.location.pathname)}>{messages.stepUpAction}</a>
+        </p>
+      </Notice>
     );
   }
   const reference = error.correlationId === null ? '' : ` ${messages.correlation(error.correlationId)}`;
   if (error.isVersionConflict) {
     return (
-      <p role="alert">
-        {messages.versionConflict}
-        {reference}
-      </p>
+      <Notice tone="warning" role="alert">
+        <p>
+          {messages.versionConflict}
+          {reference}
+        </p>
+      </Notice>
     );
   }
   if (error.status >= 500) {
     return (
-      <p role="alert">
-        {messages.dependencyUnavailable}
-        {reference}
-      </p>
+      <Notice tone="danger" role="alert">
+        <p>
+          {messages.dependencyUnavailable}
+          {reference}
+        </p>
+      </Notice>
     );
   }
   return (
-    <p role="alert">
-      {error.detail === null ? messages.refused : messages.refusedBy(error.detail)}
-      {reference}
-    </p>
+    <Notice tone="danger" role="alert">
+      <p>
+        {error.detail === null ? messages.refused : messages.refusedBy(error.detail)}
+        {reference}
+      </p>
+    </Notice>
   );
 }
 
@@ -110,12 +135,12 @@ export function ListState({
   readonly count: number;
 }): ReactElement | null {
   if (query.isPending) {
-    return <p>{messages.loading}</p>;
+    return <Loading />;
   }
   if (query.isError) {
     return <ApiErrorMessage error={query.error} />;
   }
-  return count === 0 ? <p>{empty}</p> : null;
+  return count === 0 ? <EmptyState>{empty}</EmptyState> : null;
 }
 
 // Countdown shows the time left until an instant, every second.
@@ -155,6 +180,9 @@ export interface ActionProps<T> {
   readonly scopeNote?: string;
   readonly invalidates: readonly QueryKey[];
   readonly onDone?: (result: T) => void;
+  // tone is how the action is drawn: danger for one that takes access or a record away, primary for
+  // the one a page is for, secondary otherwise (TDD-organization-experience-001 §Visual Language).
+  readonly tone?: ButtonVariant;
 }
 
 // Action runs one command under the mutation contract: an idempotency key per distinct request, the
@@ -169,6 +197,7 @@ export function Action<T>({
   scopeNote,
   invalidates,
   onDone,
+  tone = 'secondary',
 }: ActionProps<T>): ReactElement {
   const session = useSignedIn();
   const client = useQueryClient();
@@ -208,9 +237,10 @@ export function Action<T>({
 
   if (!needsForm || !open) {
     return (
-      <span>
-        <button
-          type="button"
+      <span className={rowClasses.action}>
+        <Button
+          variant={tone}
+          size="sm"
           disabled={mutation.isPending}
           onClick={() => {
             if (needsForm) {
@@ -221,7 +251,7 @@ export function Action<T>({
           }}
         >
           {label}
-        </button>
+        </Button>
         {mutation.isError ? <ApiErrorMessage error={mutation.error} /> : null}
       </span>
     );
@@ -230,19 +260,26 @@ export function Action<T>({
     <form
       aria-label={label}
       noValidate
+      className={layout.confirm}
+      data-tone={tone}
       onSubmit={(event) => {
         event.preventDefault();
         send();
       }}
     >
-      {scopeNote === undefined ? null : <p>{scopeNote}</p>}
+      {scopeNote === undefined ? null : (
+        <Notice tone={tone === 'danger' ? 'danger' : 'info'}>
+          <p>{scopeNote}</p>
+        </Notice>
+      )}
       {reasonMode === undefined ? null : (
-        <>
-          <label htmlFor={ids.reason}>
+        <div className={fieldClasses.field}>
+          <label htmlFor={ids.reason} className={fieldClasses.label}>
             {reasonMode === 'required' ? messages.reason : messages.reasonOptional}
           </label>
           <textarea
             id={ids.reason}
+            className={fieldClasses.area}
             value={reason}
             aria-invalid={submitted && problem !== null}
             onChange={(event) => {
@@ -250,7 +287,7 @@ export function Action<T>({
             }}
           />
           {submitted && problem !== null ? (
-            <p role="alert">
+            <p role="alert" className={fieldClasses.error}>
               {problem === 'short'
                 ? messages.reasonShort(minReasonLength)
                 : problem === 'long'
@@ -258,39 +295,52 @@ export function Action<T>({
                   : messages.reasonCharacters}
             </p>
           ) : null}
-        </>
+        </div>
       )}
       {confirm === undefined ? null : (
-        <>
-          <label htmlFor={ids.confirm}>{messages.typeToConfirm(confirm)}</label>
+        <div className={fieldClasses.field}>
+          <label htmlFor={ids.confirm} className={fieldClasses.label}>
+            {messages.typeToConfirm(confirm)}
+          </label>
           <input
             id={ids.confirm}
+            className={fieldClasses.input}
             value={typed}
             autoComplete="off"
+            spellCheck={false}
             aria-invalid={submitted && !confirmed}
             onChange={(event) => {
               setTyped(event.target.value);
             }}
           />
-        </>
+        </div>
       )}
-      <button type="submit" disabled={mutation.isPending}>
-        {label}
-      </button>{' '}
-      <button
-        type="button"
-        onClick={() => {
-          setOpen(false);
-        }}
-      >
-        {messages.cancel}
-      </button>
+      <div className={layout.actions}>
+        <Button
+          type="submit"
+          variant={tone === 'secondary' ? 'primary' : tone}
+          size="sm"
+          disabled={mutation.isPending}
+        >
+          {label}
+        </Button>{' '}
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => {
+            setOpen(false);
+          }}
+        >
+          {messages.cancel}
+        </Button>
+      </div>
       {mutation.isError ? <ApiErrorMessage error={mutation.error} /> : null}
     </form>
   );
 }
 
-// Field is a labelled input for the create forms.
+// Field is a labelled input for the create forms. Its control takes fieldClasses' input, area or
+// select.
 export function Field({
   label,
   hint,
@@ -303,10 +353,16 @@ export function Field({
   const id = useId();
   const hintId = useId();
   return (
-    <p>
-      <label htmlFor={id}>{label}</label>
+    <div className={fieldClasses.field}>
+      <label htmlFor={id} className={fieldClasses.label}>
+        {label}
+      </label>
       {children(id, hint === undefined ? undefined : hintId)}
-      {hint === undefined ? null : <span id={hintId}>{hint}</span>}
-    </p>
+      {hint === undefined ? null : (
+        <span id={hintId} className={fieldClasses.hint}>
+          {hint}
+        </span>
+      )}
+    </div>
   );
 }

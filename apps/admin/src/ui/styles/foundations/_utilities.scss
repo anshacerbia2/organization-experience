@@ -1,0 +1,18 @@
+// Copied from identity-experience at c723e417c0eee97db6b1d5b6dab608fe6a406ac2 (its pull request #54),
+// packages/ui/src/styles/foundations/_utilities.scss. The same names and values; TDD-organization-experience-001 §Visual Language
+// records the copy and any departure.
+// Global utilities carry the application prefix (STD-GLB-FE-005 §3.2): `scnx-org-` rather than
+// the bare `scnx-`, which is reserved for the platform itself.
+@layer utilities {
+  .scnx-org-visually-hidden {
+    position: absolute;
+    inline-size: 1px;
+    block-size: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+    border: 0;
+  }
+}

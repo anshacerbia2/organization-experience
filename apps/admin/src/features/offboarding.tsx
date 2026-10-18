@@ -5,6 +5,25 @@ import { useState, type ReactElement } from 'react';
 import { apiGet } from '../api/client';
 import { messages } from '../messages';
 import {
+  Button,
+  Facts,
+  fieldClasses,
+  Icon,
+  layout,
+  Loading,
+  Notice,
+  Page,
+  PageHeader,
+  PageTitle,
+  Panel,
+  Row,
+  RowMain,
+  Rows,
+  StatusPill,
+  Table,
+  toneOf,
+} from '../ui';
+import {
   Action,
   ApiErrorMessage,
   facts,
@@ -14,6 +33,7 @@ import {
   LoadMore,
   usePagedList,
 } from './common';
+import styles from './offboarding.module.scss';
 
 // Offboarding (TDD-organization-experience-003 1.2.0), in provider mode: staged and resumable,
 // never one button. Every stage and obligation state comes from the persisted record, so the view
@@ -93,6 +113,16 @@ const stageEnteredAt = (offboarding: Offboarding): string | null | undefined =>
     cancelled: offboarding.cancelled_at,
   })[offboarding.stage];
 
+// The tone each stage is drawn in: the freeze and the release stop access and take infrastructure away,
+// the obligations wait on other domains, and a finished offboarding is past.
+const stageStatus: Readonly<Record<Stage, string>> = {
+  freeze: 'suspended',
+  obligations: 'pending',
+  release: 'offboarding',
+  retired: 'retired',
+  cancelled: 'cancelled',
+};
+
 const days = (since: string, now: number): number => Math.floor((now - Date.parse(since)) / 86_400_000);
 
 export function OffboardingsPage(): ReactElement {
@@ -101,42 +131,55 @@ export function OffboardingsPage(): ReactElement {
     stage,
   });
   return (
-    <section aria-labelledby="offboardings-heading">
-      <h2 id="offboardings-heading">{messages.offboardings}</h2>
-      <Field label={messages.stage}>
-        {(id) => (
-          <select
-            id={id}
-            value={stage}
-            onChange={(event) => {
-              setStage(event.target.value);
-            }}
-          >
-            <option value="">{messages.any}</option>
-            {stages.map((value) => (
-              <option key={value} value={value}>
-                {messages.stageName(value)}
-              </option>
-            ))}
-          </select>
-        )}
-      </Field>
+    <Page aria-labelledby="offboardings-heading">
+      <PageHeader>
+        <PageTitle id="offboardings-heading">{messages.offboardings}</PageTitle>
+      </PageHeader>
+      <div className={layout.toolbar}>
+        <Field label={messages.stage}>
+          {(id) => (
+            <select
+              id={id}
+              className={fieldClasses.select}
+              value={stage}
+              onChange={(event) => {
+                setStage(event.target.value);
+              }}
+            >
+              <option value="">{messages.any}</option>
+              {stages.map((value) => (
+                <option key={value} value={value}>
+                  {messages.stageName(value)}
+                </option>
+              ))}
+            </select>
+          )}
+        </Field>
+      </div>
       <ListState query={query} empty={messages.noOffboardings} count={items.length} />
-      <ul>
+      <Rows>
         {items.map((offboarding) => (
-          <li key={offboarding.offboarding_id}>
-            <Link to="/offboardings/$offboardingId" params={{ offboardingId: offboarding.offboarding_id }}>
-              {offboarding.tenant_id}
-            </Link>{' '}
-            {facts(
-              messages.stageName(offboarding.stage),
-              offboarding.legal_hold ? messages.legalHoldSet : null,
-            )}
-          </li>
+          <Row key={offboarding.offboarding_id}>
+            <RowMain>
+              <Link
+                to="/offboardings/$offboardingId"
+                params={{ offboardingId: offboarding.offboarding_id }}
+                className={styles['recordLink']}
+              >
+                {offboarding.tenant_id}
+              </Link>{' '}
+              <Facts
+                items={[
+                  { status: stageStatus[offboarding.stage], label: messages.stageName(offboarding.stage) },
+                  offboarding.legal_hold ? { status: 'suspended', label: messages.legalHoldSet } : null,
+                ]}
+              />
+            </RowMain>
+          </Row>
         ))}
-      </ul>
+      </Rows>
       <LoadMore query={query} />
-    </section>
+    </Page>
   );
 }
 
@@ -151,17 +194,29 @@ function StageTimeline({ offboarding }: { readonly offboarding: Offboarding }): 
     offboarding.stage !== 'cancelled' &&
     now - Date.parse(entered) > stallMs;
   return (
-    <section aria-labelledby="stages-heading">
-      <h3 id="stages-heading">{messages.stages}</h3>
-      <ol>
-        {stages.map((stage) => (
-          <li key={stage} aria-current={stage === offboarding.stage ? 'step' : undefined}>
+    <Panel.Root aria-labelledby="stages-heading">
+      <Panel.Header>
+        <Panel.Title level={3} id="stages-heading">
+          {messages.stages}
+        </Panel.Title>
+      </Panel.Header>
+      <ol className={styles['stages']}>
+        {stages.map((stage, index) => (
+          <li
+            key={stage}
+            className={styles['stage']}
+            aria-current={stage === offboarding.stage ? 'step' : undefined}
+            data-passed={index < stages.indexOf(offboarding.stage) || undefined}
+          >
+            <span className={styles['marker']} aria-hidden="true">
+              {index < stages.indexOf(offboarding.stage) ? <Icon name="check" /> : null}
+            </span>
             <strong>{messages.stageName(stage)}</strong> {messages.stageStops(stage)}
           </li>
         ))}
       </ol>
       {entered === null || entered === undefined ? null : (
-        <p>
+        <p className={layout.lead}>
           {messages.inStageSince(
             messages.stageName(offboarding.stage),
             formatTime(entered),
@@ -169,17 +224,23 @@ function StageTimeline({ offboarding }: { readonly offboarding: Offboarding }): 
           )}
         </p>
       )}
-      {stalled ? <p role="alert">{messages.stalled}</p> : null}
-      {offboarding.stage === 'cancelled' ? (
-        <p role="status">
-          {messages.cancelledBy(
-            offboarding.cancelled_by ?? '',
-            formatTime(offboarding.cancelled_at),
-            offboarding.cancel_reason ?? '',
-          )}
-        </p>
+      {stalled ? (
+        <Notice tone="warning" icon="clock" role="alert">
+          <p>{messages.stalled}</p>
+        </Notice>
       ) : null}
-    </section>
+      {offboarding.stage === 'cancelled' ? (
+        <Notice tone="info" role="status">
+          <p>
+            {messages.cancelledBy(
+              offboarding.cancelled_by ?? '',
+              formatTime(offboarding.cancelled_at),
+              offboarding.cancel_reason ?? '',
+            )}
+          </p>
+        </Notice>
+      ) : null}
+    </Panel.Root>
   );
 }
 
@@ -188,16 +249,18 @@ function LegalHoldBanner({ offboarding }: { readonly offboarding: Offboarding })
     return null;
   }
   return (
-    <section aria-label={messages.legalHoldSet} className="legal-hold">
-      <p>
-        <strong>{messages.legalHoldSet}</strong>
-      </p>
-      <ul>
-        <li>{messages.holdProceeds(messages.stageName('freeze'))}</li>
-        <li>{messages.holdProceeds(messages.stageName('obligations'))}</li>
-        <li>{messages.holdBlocks(messages.stageName('release'))}</li>
-        <li>{messages.holdBlocks(messages.retirement)}</li>
-      </ul>
+    <section aria-label={messages.legalHoldSet}>
+      <Notice tone="warning" icon="shield">
+        <p>
+          <strong>{messages.legalHoldSet}</strong>
+        </p>
+        <ul className={styles['holdList']}>
+          <li data-blocks="false">{messages.holdProceeds(messages.stageName('freeze'))}</li>
+          <li data-blocks="false">{messages.holdProceeds(messages.stageName('obligations'))}</li>
+          <li data-blocks="true">{messages.holdBlocks(messages.stageName('release'))}</li>
+          <li data-blocks="true">{messages.holdBlocks(messages.retirement)}</li>
+        </ul>
+      </Notice>
     </section>
   );
 }
@@ -211,27 +274,32 @@ const overdue = (obligation: Obligation, now: number): boolean =>
 function ObligationBoard({ obligations }: { readonly obligations: readonly Obligation[] }): ReactElement {
   const [now] = useState(() => Date.now());
   return (
-    <table>
-      <caption>{messages.obligations}</caption>
-      <thead>
-        <tr>
-          <th scope="col">{messages.domain}</th>
-          <th scope="col">{messages.obligation}</th>
-          <th scope="col">{messages.state('state')}</th>
-          <th scope="col">{messages.due}</th>
-          <th scope="col">{messages.detail}</th>
-        </tr>
-      </thead>
-      <tbody>
+    <Table.Root caption={messages.obligations}>
+      <Table.Head>
+        <Table.Row>
+          <Table.HeaderCell>{messages.domain}</Table.HeaderCell>
+          <Table.HeaderCell>{messages.obligation}</Table.HeaderCell>
+          <Table.HeaderCell>{messages.state('state')}</Table.HeaderCell>
+          <Table.HeaderCell>{messages.due}</Table.HeaderCell>
+          <Table.HeaderCell>{messages.detail}</Table.HeaderCell>
+        </Table.Row>
+      </Table.Head>
+      <Table.Body>
         {obligations.map((obligation) => (
-          <tr key={obligation.obligation_id} data-state={obligation.state}>
-            <td>{obligation.domain}</td>
-            <td>{obligation.type}</td>
-            <td>
-              {overdue(obligation, now) ? messages.overdue : messages.obligationState(obligation.state)}
-            </td>
-            <td>{formatTime(obligation.due_at)}</td>
-            <td>
+          <Table.Row key={obligation.obligation_id} data-state={obligation.state}>
+            <Table.Cell mono>{obligation.domain}</Table.Cell>
+            <Table.Cell mono>{obligation.type}</Table.Cell>
+            <Table.Cell>
+              {overdue(obligation, now) ? (
+                <StatusPill tone="danger">{messages.overdue}</StatusPill>
+              ) : (
+                <StatusPill tone={obligation.state === 'open' ? 'info' : toneOf(obligation.state)}>
+                  {messages.obligationState(obligation.state)}
+                </StatusPill>
+              )}
+            </Table.Cell>
+            <Table.Cell className={styles['when']}>{formatTime(obligation.due_at)}</Table.Cell>
+            <Table.Cell>
               {obligation.state === 'open'
                 ? messages.resolvedByDomain(obligation.domain)
                 : messages.resolvedBy(
@@ -239,11 +307,11 @@ function ObligationBoard({ obligations }: { readonly obligations: readonly Oblig
                     formatTime(obligation.resolved_at),
                     obligation.detail ?? '',
                   )}
-            </td>
-          </tr>
+            </Table.Cell>
+          </Table.Row>
         ))}
-      </tbody>
-    </table>
+      </Table.Body>
+    </Table.Root>
   );
 }
 
@@ -257,36 +325,45 @@ function RaiseObligation({
   const [domain, setDomain] = useState('');
   const [type, setType] = useState('');
   return (
-    <div>
-      <Field label={messages.domain}>
-        {(id) => (
-          <input
-            id={id}
-            value={domain}
-            onChange={(event) => {
-              setDomain(event.target.value);
-            }}
+    <Panel.Root aria-labelledby="raise-obligation-heading">
+      <Panel.Title level={3} id="raise-obligation-heading">
+        {messages.raiseObligation}
+      </Panel.Title>
+      <div className={layout.form}>
+        <Field label={messages.domain}>
+          {(id) => (
+            <input
+              id={id}
+              className={fieldClasses.input}
+              value={domain}
+              onChange={(event) => {
+                setDomain(event.target.value);
+              }}
+            />
+          )}
+        </Field>
+        <Field label={messages.obligation}>
+          {(id) => (
+            <input
+              id={id}
+              className={fieldClasses.input}
+              value={type}
+              onChange={(event) => {
+                setType(event.target.value);
+              }}
+            />
+          )}
+        </Field>
+        <div className={layout.actions}>
+          <Action
+            label={messages.raiseObligation}
+            path={`/v1/offboardings/${offboardingId}/obligations`}
+            body={{ domain: domain.trim(), type: type.trim() }}
+            invalidates={invalidate}
           />
-        )}
-      </Field>
-      <Field label={messages.obligation}>
-        {(id) => (
-          <input
-            id={id}
-            value={type}
-            onChange={(event) => {
-              setType(event.target.value);
-            }}
-          />
-        )}
-      </Field>
-      <Action
-        label={messages.raiseObligation}
-        path={`/v1/offboardings/${offboardingId}/obligations`}
-        body={{ domain: domain.trim(), type: type.trim() }}
-        invalidates={invalidate}
-      />
-    </div>
+        </div>
+      </div>
+    </Panel.Root>
   );
 }
 
@@ -314,7 +391,7 @@ export function OffboardingDetail(): ReactElement {
   });
 
   if (record.isPending) {
-    return <p>{messages.loading}</p>;
+    return <Loading />;
   }
   if (record.isError) {
     return <ApiErrorMessage error={record.error} />;
@@ -332,16 +409,21 @@ export function OffboardingDetail(): ReactElement {
   const realized = deprovisioning?.state === 'realized';
 
   return (
-    <section aria-labelledby="offboarding-heading">
-      <h2 id="offboarding-heading">{messages.offboardingOf(name)}</h2>
-      <p>{facts(messages.startedAt(formatTime(offboarding.started_at)), offboarding.reason)}</p>
+    <Page aria-labelledby="offboarding-heading">
+      <PageHeader>
+        <PageTitle id="offboarding-heading">{messages.offboardingOf(name)}</PageTitle>
+        <p className={layout.lead}>
+          {facts(messages.startedAt(formatTime(offboarding.started_at)), offboarding.reason)}
+        </p>
+      </PageHeader>
       <StageTimeline offboarding={offboarding} />
       {offboarding.stage === 'cancelled' &&
       (offboarding.restore_pending ?? 0) > 0 &&
       tenant.data !== undefined ? (
-        <div role="alert">
+        <Notice tone="warning" role="alert">
           <p>{messages.restorePending(offboarding.restore_pending ?? 0)}</p>
           <Action
+            tone="primary"
             label={messages.finishRestoring}
             path={`${base}/cancel`}
             body={{ expected_version: tenant.data.version }}
@@ -349,16 +431,19 @@ export function OffboardingDetail(): ReactElement {
             scopeNote={note}
             invalidates={invalidate}
           />
-        </div>
+        </Notice>
       ) : null}
       <LegalHoldBanner offboarding={offboarding} />
 
       {offboarding.stage === 'freeze' ? (
-        <section aria-labelledby="freeze-heading">
-          <h3 id="freeze-heading">{messages.stageName('freeze')}</h3>
+        <Panel.Root aria-labelledby="freeze-heading">
+          <Panel.Title level={3} id="freeze-heading">
+            {messages.stageName('freeze')}
+          </Panel.Title>
           <p>{messages.activeRemaining(offboarding.active_memberships)}</p>
           {offboarding.active_memberships > 0 ? (
             <Action
+              tone="danger"
               label={messages.freezeNext(100)}
               path={`${base}/freeze`}
               body={{ size: 100 }}
@@ -372,7 +457,7 @@ export function OffboardingDetail(): ReactElement {
               invalidates={invalidate}
             />
           )}
-        </section>
+        </Panel.Root>
       ) : null}
 
       <ObligationBoard obligations={obligations} />
@@ -382,28 +467,35 @@ export function OffboardingDetail(): ReactElement {
       ) : null}
 
       {offboarding.stage === 'obligations' ? (
-        <section aria-labelledby="release-heading">
-          <h3 id="release-heading">{messages.stageName('release')}</h3>
+        <Panel.Root aria-labelledby="release-heading">
+          <Panel.Title level={3} id="release-heading">
+            {messages.stageName('release')}
+          </Panel.Title>
           {offboarding.legal_hold ? (
-            <p role="status">{messages.blockedByHold(messages.stageName('release'))}</p>
+            <Notice tone="warning" icon="shield" role="status">
+              <p>{messages.blockedByHold(messages.stageName('release'))}</p>
+            </Notice>
           ) : open.length > 0 ? (
-            <div role="status">
+            <Notice tone="warning" role="status">
               <p>{messages.blockedByObligations}</p>
-              <ul>
+              <ul className={styles['holdList']}>
                 {open.map((obligation) => (
                   <li key={obligation.obligation_id}>
                     {facts(obligation.domain, obligation.type, messages.obligationState(obligation.state))}
                   </li>
                 ))}
               </ul>
-            </div>
+            </Notice>
           ) : null}
           {offboarding.legal_hold || open.length > 0 ? (
-            <button type="button" disabled>
-              {messages.release}
-            </button>
+            <div className={layout.actions}>
+              <Button variant="danger" size="sm" disabled>
+                {messages.release}
+              </Button>
+            </div>
           ) : (
             <Action
+              tone="danger"
               label={messages.release}
               path={`${base}/release`}
               body={{}}
@@ -412,12 +504,14 @@ export function OffboardingDetail(): ReactElement {
               invalidates={invalidate}
             />
           )}
-        </section>
+        </Panel.Root>
       ) : null}
 
       {offboarding.stage === 'release' ? (
-        <section aria-labelledby="retire-heading">
-          <h3 id="retire-heading">{messages.retirement}</h3>
+        <Panel.Root aria-labelledby="retire-heading">
+          <Panel.Title level={3} id="retire-heading">
+            {messages.retirement}
+          </Panel.Title>
           <p>
             {deprovisioning === null
               ? messages.deprovisioningNone
@@ -427,13 +521,20 @@ export function OffboardingDetail(): ReactElement {
                   ? messages.deprovisioningFailed(deprovisioning.detail ?? '')
                   : messages.deprovisioningAwaiting(formatTime(deprovisioning.requested_at))}
           </p>
-          {offboarding.legal_hold ? <p role="status">{messages.blockedByHold(messages.retirement)}</p> : null}
+          {offboarding.legal_hold ? (
+            <Notice tone="warning" icon="shield" role="status">
+              <p>{messages.blockedByHold(messages.retirement)}</p>
+            </Notice>
+          ) : null}
           {offboarding.legal_hold || !realized || tenant.data === undefined ? (
-            <button type="button" disabled>
-              {messages.retire}
-            </button>
+            <div className={layout.actions}>
+              <Button variant="danger" size="sm" disabled>
+                {messages.retire}
+              </Button>
+            </div>
           ) : (
             <Action
+              tone="danger"
               label={messages.retire}
               path={`${base}/retire`}
               body={{ expected_version: tenant.data.version }}
@@ -443,14 +544,16 @@ export function OffboardingDetail(): ReactElement {
               invalidates={invalidate}
             />
           )}
-        </section>
+        </Panel.Root>
       ) : null}
 
       {(offboarding.stage === 'freeze' || offboarding.stage === 'obligations') &&
       tenant.data !== undefined ? (
-        <section aria-labelledby="cancel-heading">
-          <h3 id="cancel-heading">{messages.cancelOffboarding}</h3>
-          <p>{messages.cancelExplained}</p>
+        <Panel.Root aria-labelledby="cancel-heading">
+          <Panel.Title level={3} id="cancel-heading">
+            {messages.cancelOffboarding}
+          </Panel.Title>
+          <Panel.Description>{messages.cancelExplained}</Panel.Description>
           <Action
             label={messages.cancelOffboarding}
             path={`${base}/cancel`}
@@ -459,11 +562,11 @@ export function OffboardingDetail(): ReactElement {
             scopeNote={`${messages.cancelWill} ${note}`}
             invalidates={invalidate}
           />
-        </section>
+        </Panel.Root>
       ) : null}
 
       {offboarding.stage !== 'retired' && offboarding.stage !== 'cancelled' ? (
-        <p>
+        <div className={layout.actions}>
           <Action
             label={offboarding.legal_hold ? messages.liftHold : messages.setHold}
             path={`${base}/legal-hold`}
@@ -472,9 +575,9 @@ export function OffboardingDetail(): ReactElement {
             scopeNote={note}
             invalidates={invalidate}
           />
-        </p>
+        </div>
       ) : null}
-    </section>
+    </Page>
   );
 }
 
@@ -492,18 +595,19 @@ export function BeginOffboarding({ tenantId }: { readonly tenantId: string }): R
   });
   if (!open) {
     return (
-      <button
-        type="button"
+      <Button
+        variant="danger"
+        size="sm"
         onClick={() => {
           setOpen(true);
         }}
       >
         {messages.offboard}
-      </button>
+      </Button>
     );
   }
   if (tenant.isPending) {
-    return <p>{messages.loading}</p>;
+    return <Loading />;
   }
   if (tenant.isError) {
     return <ApiErrorMessage error={tenant.error} />;
@@ -518,6 +622,7 @@ export function BeginOffboarding({ tenantId }: { readonly tenantId: string }): R
   }
   return (
     <Action<Offboarding>
+      tone="danger"
       label={messages.beginOffboarding}
       path="/v1/offboardings"
       body={{ tenant_id: detail.tenant_id, expected_version: detail.version }}

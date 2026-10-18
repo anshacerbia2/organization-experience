@@ -5,6 +5,7 @@
 //
 // This is automated evidence only. Playwright's guide: "automated testing cannot detect all types of
 // WCAG violations". What axe cannot decide is recorded on the test as "needs review", never passed.
+import { appendFileSync } from 'node:fs';
 import path from 'node:path';
 
 import { AxeBuilder } from '@axe-core/playwright';
@@ -218,11 +219,15 @@ for (const theme of themes) {
           nodes: violation.nodes.map((node) => node.target.join(' ')),
         }));
         expect(violations).toEqual([]);
+        // What axe could not decide is left for the manual audit: on the test, and in needs-review.txt
+        // beside the screenshots, never counted as passed.
         for (const undecided of results.incomplete) {
-          test.info().annotations.push({
-            type: 'needs review',
-            description: `${theme} ${viewport}: ${undecided.id}: ${String(undecided.nodes.length)} node(s)`,
-          });
+          const description = `${theme} ${viewport}: ${undecided.id}: ${String(undecided.nodes.length)} node(s)`;
+          test.info().annotations.push({ type: 'needs review', description });
+          appendFileSync(
+            path.join(test.info().project.outputDir, '..', 'screens', 'needs-review.txt'),
+            `${screen.name} ${description}\n`,
+          );
         }
       });
     }

@@ -6,7 +6,24 @@ import { messages } from '../messages';
 import { normalizeReason, reasonProblem } from '../scope';
 import { useScope } from '../ScopeContext';
 import { useSignedIn } from '../SessionContext';
-import { Action, ApiErrorMessage, facts, formatTime } from './common';
+import {
+  Button,
+  Facts,
+  fieldClasses,
+  layout,
+  Loading,
+  EmptyState,
+  Page,
+  PageHeader,
+  PageTitle,
+  Panel,
+  Row,
+  RowMain,
+  Rows,
+  RowTitle,
+  rowClasses,
+} from '../ui';
+import { Action, ApiErrorMessage, formatTime } from './common';
 
 // The approval surface (TDD-organization-experience-002 1.2.0, ADR-ORG-002 §5.1): in production an
 // activation is approved by another provider. It lists the requests awaiting a decision, and decides
@@ -49,27 +66,36 @@ export function ApprovalsPage(): ReactElement {
   }
   const pending = (query.data?.activations ?? []).filter((activation) => (activation.decision ?? '') === '');
   return (
-    <section aria-labelledby="approvals-heading">
-      <h2 id="approvals-heading">{messages.approvals}</h2>
-      {query.isPending ? <p>{messages.loading}</p> : null}
+    <Page aria-labelledby="approvals-heading">
+      <PageHeader>
+        <PageTitle id="approvals-heading">{messages.approvals}</PageTitle>
+      </PageHeader>
+      {query.isPending ? <Loading /> : null}
       {query.isError ? <ApiErrorMessage error={query.error} /> : null}
-      {query.isSuccess && pending.length === 0 ? <p>{messages.noPendingActivations}</p> : null}
-      <ul>
+      {query.isSuccess && pending.length === 0 ? (
+        <EmptyState>{messages.noPendingActivations}</EmptyState>
+      ) : null}
+      <Rows>
         {pending.map((activation) => (
-          <li key={activation.activation_id}>
-            <strong>{activation.principal_id}</strong>{' '}
-            {facts(
-              activation.scope,
-              messages.minutes(Math.round(activation.duration_seconds / 60)),
-              formatTime(activation.requested_at),
-            )}
+          <Row key={activation.activation_id}>
+            <RowMain>
+              <RowTitle mono>{activation.principal_id}</RowTitle>{' '}
+              <Facts
+                items={[
+                  activation.scope,
+                  messages.minutes(Math.round(activation.duration_seconds / 60)),
+                  formatTime(activation.requested_at),
+                ]}
+              />
+            </RowMain>
             <p>{messages.activationReason(activation.reason)}</p>
             {activation.principal_id === session.principalId ? (
-              <p>{messages.yourRequest}</p>
+              <p className={rowClasses.note}>{messages.yourRequest}</p>
             ) : (
               <>
                 <Action
                   label={messages.approve}
+                  tone="primary"
                   path={`/v1/provider-activations/${activation.activation_id}/approve`}
                   body={{}}
                   reason="required"
@@ -77,6 +103,7 @@ export function ApprovalsPage(): ReactElement {
                 />{' '}
                 <Action
                   label={messages.deny}
+                  tone="danger"
                   path={`/v1/provider-activations/${activation.activation_id}/deny`}
                   body={{}}
                   reason="required"
@@ -84,10 +111,10 @@ export function ApprovalsPage(): ReactElement {
                 />
               </>
             )}
-          </li>
+          </Row>
         ))}
-      </ul>
-    </section>
+      </Rows>
+    </Page>
   );
 }
 
@@ -97,30 +124,46 @@ function ReviewReason({ onReason }: { readonly onReason: (reason: string) => voi
   const [submitted, setSubmitted] = useState(false);
   const problem = reasonProblem(value);
   return (
-    <form
-      aria-label={messages.reviewRequests}
-      noValidate
-      onSubmit={(event) => {
-        event.preventDefault();
-        setSubmitted(true);
-        if (problem === null) {
-          onReason(normalizeReason(value));
-        }
-      }}
-    >
-      <h2>{messages.approvals}</h2>
-      <p>{messages.reviewReasonExplained}</p>
-      <label htmlFor={id}>{messages.reason}</label>
-      <textarea
-        id={id}
-        value={value}
-        aria-invalid={submitted && problem !== null}
-        onChange={(event) => {
-          setValue(event.target.value);
+    <Panel.Root>
+      <form
+        aria-label={messages.reviewRequests}
+        noValidate
+        className={layout.column}
+        onSubmit={(event) => {
+          event.preventDefault();
+          setSubmitted(true);
+          if (problem === null) {
+            onReason(normalizeReason(value));
+          }
         }}
-      />
-      {submitted && problem !== null ? <p role="alert">{messages.reasonShort(10)}</p> : null}
-      <button type="submit">{messages.reviewRequests}</button>
-    </form>
+      >
+        <Panel.Header>
+          <Panel.Title>{messages.approvals}</Panel.Title>
+          <Panel.Description>{messages.reviewReasonExplained}</Panel.Description>
+        </Panel.Header>
+        <div className={fieldClasses.field}>
+          <label htmlFor={id} className={fieldClasses.label}>
+            {messages.reason}
+          </label>
+          <textarea
+            id={id}
+            className={fieldClasses.area}
+            value={value}
+            aria-invalid={submitted && problem !== null}
+            onChange={(event) => {
+              setValue(event.target.value);
+            }}
+          />
+          {submitted && problem !== null ? (
+            <p role="alert" className={fieldClasses.error}>
+              {messages.reasonShort(10)}
+            </p>
+          ) : null}
+        </div>
+        <div className={layout.actions}>
+          <Button type="submit">{messages.reviewRequests}</Button>
+        </div>
+      </form>
+    </Panel.Root>
   );
 }

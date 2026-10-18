@@ -202,6 +202,28 @@ and `administration.test.tsx` (a revocation shown by its evidence).
     status and the Memberships the freeze suspended.
   - A cancellation that stopped partway says how many remain and finishes when sent again.
 
+## Visual language (TDD-organization-experience-001 1.9.0)
+
+The console takes identity-experience's visual language, by copy, from its commit
+`c723e417c0eee97db6b1d5b6dab608fe6a406ac2` (its pull request #54). The UI Platform stays deferred, so
+the components are local, under `apps/admin/src/ui/`, behind one entry point.
+
+- ✅ **Tokens and foundations:** every `--ds-*` token, same names and values, both schemes; the canvas,
+  focus as an outline, links underlined, reduced motion, forced colours. No token departs.
+- ✅ **Components ported:** ButtonBase, Button, Icon, Panel, StatusPill, Table, the field styles, the
+  frame with its rail and bar, the theme toggle, and the notice. Their tests came with them.
+- ✅ **The contrast test ported,** its 40 pairs unchanged, with this application's pairs added: the scope
+  banner in each scope, the rows, the confirmation, the stages. All meet WCAG 2.2 AA in both themes.
+- ✅ **Information design:** records drawn as dense rows with status pills and row actions; destructive
+  actions in the danger variant, confirmed in place with the scope named; loading, empty and error
+  states in words; the scope banner sticky under the bar with its countdown; tablet width.
+- ✅ **Fixture-backed browser tests** (`e2e/browser`, the `browser` job of `ci.yml`): 48 screenshots
+  of every main route, signed in, with data, Tenant scope and provider mode, light and dark, desktop and
+  tablet, as the `browser-screens` artifact; axe with layout on each, no violation; colour contrast
+  recorded as "needs review"; the banner, focus, links and destructive actions checked.
+- ⏳ **The UI Platform exception** is pending here as in identity-experience. When `@scnx/system`
+  ships, `apps/admin/src/ui/index.ts` re-exports it and the copies go.
+
 ## Depends on
 
 | Repository             | What this needs from it                                                                   |
@@ -274,7 +296,9 @@ offboarding.
     continued as a new batch.
   - It found a defect, fixed in 1.4.0: the scope guard refused `/v1/membership-batches` in a Tenant
     scope, so bulk actions could not leave the BFF.
-- ✅ **Automated WCAG 2.2 A and AA checks** (axe-core) run on every route in CI.
+- ✅ **Automated WCAG 2.2 A and AA checks** (axe-core) run on every route in CI, in jsdom and, since
+  TDD-organization-experience-001 1.9.0, in Chromium with layout, in both themes. The first Chromium
+  run found SC 2.5.8 target-size failures on the navigation links, fixed by the visual language.
 - ⏳ **Manual WCAG 2.2 AA evidence is still needed:** keyboard, screen reader, contrast and target
   size in a real browser. Automated checks find only part of what conformance needs.
 - ✅ **Runbooks:** `docs/runbooks/organization-experience-operations.md`.

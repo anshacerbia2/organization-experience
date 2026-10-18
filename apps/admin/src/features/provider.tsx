@@ -5,7 +5,23 @@ import { apiCommand, apiGet } from '../api/client';
 import { useIdempotencyKey } from '../api/idempotency';
 import { messages } from '../messages';
 import { useSignedIn } from '../SessionContext';
-import { Action, ApiErrorMessage, facts, Field, ListState, LoadMore, usePagedList } from './common';
+import {
+  Button,
+  Facts,
+  fieldClasses,
+  layout,
+  Notice,
+  Page,
+  PageHeader,
+  PageTitle,
+  Panel,
+  Row,
+  RowMain,
+  Rows,
+  RowTitle,
+  rowClasses,
+} from '../ui';
+import { Action, ApiErrorMessage, Field, ListState, LoadMore, usePagedList } from './common';
 import { BeginOffboarding, type TenantDetail } from './offboarding';
 
 // The provider-mode surfaces (TDD-organization-experience-002 1.2.0): the Organization registry and
@@ -66,6 +82,7 @@ function Select({
       {(id) => (
         <select
           id={id}
+          className={fieldClasses.select}
           value={value}
           onChange={(event) => {
             onChange(event.target.value);
@@ -97,70 +114,92 @@ export function OrganizationsPage(): ReactElement {
   const [kind, setKind] = useState<string>('customer');
 
   return (
-    <section aria-labelledby="organizations-heading">
-      <h2 id="organizations-heading">{messages.organizations}</h2>
-      <form
-        aria-label={messages.createOrganization}
-        onSubmit={(event) => {
-          event.preventDefault();
-          create.mutate({ display_name: name.trim(), classification: kind });
-        }}
-      >
-        <Field label={messages.displayName}>
-          {(id) => (
-            <input
-              id={id}
-              required
-              value={name}
-              onChange={(event) => {
-                setName(event.target.value);
-              }}
-            />
-          )}
-        </Field>
+    <Page aria-labelledby="organizations-heading">
+      <PageHeader>
+        <PageTitle id="organizations-heading">{messages.organizations}</PageTitle>
+      </PageHeader>
+      <Panel.Root>
+        <Panel.Title level={3} id="create-organization-heading">
+          {messages.createOrganization}
+        </Panel.Title>
+        <form
+          aria-labelledby="create-organization-heading"
+          className={layout.form}
+          onSubmit={(event) => {
+            event.preventDefault();
+            create.mutate({ display_name: name.trim(), classification: kind });
+          }}
+        >
+          <Field label={messages.displayName}>
+            {(id) => (
+              <input
+                id={id}
+                className={fieldClasses.input}
+                required
+                value={name}
+                onChange={(event) => {
+                  setName(event.target.value);
+                }}
+              />
+            )}
+          </Field>
+          <Select
+            label={messages.classification}
+            value={kind}
+            options={classifications}
+            onChange={setKind}
+            any={false}
+          />
+          <div className={layout.actions}>
+            <Button type="submit" disabled={create.isPending}>
+              {messages.createOrganization}
+            </Button>
+          </div>
+          {create.isError ? (
+            <div className={layout.formWide}>
+              <ApiErrorMessage error={create.error} />
+            </div>
+          ) : null}
+        </form>
+      </Panel.Root>
+
+      <div className={layout.toolbar}>
+        <Select
+          label={messages.status}
+          value={status}
+          options={['active', 'suspended', 'retired']}
+          onChange={setStatus}
+        />
         <Select
           label={messages.classification}
-          value={kind}
+          value={classification}
           options={classifications}
-          onChange={setKind}
-          any={false}
+          onChange={setClassification}
         />
-        <button type="submit" disabled={create.isPending}>
-          {messages.createOrganization}
-        </button>
-        {create.isError ? <ApiErrorMessage error={create.error} /> : null}
-      </form>
-
-      <Select
-        label={messages.status}
-        value={status}
-        options={['active', 'suspended', 'retired']}
-        onChange={setStatus}
-      />
-      <Select
-        label={messages.classification}
-        value={classification}
-        options={classifications}
-        onChange={setClassification}
-      />
+      </div>
       <ListState query={query} empty={messages.noOrganizations} count={items.length} />
-      <ul>
+      <Rows>
         {items.map((organization) => {
           const versioned = { expected_version: organization.version };
           const base = `/v1/organizations/${organization.organization_id}` as const;
           const note = messages.inOrganization(organization.display_name);
           return (
-            <li key={organization.organization_id}>
-              <strong>{organization.display_name}</strong>{' '}
-              {facts(
-                organization.classification,
-                messages.state(organization.status),
-                messages.versionOf(organization.version),
-              )}{' '}
-              <a href={`/tenants?organization_id=${organization.organization_id}`}>{messages.itsTenants}</a>{' '}
+            <Row key={organization.organization_id}>
+              <RowMain>
+                <RowTitle>{organization.display_name}</RowTitle>{' '}
+                <Facts
+                  items={[
+                    organization.classification,
+                    { status: organization.status, label: messages.state(organization.status) },
+                    messages.versionOf(organization.version),
+                  ]}
+                />{' '}
+                <a href={`/tenants?organization_id=${organization.organization_id}`}>{messages.itsTenants}</a>
+              </RowMain>{' '}
               {organization.status === 'active' ? (
                 <Action
                   label={messages.suspend}
+                  tone="danger"
                   path={`${base}/suspend`}
                   body={versioned}
                   reason="required"
@@ -180,6 +219,7 @@ export function OrganizationsPage(): ReactElement {
               {organization.status !== 'retired' ? (
                 <Action
                   label={messages.retire}
+                  tone="danger"
                   path={`${base}/retire`}
                   body={versioned}
                   reason="required"
@@ -188,12 +228,12 @@ export function OrganizationsPage(): ReactElement {
                   invalidates={[organizationsKey]}
                 />
               ) : null}
-            </li>
+            </Row>
           );
         })}
-      </ul>
+      </Rows>
       <LoadMore query={query} />
-    </section>
+    </Page>
   );
 }
 
@@ -225,89 +265,112 @@ export function TenantsPage(): ReactElement {
   const [profile, setProfile] = useState('pooled');
 
   return (
-    <section aria-labelledby="tenants-heading">
-      <h2 id="tenants-heading">{messages.tenants}</h2>
-      <form
-        aria-label={messages.requestTenant}
-        onSubmit={(event) => {
-          event.preventDefault();
-          create.mutate({
-            organization_id: owner.trim(),
-            display_name: name.trim(),
-            isolation_profile: profile,
-          });
-        }}
-      >
+    <Page aria-labelledby="tenants-heading">
+      <PageHeader>
+        <PageTitle id="tenants-heading">{messages.tenants}</PageTitle>
+      </PageHeader>
+      <Panel.Root>
+        <Panel.Title level={3} id="request-tenant-heading">
+          {messages.requestTenant}
+        </Panel.Title>
+        <form
+          aria-labelledby="request-tenant-heading"
+          className={layout.form}
+          onSubmit={(event) => {
+            event.preventDefault();
+            create.mutate({
+              organization_id: owner.trim(),
+              display_name: name.trim(),
+              isolation_profile: profile,
+            });
+          }}
+        >
+          <Field label={messages.organizationId}>
+            {(id) => (
+              <input
+                id={id}
+                className={fieldClasses.input}
+                required
+                value={owner}
+                onChange={(event) => {
+                  setOwner(event.target.value);
+                }}
+              />
+            )}
+          </Field>
+          <Field label={messages.displayName}>
+            {(id) => (
+              <input
+                id={id}
+                className={fieldClasses.input}
+                required
+                value={name}
+                onChange={(event) => {
+                  setName(event.target.value);
+                }}
+              />
+            )}
+          </Field>
+          <Select
+            label={messages.isolationProfile}
+            value={profile}
+            options={['pooled', 'bridge', 'silo', 'regional']}
+            onChange={setProfile}
+            any={false}
+          />
+          <div className={layout.actions}>
+            <Button type="submit" disabled={create.isPending}>
+              {messages.requestTenant}
+            </Button>
+          </div>
+          {create.isError ? (
+            <div className={layout.formWide}>
+              <ApiErrorMessage error={create.error} />
+            </div>
+          ) : null}
+        </form>
+      </Panel.Root>
+
+      <div className={layout.toolbar}>
+        <Select
+          label={messages.status}
+          value={status}
+          options={['requested', 'provisioning', 'active', 'failed', 'suspended', 'offboarding', 'retired']}
+          onChange={setStatus}
+        />
         <Field label={messages.organizationId}>
           {(id) => (
             <input
               id={id}
-              required
-              value={owner}
+              className={fieldClasses.input}
+              value={organization}
               onChange={(event) => {
-                setOwner(event.target.value);
+                setOrganization(event.target.value.trim());
               }}
             />
           )}
         </Field>
-        <Field label={messages.displayName}>
-          {(id) => (
-            <input
-              id={id}
-              required
-              value={name}
-              onChange={(event) => {
-                setName(event.target.value);
-              }}
-            />
-          )}
-        </Field>
-        <Select
-          label={messages.isolationProfile}
-          value={profile}
-          options={['pooled', 'bridge', 'silo', 'regional']}
-          onChange={setProfile}
-          any={false}
-        />
-        <button type="submit" disabled={create.isPending}>
-          {messages.requestTenant}
-        </button>
-        {create.isError ? <ApiErrorMessage error={create.error} /> : null}
-      </form>
-
-      <Select
-        label={messages.status}
-        value={status}
-        options={['requested', 'provisioning', 'active', 'failed', 'suspended', 'offboarding', 'retired']}
-        onChange={setStatus}
-      />
-      <Field label={messages.organizationId}>
-        {(id) => (
-          <input
-            id={id}
-            value={organization}
-            onChange={(event) => {
-              setOrganization(event.target.value.trim());
-            }}
-          />
-        )}
-      </Field>
+      </div>
       <ListState query={query} empty={messages.noTenants} count={items.length} />
-      <ul>
+      <Rows>
         {items.map((tenant) => {
           const versioned = { expected_version: tenant.version };
           const base = `/v1/tenants/${tenant.tenant_id}` as const;
           const note = messages.inTenantNamed(tenant.display_name, tenant.tenant_id);
           return (
-            <li key={tenant.tenant_id}>
-              <strong>{tenant.display_name}</strong>{' '}
-              {facts(
-                tenant.tenant_id,
-                tenant.isolation_profile,
-                messages.state(tenant.status),
-                messages.versionOf(tenant.version),
-              )}
-              <p>{tenantStateNote[tenant.status]}</p>
+            <Row key={tenant.tenant_id}>
+              <RowMain>
+                <RowTitle>{tenant.display_name}</RowTitle>{' '}
+                <Facts
+                  items={[
+                    tenant.tenant_id,
+                    tenant.isolation_profile,
+                    { status: tenant.status, label: messages.state(tenant.status) },
+                    messages.versionOf(tenant.version),
+                  ]}
+                />
+              </RowMain>
+              <p className={rowClasses.note}>{tenantStateNote[tenant.status]}</p>
               {tenant.status === 'requested' ||
               tenant.status === 'provisioning' ||
               tenant.status === 'failed' ? (
@@ -316,6 +379,7 @@ export function TenantsPage(): ReactElement {
               {tenant.status === 'provisioning' ? (
                 <Action
                   label={messages.activate}
+                  tone="primary"
                   path={`${base}/activate`}
                   body={versioned}
                   reason="optional"
@@ -326,6 +390,7 @@ export function TenantsPage(): ReactElement {
               {tenant.status === 'active' ? (
                 <Action
                   label={messages.suspend}
+                  tone="danger"
                   path={`${base}/suspend`}
                   body={versioned}
                   reason="required"
@@ -348,12 +413,12 @@ export function TenantsPage(): ReactElement {
                   invalidates={[tenantsKey]}
                 />
               ) : null}
-            </li>
+            </Row>
           );
         })}
-      </ul>
+      </Rows>
       <LoadMore query={query} />
-    </section>
+    </Page>
   );
 }
 
@@ -369,9 +434,17 @@ function ProvisioningStatus({ tenantId }: { readonly tenantId: string }): ReactE
   if (provisioning === undefined || provisioning === null) {
     return null;
   }
+  const tone =
+    provisioning.state === 'realized' ? 'success' : provisioning.state === 'requested' ? 'info' : 'danger';
   return (
-    <p role="status" data-provisioning={provisioning.state}>
-      {messages.provisioningState(provisioning.state, provisioning.correlation_id, provisioning.detail ?? '')}
-    </p>
+    <Notice tone={tone} role="status" data-provisioning={provisioning.state}>
+      <p>
+        {messages.provisioningState(
+          provisioning.state,
+          provisioning.correlation_id,
+          provisioning.detail ?? '',
+        )}
+      </p>
+    </Notice>
   );
 }

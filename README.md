@@ -101,17 +101,22 @@ producer's branch is proven here before it merges:
 gh workflow run stack-proof.yml -R anshacerbia2/organization-experience -f identity_ref=<branch>
 ```
 
+**It looks like identity-experience.** The console's tokens, foundations and components are copied
+from identity-experience's `packages/ui` and its frame, at a pinned commit, under `apps/admin/src/ui/`
+(TDD-organization-experience-001 §Visual Language). `pnpm test:browser` runs every main route in
+Chromium against the build, with fixtures, and keeps a screenshot of each; it needs `pnpm build` first.
+
 ## Layout
 
-| Path             | Contents                                                                          |
-| :--------------- | :-------------------------------------------------------------------------------- |
-| `apps/admin/`    | Organization, Tenant, Workspace, Membership administration                        |
-| `bff/`           | Session and API proxy, conforming to the identity pattern; `bff/conformance.json` |
-| `scripts/`       | `check-bff-conformance.mjs`, `new-client-key.mjs`, `dev-register-bff.ps1`         |
-| `e2e/`           | The stack-level proof's journeys in Chromium, and its seed (`stack-proof.yml`)    |
-| `deploy/dev/`    | How this BFF's client is registered on the development server                     |
-| `docs/designs/`  | Technical Design Documents                                                        |
-| `docs/runbooks/` | Provider-access review, bulk partial failure, stuck offboarding                   |
+| Path             | Contents                                                                            |
+| :--------------- | :---------------------------------------------------------------------------------- |
+| `apps/admin/`    | Organization, Tenant, Workspace, Membership administration                          |
+| `bff/`           | Session and API proxy, conforming to the identity pattern; `bff/conformance.json`   |
+| `scripts/`       | `check-bff-conformance.mjs`, `new-client-key.mjs`, `dev-register-bff.ps1`           |
+| `e2e/`           | The stack-level proof's journeys and its seed; `browser/`, the fixture-backed views |
+| `deploy/dev/`    | How this BFF's client is registered on the development server                       |
+| `docs/designs/`  | Technical Design Documents                                                          |
+| `docs/runbooks/` | Provider-access review, bulk partial failure, stuck offboarding                     |
 
 ## Designs
 

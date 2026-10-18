@@ -13,6 +13,15 @@ const ageOf = (seconds: number): string =>
 
 export const messages = {
   title: 'Organization administration',
+  // The frame (TDD-organization-experience-001 §Visual Language): the brand, after the realm's display
+  // name as identity-experience's applications name themselves, the skip link and the theme.
+  brand: 'Scnehaux Organization',
+  skipToContent: 'Skip to content',
+  themeToDark: 'Switch to the dark theme',
+  themeToLight: 'Switch to the light theme',
+  navGroupTenant: 'This Tenant',
+  navGroupProviderMode: 'Provider mode',
+  navGroupProvider: 'Provider',
   checking: 'Checking session',
   unavailable: 'Session unavailable',
   signedOut: 'Not signed in',

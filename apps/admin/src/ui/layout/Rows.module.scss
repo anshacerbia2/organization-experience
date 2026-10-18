@@ -1,0 +1,174 @@
+// This repository's record list: a list whose items read as the rows of a dense table, in
+// identity-experience's table tokens (packages/ui/src/system/table/Table.module.scss). The records stay
+// list items, which is what a screen reader announces them as and what the tests find them by. Each
+// row's head holds what names it and its facts, its actions after; what a row says beneath it (a
+// note, a status, a confirmation) takes the full width under the head, in document order.
+@layer components {
+  .list {
+    display: flex;
+    flex-direction: column;
+    border: var(--ds-stroke-thin) solid var(--ds-color-neutral-border-subtle-default);
+    border-radius: var(--ds-radius-lg);
+    font-size: var(--ds-font-size-sm);
+    font-variant-numeric: tabular-nums;
+    background: var(--ds-color-neutral-surface-raised-default);
+    box-shadow: var(--ds-shadow-low);
+    backdrop-filter: blur(18px) saturate(140%);
+  }
+
+  .list:empty {
+    display: none;
+  }
+
+  .row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--ds-spacing-xs) var(--ds-spacing-sm);
+    padding: var(--ds-spacing-sm) var(--ds-spacing-md);
+    border-block-end: var(--ds-stroke-thin) solid var(--ds-color-neutral-border-subtle-default);
+    color: var(--ds-color-neutral-text-default-default);
+    transition: background-color var(--ds-duration-fast) var(--ds-easing-standard);
+
+    &:last-child {
+      border-block-end: 0;
+    }
+
+    &:hover {
+      background: var(--ds-color-neutral-surface-default-hover);
+    }
+
+    // A selected row is told by its surface and its checked box, not by colour alone.
+    &:has(> .main > .select:checked) {
+      background: var(--ds-color-neutral-surface-default-selected);
+    }
+
+    // What the row says beneath its head: a note, a status, an error. A confirmation goes last.
+    & > :where(p, div, ul, section) {
+      flex: 1 1 100%;
+      order: 2;
+    }
+
+    & > form {
+      flex: 1 1 100%;
+      order: 3;
+    }
+  }
+
+  // The head comes first whatever follows it in the document.
+  .main {
+    display: flex;
+    order: -1;
+    flex: 1 1 18rem;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--ds-spacing-2xs) var(--ds-spacing-sm);
+    min-inline-size: 0;
+  }
+
+  .title {
+    font-weight: var(--ds-font-weight-semibold);
+    color: var(--ds-color-neutral-text-strong-default);
+    overflow-wrap: anywhere;
+  }
+
+  // An identifier is set in the monospace face, so its characters read unambiguously.
+  .title[data-mono] {
+    font-family: var(--ds-font-family-mono);
+    font-size: var(--ds-font-size-xs);
+  }
+
+  .select {
+    inline-size: var(--ds-size-icon-md);
+    block-size: var(--ds-size-icon-md);
+    accent-color: var(--ds-color-primary-solid-default-default);
+    cursor: pointer;
+  }
+
+  .facts {
+    display: inline-flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--ds-spacing-2xs) var(--ds-spacing-xs);
+    color: var(--ds-color-neutral-text-subtle-default);
+  }
+
+  .separator {
+    color: var(--ds-color-neutral-text-subtle-default);
+  }
+
+  // An action: its button, and beneath it what went wrong, if anything. In a row the wrapper does not
+  // box them: the button sits after the head, and the message takes the full width under it.
+  .action {
+    display: inline-flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--ds-spacing-xs);
+  }
+
+  .row > .action {
+    display: contents;
+  }
+
+  .note {
+    font-size: var(--ds-font-size-sm);
+    color: var(--ds-color-neutral-text-subtle-default);
+  }
+
+  // Loading and empty: said in words, with a glyph or placeholder bars beside them.
+  .state {
+    display: flex;
+    align-items: center;
+    gap: var(--ds-spacing-sm);
+    padding: var(--ds-spacing-lg) var(--ds-spacing-md);
+    border: var(--ds-stroke-thin) dashed var(--ds-color-neutral-border-default-default);
+    border-radius: var(--ds-radius-lg);
+    font-size: var(--ds-font-size-sm);
+    color: var(--ds-color-neutral-text-subtle-default);
+  }
+
+  .stateIcon {
+    display: inline-flex;
+    font-size: var(--ds-size-icon-lg);
+    color: var(--ds-color-neutral-icon-default-default);
+  }
+
+  .skeleton {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    gap: var(--ds-spacing-xs);
+  }
+
+  .bar {
+    block-size: 0.75rem;
+    border-radius: var(--ds-radius-full);
+    background: var(--ds-color-neutral-surface-default-hover);
+    animation: pulse 1.4s var(--ds-easing-standard) infinite alternate;
+  }
+
+  .bar:nth-child(2) {
+    inline-size: 80%;
+  }
+
+  .bar:nth-child(3) {
+    inline-size: 60%;
+  }
+
+  @keyframes pulse {
+    from {
+      opacity: 1;
+    }
+
+    to {
+      opacity: 0.45;
+    }
+  }
+
+  @media (forced-colors: active) {
+    .list {
+      border-color: CanvasText;
+      backdrop-filter: none;
+    }
+  }
+}
