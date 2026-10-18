@@ -48,8 +48,17 @@ for (const theme of themes) {
       await expect
         .poll(async () => (await rail.boundingBox())?.height ?? 0)
         .toBeGreaterThanOrEqual(height - 1);
-      await page.mouse.wheel(0, 5_000);
+      await page.evaluate('window.scrollTo(0, document.documentElement.scrollHeight)');
       await expect.poll(() => page.evaluate('window.scrollY')).toBeGreaterThan(200);
+      // At the bottom of the page, the rail's surface and its edge still reach the viewport's bottom.
+      await expect
+        .poll(async () => {
+          const box = await rail.boundingBox();
+          return box === null ? 0 : box.y + box.height;
+        })
+        .toBeGreaterThanOrEqual(600);
+      await expect(rail).toHaveCSS('border-inline-end-style', 'solid');
+      await expect(rail).not.toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
       await expect(page.getByRole('navigation', { name: 'Sections' })).toBeInViewport();
       await expect(page.getByRole('link', { name: 'Scnehaux Organization' })).toBeInViewport();
     });
