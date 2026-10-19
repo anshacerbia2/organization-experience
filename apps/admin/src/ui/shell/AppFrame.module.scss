@@ -1,0 +1,251 @@
+// Ported from identity-experience at c723e417c0eee97db6b1d5b6dab608fe6a406ac2, packages/app-core/src/shell/AppFrame.module.scss
+// (TDD-organization-experience-001 §Visual Language).
+@layer components {
+  // Mobile first: the rail sits above the page, and becomes a fixed column once there is room.
+  .root {
+    display: grid;
+    grid-template-columns: 1fr;
+    min-block-size: 100dvh;
+
+    @media (width >= 60rem) {
+      grid-template-columns: var(--ds-layout-sidebar-width) 1fr;
+    }
+  }
+
+  .skip {
+    position: absolute;
+    inset-block-start: var(--ds-spacing-xs);
+    inset-inline-start: var(--ds-spacing-xs);
+    z-index: var(--ds-z-overlay);
+    padding: var(--ds-spacing-xs) var(--ds-spacing-sm);
+    border-radius: var(--ds-radius-md);
+    color: var(--ds-color-primary-text-contrast-default);
+    background: var(--ds-color-primary-solid-default-default);
+    transform: translateY(-200%);
+
+    &:focus-visible {
+      transform: none;
+    }
+  }
+
+  // This repository's change: the rail is the full height of the page, so its surface and its edge
+  // run beside the longest page, and what it holds sticks in view at the viewport's height while the
+  // page scrolls. identity-experience makes the rail itself sticky at 100dvh, so the column's surface
+  // ends at the first screen's height in a full-page rendering of a long page.
+  .rail {
+    border-block-end: var(--ds-stroke-thin) solid var(--ds-color-neutral-border-subtle-default);
+    background: var(--ds-color-neutral-surface-sunken-default);
+    backdrop-filter: blur(20px);
+
+    @media (width >= 60rem) {
+      border-block-end: 0;
+      border-inline-end: var(--ds-stroke-thin) solid var(--ds-color-neutral-border-subtle-default);
+    }
+  }
+
+  .railInner {
+    display: flex;
+    flex-direction: column;
+    gap: var(--ds-spacing-lg);
+    padding: var(--ds-spacing-md);
+
+    @media (width >= 60rem) {
+      position: sticky;
+      inset-block-start: 0;
+      max-block-size: 100dvh;
+      overflow-y: auto;
+      padding: var(--ds-spacing-lg) var(--ds-spacing-md);
+    }
+  }
+
+  .brand {
+    display: flex;
+    align-items: center;
+    gap: var(--ds-spacing-sm);
+    padding-inline: var(--ds-spacing-xs);
+    border-radius: var(--ds-radius-md);
+  }
+
+  .brandMark {
+    display: grid;
+    place-items: center;
+    inline-size: var(--ds-size-control-sm);
+    block-size: var(--ds-size-control-sm);
+    border: var(--ds-stroke-thin) solid var(--ds-color-primary-border-default-default);
+    border-radius: var(--ds-radius-md);
+    font-size: var(--ds-size-icon-md);
+    color: var(--ds-color-primary-icon-default-default);
+    background: var(--ds-color-primary-surface-subtle-default);
+    box-shadow: 0 0 18px -4px var(--ds-color-primary-shadow-default-default);
+  }
+
+  .brandName {
+    font-size: var(--ds-font-size-sm);
+    font-weight: var(--ds-font-weight-semibold);
+    letter-spacing: var(--ds-letter-spacing-tight);
+    color: var(--ds-color-neutral-text-strong-default);
+  }
+
+  .nav {
+    display: flex;
+    flex-direction: column;
+    gap: var(--ds-spacing-md);
+  }
+
+  // One labelled group of the navigation: its label, then its links (TDD-identity-experience-003
+  // §Navigation groups by what an administrator acts on).
+  .navGroup {
+    display: flex;
+    flex-direction: column;
+    gap: var(--ds-spacing-xs);
+  }
+
+  .navSection {
+    padding-inline: var(--ds-spacing-sm);
+    font-size: var(--ds-font-size-xs);
+    font-weight: var(--ds-font-weight-medium);
+    letter-spacing: var(--ds-letter-spacing-wide);
+    text-transform: uppercase;
+    color: var(--ds-color-neutral-text-subtle-default);
+  }
+
+  .navList {
+    display: flex;
+    flex-direction: column;
+    gap: var(--ds-spacing-3xs);
+  }
+
+  .navItem {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: var(--ds-spacing-sm);
+    min-block-size: var(--ds-size-control-md);
+    padding-inline: var(--ds-spacing-sm);
+    border-radius: var(--ds-radius-md);
+    font-size: var(--ds-font-size-sm);
+    color: var(--ds-color-neutral-text-default-default);
+    transition: background-color var(--ds-duration-fast) var(--ds-easing-standard);
+
+    &:hover {
+      background: var(--ds-color-neutral-surface-default-hover);
+    }
+
+    &[aria-current='page'] {
+      color: var(--ds-color-neutral-text-strong-default);
+      background: var(--ds-color-neutral-surface-default-selected);
+    }
+
+    // The active item's edge glows: position is shown by a marker and a weight as well as a colour.
+    &[aria-current='page']::before {
+      position: absolute;
+      inset-block: var(--ds-spacing-xs);
+      inset-inline-start: 0;
+      inline-size: 3px;
+      border-radius: var(--ds-radius-full);
+      content: '';
+      background: var(--ds-color-primary-solid-default-default);
+      box-shadow: 0 0 12px var(--ds-color-primary-shadow-default-default);
+    }
+  }
+
+  .column {
+    display: flex;
+    flex-direction: column;
+    min-inline-size: 0;
+  }
+
+  // This repository's: the bar and the scope banner stick together, so the banner stays in view
+  // whatever the page scrolls to (TDD-organization-experience-001 §Scope Visibility).
+  .top {
+    position: sticky;
+    inset-block-start: 0;
+    z-index: var(--ds-z-sticky);
+  }
+
+  .bar {
+    flex-wrap: wrap;
+    padding-block: var(--ds-spacing-xs);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--ds-spacing-md);
+    min-block-size: var(--ds-layout-navbar-height);
+    padding-inline: var(--ds-spacing-lg);
+    border-block-end: var(--ds-stroke-thin) solid var(--ds-color-neutral-border-subtle-default);
+    background: var(--ds-color-neutral-surface-sunken-default);
+    backdrop-filter: blur(20px) saturate(140%);
+  }
+
+  .title {
+    font-size: var(--ds-font-size-md);
+    font-weight: var(--ds-font-weight-semibold);
+    letter-spacing: var(--ds-letter-spacing-tight);
+    color: var(--ds-color-neutral-text-strong-default);
+  }
+
+  .barEnd {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--ds-spacing-xs);
+  }
+
+  .navIcon {
+    display: inline-flex;
+    font-size: var(--ds-size-icon-md);
+    color: var(--ds-color-neutral-icon-default-default);
+  }
+
+  .main {
+    display: flex;
+    flex-direction: column;
+    gap: var(--ds-spacing-lg);
+    inline-size: 100%;
+    max-inline-size: var(--ds-layout-container-wide);
+    margin-inline: auto;
+    padding: var(--ds-spacing-xl) var(--ds-spacing-lg) var(--ds-spacing-3xl);
+
+    &:focus {
+      outline: none;
+    }
+  }
+
+  // This repository's: under the wide layout the rail is a bar above the page, its links in a row,
+  // so a tablet reaches the page without scrolling past a column of links. The section labels stay
+  // in the accessibility tree, naming their lists.
+  @media (width < 60rem) {
+    .railInner {
+      flex-flow: row wrap;
+      align-items: center;
+      gap: var(--ds-spacing-sm) var(--ds-spacing-lg);
+    }
+
+    .nav {
+      flex-flow: row wrap;
+      gap: var(--ds-spacing-3xs) var(--ds-spacing-sm);
+    }
+
+    .navGroup {
+      flex-direction: row;
+      align-items: center;
+    }
+
+    .navList {
+      flex-flow: row wrap;
+    }
+
+    .navSection {
+      position: absolute;
+      inline-size: 1px;
+      block-size: 1px;
+      overflow: hidden;
+      clip-path: inset(50%);
+      white-space: nowrap;
+    }
+
+    .main {
+      padding: var(--ds-spacing-lg) var(--ds-spacing-md) var(--ds-spacing-2xl);
+    }
+  }
+}

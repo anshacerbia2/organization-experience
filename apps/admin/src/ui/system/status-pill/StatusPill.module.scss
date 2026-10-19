@@ -1,0 +1,51 @@
+// Ported from identity-experience at c723e417c0eee97db6b1d5b6dab608fe6a406ac2, packages/ui/src/system/status-pill/StatusPill.module.scss
+// (TDD-organization-experience-001 §Visual Language).
+@layer components {
+  .root {
+    --pill-text: var(--ds-color-neutral-text-default-default);
+    --pill-surface: var(--ds-color-neutral-surface-subtle-default);
+    --pill-border: var(--ds-color-neutral-border-default-default);
+
+    display: inline-flex;
+    align-items: center;
+    gap: var(--ds-spacing-2xs);
+    min-block-size: var(--ds-size-control-xs);
+    padding-inline: var(--ds-spacing-xs);
+    border: var(--ds-stroke-thin) solid var(--pill-border);
+    border-radius: var(--ds-radius-full);
+    font-size: var(--ds-font-size-xs);
+    font-weight: var(--ds-font-weight-medium);
+    color: var(--pill-text);
+    background: var(--pill-surface);
+    white-space: nowrap;
+  }
+
+  .root[data-tone='info'] {
+    --pill-text: var(--ds-color-info-text-default-default);
+    --pill-surface: var(--ds-color-info-surface-subtle-default);
+    --pill-border: var(--ds-color-info-border-default-default);
+  }
+
+  .root[data-tone='success'] {
+    --pill-text: var(--ds-color-success-text-default-default);
+    --pill-surface: var(--ds-color-success-surface-subtle-default);
+    --pill-border: var(--ds-color-success-border-default-default);
+  }
+
+  .root[data-tone='warning'] {
+    --pill-text: var(--ds-color-warning-text-default-default);
+    --pill-surface: var(--ds-color-warning-surface-subtle-default);
+    --pill-border: var(--ds-color-warning-border-default-default);
+  }
+
+  .root[data-tone='danger'] {
+    --pill-text: var(--ds-color-danger-text-default-default);
+    --pill-surface: var(--ds-color-danger-surface-subtle-default);
+    --pill-border: var(--ds-color-danger-border-default-default);
+  }
+
+  .glyph {
+    display: inline-flex;
+    font-size: var(--ds-size-icon-xs);
+  }
+}

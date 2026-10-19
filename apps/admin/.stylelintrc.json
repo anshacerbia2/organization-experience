@@ -1,0 +1,58 @@
+{
+  "extends": ["stylelint-config-standard-scss"],
+  "rules": {
+    "color-no-hex": true,
+    "function-disallowed-list": ["rgb", "rgba", "hsl", "hsla", "hwb"],
+    "declaration-no-important": true,
+    "selector-max-id": 0,
+    "selector-max-compound-selectors": 3,
+    "selector-max-specificity": "0,4,0",
+    "selector-no-qualifying-type": true,
+    "selector-max-universal": [0, { "ignoreAfterCombinators": [] }],
+    "max-nesting-depth": 2,
+    "property-disallowed-list": [
+      "margin-left",
+      "margin-right",
+      "margin-top",
+      "margin-bottom",
+      "padding-left",
+      "padding-right",
+      "padding-top",
+      "padding-bottom",
+      "left",
+      "right",
+      "top",
+      "bottom",
+      "width",
+      "height",
+      "min-width",
+      "max-width",
+      "min-height",
+      "max-height",
+      "border-left",
+      "border-right",
+      "border-top",
+      "border-bottom"
+    ],
+    "selector-class-pattern": "^[a-z][a-zA-Z0-9]*$",
+    "keyframes-name-pattern": "^[a-z][a-zA-Z0-9]*$",
+    "scss/at-function-pattern": "^[a-z][a-z0-9-]*$",
+    "value-keyword-case": ["lower", { "ignoreKeywords": ["CanvasText", "Highlight"] }],
+    "custom-property-pattern": null,
+    "scss/dollar-variable-pattern": "^[a-z][a-z0-9-]*$",
+    "no-descending-specificity": null
+  },
+  "overrides": [
+    {
+      "files": ["src/ui/styles/**/*.scss"],
+      "rules": {
+        "selector-class-pattern": "^scnx-org-[a-z0-9-]+$",
+        "selector-max-universal": null,
+        "declaration-no-important": null,
+        "selector-max-specificity": null,
+        "property-disallowed-list": null,
+        "selector-no-qualifying-type": null
+      }
+    }
+  ]
+}

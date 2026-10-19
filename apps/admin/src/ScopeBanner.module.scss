@@ -1,0 +1,82 @@
+// The scope banner (TDD-organization-experience-001 §Scope Visibility), in identity-experience's
+// schemes. It sits under the frame's bar and sticks with it. Its surface is the bar's sunken one with
+// the scope's tint over it, opaque enough that what scrolls beneath never shows through its words.
+@layer components {
+  .banner {
+    --banner-surface: var(--ds-color-warning-surface-default-default);
+    --banner-edge: var(--ds-color-warning-solid-default-default);
+    --banner-lead: var(--ds-color-warning-text-default-default);
+    --banner-icon: var(--ds-color-warning-icon-default-default);
+
+    display: flex;
+    align-items: center;
+    gap: var(--ds-spacing-sm);
+    min-block-size: var(--ds-size-control-lg);
+    margin: 0;
+    padding: var(--ds-spacing-xs) var(--ds-spacing-lg);
+    border-block-end: 3px solid var(--banner-edge);
+    font-size: var(--ds-font-size-sm);
+    color: var(--ds-color-neutral-text-strong-default);
+    background-color: var(--ds-color-neutral-canvas-default);
+    background-image: linear-gradient(var(--banner-surface), var(--banner-surface));
+  }
+
+  .banner[data-scope='tenant'] {
+    --banner-surface: var(--ds-color-info-surface-subtle-default);
+    --banner-edge: var(--ds-color-info-solid-default-default);
+    --banner-lead: var(--ds-color-info-text-default-default);
+    --banner-icon: var(--ds-color-info-icon-default-default);
+  }
+
+  .banner[data-scope='provider'] {
+    --banner-surface: var(--ds-color-danger-surface-default-default);
+    --banner-edge: var(--ds-color-danger-solid-default-default);
+    --banner-lead: var(--ds-color-danger-text-default-default);
+    --banner-icon: var(--ds-color-danger-icon-default-default);
+  }
+
+  .glyph {
+    display: inline-flex;
+    flex: none;
+    font-size: var(--ds-size-icon-md);
+    color: var(--banner-icon);
+  }
+
+  .text {
+    flex: 1;
+    min-inline-size: 0;
+    margin: 0;
+    overflow-wrap: anywhere;
+  }
+
+  .lead {
+    font-weight: var(--ds-font-weight-bold);
+    color: var(--banner-lead);
+  }
+
+  // The time left, at the end of the banner, in figures that do not shift as they tick.
+  .ends {
+    display: inline-flex;
+    flex: none;
+    align-items: baseline;
+    gap: var(--ds-spacing-2xs);
+    margin: 0;
+    font-weight: var(--ds-font-weight-semibold);
+    white-space: nowrap;
+  }
+
+  .countdown {
+    padding: var(--ds-spacing-3xs) var(--ds-spacing-xs);
+    border: var(--ds-stroke-thin) solid var(--banner-edge);
+    border-radius: var(--ds-radius-sm);
+    font-family: var(--ds-font-family-mono);
+    font-variant-numeric: tabular-nums;
+    color: var(--banner-lead);
+  }
+
+  @media (forced-colors: active) {
+    .banner {
+      border-block-end-color: CanvasText;
+    }
+  }
+}

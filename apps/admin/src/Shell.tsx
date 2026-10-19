@@ -11,6 +11,20 @@ import { ScopeProvider, useScope, useWindowInForce } from './ScopeContext';
 import { ProviderSignIn, TenantSignIn } from './ScopeEntry';
 import { signInOutcome, signOut } from './session';
 import { SignedInProvider, useSessionQuery, useSignedIn } from './SessionContext';
+import shellStyles from './Shell.module.scss';
+import {
+  AppFrame,
+  Button,
+  Icon,
+  layout,
+  navClasses,
+  Notice,
+  Panel,
+  StatusPill,
+  ThemeToggle,
+  useTheme,
+  type IconName,
+} from './ui';
 
 // here is the path a sign-in returns to: where the browser is, on this origin.
 export const here = (): string =>
@@ -25,32 +39,62 @@ export function Shell(): ReactElement {
   const [signingOut, setSigningOut] = useState(false);
   const [signOutFailed, setSignOutFailed] = useState(false);
   const outcome = signInOutcome(window.location.search);
+  const { theme, choose } = useTheme();
+  const themeToggle = <ThemeToggle theme={theme} onChoose={choose} />;
 
-  const header = (
+  // What the page says about the sign-in and the session before anything else.
+  const notices = (
     <>
-      <h1>{messages.title}</h1>
       {outcome === null ? null : (
-        <p role="alert">{outcome === 'failed' ? messages.signInFailed : messages.signInUnavailable}</p>
+        <Notice tone="danger" role="alert">
+          <p>{outcome === 'failed' ? messages.signInFailed : messages.signInUnavailable}</p>
+        </Notice>
       )}
-      {session.isPending ? <p>{messages.checking}</p> : null}
-      {session.isError ? <p>{messages.unavailable}</p> : null}
+      {session.isPending ? (
+        <Notice tone="neutral" icon="clock">
+          <p>{messages.checking}</p>
+        </Notice>
+      ) : null}
+      {session.isError ? (
+        <Notice tone="danger">
+          <p>{messages.unavailable}</p>
+        </Notice>
+      ) : null}
     </>
   );
 
+  // Signed out: the entry, alone on the canvas, as the kernel's hosted login stands
+  // (TDD-identity-kernel-004 §Visual Language).
   if (session.data?.authenticated !== true) {
     return (
-      <main>
-        {header}
-        {session.data === undefined ? null : (
-          <>
-            <p>{messages.signedOut}</p>
-            <TenantSignIn returnTo={here()} label={messages.signInTenant} />
-            <p>
-              <ProviderSignIn returnTo={here()} label={messages.signInProvider} />
-            </p>
-          </>
-        )}
-      </main>
+      <div className={shellStyles['gate']}>
+        <div className={shellStyles['gateTheme']}>{themeToggle}</div>
+        <main className={shellStyles['gateMain']}>
+          <div className={shellStyles['gateBrand']}>
+            <span className={shellStyles['gateMark']} aria-hidden="true">
+              <Icon name="shield" />
+            </span>
+            <span className={shellStyles['gateBrandName']}>{messages.brand}</span>
+          </div>
+          <Panel.Root elevation="floating">
+            <Panel.Header>
+              <h1 className={shellStyles['gateTitle']}>{messages.title}</h1>
+              {session.data === undefined ? null : (
+                <Panel.Description>{messages.signedOut}</Panel.Description>
+              )}
+            </Panel.Header>
+            {notices}
+            {session.data === undefined ? null : (
+              <div className={shellStyles['gateBody']}>
+                <TenantSignIn returnTo={here()} label={messages.signInTenant} />
+                <div className={shellStyles['gateProvider']}>
+                  <ProviderSignIn returnTo={here()} label={messages.signInProvider} />
+                </div>
+              </div>
+            )}
+          </Panel.Root>
+        </main>
+      </div>
     );
   }
 
@@ -73,59 +117,121 @@ export function Shell(): ReactElement {
   return (
     <SignedInProvider session={signedIn}>
       <ScopeProvider sessionTenantId={signedIn.tenantId}>
-        <ScopeBanner />
-        <main>
-          {header}
-          <p>
-            <span>{signedIn.displayName ?? signedIn.principalId ?? messages.signedIn}</span>{' '}
-            <button type="button" disabled={signingOut} onClick={onSignOut}>
-              {messages.signOut}
-            </button>
-          </p>
-          {signOutFailed ? <p role="alert">{messages.signOutFailed}</p> : null}
-          <Navigation />
+        <AppFrame
+          title={messages.title}
+          nav={<Navigation />}
+          banner={<ScopeBanner />}
+          session={
+            <>
+              <StatusPill tone="success">
+                {signedIn.displayName ?? signedIn.principalId ?? messages.signedIn}
+              </StatusPill>{' '}
+              <Button
+                variant="ghost"
+                size="sm"
+                icon={<Icon name="logout" />}
+                disabled={signingOut}
+                onClick={onSignOut}
+              >
+                {messages.signOut}
+              </Button>
+              {themeToggle}
+            </>
+          }
+        >
+          {notices}
+          {signOutFailed ? (
+            <Notice tone="danger" role="alert">
+              <p>{messages.signOutFailed}</p>
+            </Notice>
+          ) : null}
           <Outlet />
-        </main>
+        </AppFrame>
       </ScopeProvider>
     </SignedInProvider>
   );
 }
 
+interface NavLink {
+  readonly to: string;
+  readonly label: string;
+  readonly icon: IconName;
+}
+
+// The navigation offers what the active scope allows, grouped by the scope each section acts in
+// (TDD-organization-experience-001 §Visual Language): the Tenant's own, the provider mode's across
+// Tenants, and the provider's approvals.
 function Navigation(): ReactElement | null {
   const { state } = useScope();
   const inForce = useWindowInForce();
   if (state.status !== 'ready') {
     return null;
   }
-  const links: { to: string; label: string }[] = [{ to: '/', label: messages.overview }];
+  const groups: { id: string; label: string | null; links: NavLink[] }[] = [
+    { id: 'home', label: null, links: [{ to: '/', label: messages.overview, icon: 'grid' }] },
+  ];
   if (state.scope.scope === 'tenant') {
-    links.push(
-      { to: '/workspaces', label: messages.workspaces },
-      { to: '/memberships', label: messages.memberships },
-      { to: '/invitations', label: messages.invitations },
-      { to: '/provider-access', label: messages.providerAccess },
-    );
+    groups.push({
+      id: 'tenant',
+      label: messages.navGroupTenant,
+      links: [
+        { to: '/workspaces', label: messages.workspaces, icon: 'layers' },
+        { to: '/memberships', label: messages.memberships, icon: 'users' },
+        { to: '/invitations', label: messages.invitations, icon: 'mail' },
+        { to: '/provider-access', label: messages.providerAccess, icon: 'eye' },
+      ],
+    });
   } else {
     if (inForce) {
-      links.push(
-        { to: '/organizations', label: messages.organizations },
-        { to: '/tenants', label: messages.tenants },
-        { to: '/offboardings', label: messages.offboardings },
-        { to: '/projections', label: messages.projectionHealth },
-        { to: '/access-review', label: messages.accessReview },
-      );
+      groups.push({
+        id: 'provider-mode',
+        label: messages.navGroupProviderMode,
+        links: [
+          { to: '/organizations', label: messages.organizations, icon: 'building' },
+          { to: '/tenants', label: messages.tenants, icon: 'globe' },
+          { to: '/offboardings', label: messages.offboardings, icon: 'archive' },
+          { to: '/projections', label: messages.projectionHealth, icon: 'pulse' },
+          { to: '/access-review', label: messages.accessReview, icon: 'review' },
+        ],
+      });
     }
-    links.push({ to: '/approvals', label: messages.approvals });
+    groups.push({
+      id: 'provider',
+      label: messages.navGroupProvider,
+      links: [{ to: '/approvals', label: messages.approvals, icon: 'key' }],
+    });
   }
   return (
-    <nav aria-label={messages.navigation}>
-      <ul>
-        {links.map((link) => (
-          <li key={link.to}>
-            <Link to={link.to}>{link.label}</Link>
-          </li>
-        ))}
-      </ul>
+    <nav aria-label={messages.navigation} className={navClasses.nav}>
+      {groups.map((group) => (
+        <div key={group.id} className={navClasses.group}>
+          {group.label === null ? null : (
+            <p id={`nav-group-${group.id}`} className={navClasses.section}>
+              {group.label}
+            </p>
+          )}
+          <ul
+            className={navClasses.list}
+            aria-labelledby={group.label === null ? undefined : `nav-group-${group.id}`}
+          >
+            {group.links.map((link) => (
+              <li key={link.to}>
+                <Link
+                  to={link.to}
+                  className={navClasses.item}
+                  activeProps={{ 'aria-current': 'page' }}
+                  activeOptions={{ exact: link.to === '/' }}
+                >
+                  <span className={navClasses.icon}>
+                    <Icon name={link.icon} />
+                  </span>
+                  {link.label}
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ))}
     </nav>
   );
 }
@@ -140,37 +246,41 @@ export function Home(): ReactElement | null {
   }
   if (state.status !== 'ready') {
     return (
-      <p>
-        <button type="button" onClick={reload}>
+      <div className={layout.actions}>
+        <Button variant="secondary" onClick={reload}>
           {messages.scopeRetry}
-        </button>
-      </p>
+        </Button>
+      </div>
     );
   }
   const scope = state.scope;
   if (scope.scope === 'tenant') {
     return (
-      <>
+      <div className={layout.cards}>
         <ContextSwitcher returnTo={here()} current={scope.tenantId} />
-        <TenantSignIn returnTo={here()} label={messages.switchTenant} />
-        <p>
-          <ProviderSignIn returnTo={here()} label={messages.switchToProvider} />
-        </p>
-      </>
+        <Panel.Root>
+          <TenantSignIn returnTo={here()} label={messages.switchTenant} />
+          <div className={layout.actions}>
+            <ProviderSignIn returnTo={here()} label={messages.switchToProvider} />
+          </div>
+        </Panel.Root>
+      </div>
     );
   }
   return (
-    <>
+    <div className={layout.stack}>
       <ProviderModeGate scope={scope} csrfToken={session.csrfToken} returnTo={here()} />
       {/* Switching to a Tenant replaces the session; an open window is left first, so its
           activation ends rather than outliving the session that asked for it. */}
       {scope.window === null ? (
-        <>
+        <div className={layout.cards}>
           <ContextSwitcher returnTo={here()} current={null} />
-          <TenantSignIn returnTo={here()} label={messages.signInTenant} />
-        </>
+          <Panel.Root>
+            <TenantSignIn returnTo={here()} label={messages.signInTenant} />
+          </Panel.Root>
+        </div>
       ) : null}
-    </>
+    </div>
   );
 }
 
@@ -199,12 +309,14 @@ export function RequireScope({
     return <>{children('')}</>;
   }
   return (
-    <p role="status">
-      {scope === 'tenant'
-        ? messages.needsTenantScope
-        : scope === 'provider'
-          ? messages.needsProvider
-          : messages.needsProviderMode}
-    </p>
+    <Notice tone="warning" icon="shield" role="status">
+      <p>
+        {scope === 'tenant'
+          ? messages.needsTenantScope
+          : scope === 'provider'
+            ? messages.needsProvider
+            : messages.needsProviderMode}
+      </p>
+    </Notice>
   );
 }

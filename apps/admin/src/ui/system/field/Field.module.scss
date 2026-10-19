@@ -1,0 +1,117 @@
+// Ported from identity-experience at c723e417c0eee97db6b1d5b6dab608fe6a406ac2, packages/ui/src/system/field/Field.module.scss
+// (TDD-organization-experience-001 §Visual Language).
+@layer components {
+  .field {
+    display: flex;
+    flex-direction: column;
+    gap: var(--ds-spacing-2xs);
+    inline-size: 100%;
+    min-inline-size: 0;
+  }
+
+  .label {
+    font-size: var(--ds-font-size-sm);
+    font-weight: var(--ds-font-weight-medium);
+    color: var(--ds-color-neutral-text-strong-default);
+  }
+
+  .control {
+    inline-size: 100%;
+    min-block-size: var(--ds-size-control-md);
+    padding: var(--ds-spacing-xs) var(--ds-spacing-sm);
+
+    // A field is identified by its edge alone, so the edge meets 3:1 against the panel and against
+    // its own fill (WCAG 2.2 SC 1.4.11).
+    border: var(--ds-stroke-thin) solid var(--ds-color-neutral-border-strong-default);
+    border-radius: var(--ds-radius-md);
+    font: inherit;
+    font-size: var(--ds-font-size-sm);
+    color: var(--ds-color-neutral-text-strong-default);
+    background: var(--ds-color-neutral-surface-sunken-default);
+    transition:
+      border-color var(--ds-duration-fast) var(--ds-easing-standard),
+      box-shadow var(--ds-duration-fast) var(--ds-easing-standard);
+
+    &:hover {
+      border-color: var(--ds-color-neutral-border-strong-hover);
+    }
+
+    // Focus is the outline every focusable element takes (foundations/_base.scss), with the dark
+    // theme's glow added to it, never in its place (STD-GLB-FE-005 §3.9).
+    &:focus-visible {
+      border-color: var(--ds-color-neutral-border-default-focus);
+      box-shadow: var(--ds-shadow-focus);
+    }
+
+    &[aria-invalid='true'] {
+      border-color: var(--ds-color-danger-solid-default-default);
+    }
+  }
+
+  .area {
+    min-block-size: 6rem;
+    resize: vertical;
+    line-height: var(--ds-line-height-relaxed);
+  }
+
+  .select {
+    cursor: pointer;
+  }
+
+  .hint {
+    font-size: var(--ds-font-size-xs);
+    color: var(--ds-color-neutral-text-subtle-default);
+  }
+
+  // The error reads as an error by its words as well as its colour: the message says what is wrong.
+  .error {
+    font-size: var(--ds-font-size-xs);
+    font-weight: var(--ds-font-weight-medium);
+    color: var(--ds-color-danger-text-default-default);
+  }
+
+  @media (forced-colors: active) {
+    .control {
+      border-color: CanvasText;
+    }
+  }
+}
+
+// This repository's additions, in the same tokens: a group of choices under its legend, and a choice
+// (a radio or a checkbox) beside its label.
+@layer components {
+  .fieldset {
+    display: flex;
+    flex-direction: column;
+    gap: var(--ds-spacing-xs);
+    min-inline-size: 0;
+    padding: 0;
+    border: 0;
+  }
+
+  .legend {
+    padding: 0;
+    margin-block-end: var(--ds-spacing-2xs);
+    font-size: var(--ds-font-size-sm);
+    font-weight: var(--ds-font-weight-medium);
+    color: var(--ds-color-neutral-text-strong-default);
+  }
+
+  .choice {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--ds-spacing-xs);
+    min-block-size: var(--ds-size-control-sm);
+    font-size: var(--ds-font-size-sm);
+    color: var(--ds-color-neutral-text-default-default);
+    cursor: pointer;
+  }
+
+  .choiceInput {
+    inline-size: var(--ds-size-icon-md);
+    block-size: var(--ds-size-icon-md);
+    margin: 0;
+    accent-color: var(--ds-color-primary-solid-default-default);
+    cursor: pointer;
+  }
+}

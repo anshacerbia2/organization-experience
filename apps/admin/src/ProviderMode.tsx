@@ -13,6 +13,7 @@ import {
 } from './scope';
 import { useScope } from './ScopeContext';
 import { providerSignInHref, tenantPattern } from './session';
+import { Button, fieldClasses, Icon, layout, Notice, Panel } from './ui';
 
 // ProviderModeGate is the entry ceremony (TDD-organization-experience-001 1.2.0 §Provider Mode
 // Entry): the reason, the duration and the Tenants are stated before anything opens, and the BFF
@@ -32,19 +33,27 @@ function RefusalMessage({
 }): ReactElement {
   if (refusal.kind === 'step-up') {
     return (
-      <p role="alert">
-        {messages.stepUpNeeded} <a href={providerSignInHref(returnTo)}>{messages.stepUpAction}</a>
-      </p>
+      <Notice tone="warning" icon="shield" role="alert">
+        <p>
+          {messages.stepUpNeeded} <a href={providerSignInHref(returnTo)}>{messages.stepUpAction}</a>
+        </p>
+      </Notice>
     );
   }
   if (refusal.kind === 'unavailable') {
-    return <p role="alert">{messages.dependencyUnavailable}</p>;
+    return (
+      <Notice tone="danger" role="alert">
+        <p>{messages.dependencyUnavailable}</p>
+      </Notice>
+    );
   }
   return (
-    <p role="alert">
-      {refusal.detail === null ? messages.refused : messages.refusedWith(refusal.detail)}
-      {refusal.correlationId === null ? null : ` ${messages.correlation(refusal.correlationId)}`}
-    </p>
+    <Notice tone="danger" role="alert">
+      <p>
+        {refusal.detail === null ? messages.refused : messages.refusedWith(refusal.detail)}
+        {refusal.correlationId === null ? null : ` ${messages.correlation(refusal.correlationId)}`}
+      </p>
+    </Notice>
   );
 }
 
@@ -119,92 +128,123 @@ function ProviderModeForm({
           : null;
 
   return (
-    <form aria-label={messages.enterProviderMode} onSubmit={onSubmit} noValidate>
-      <h2>{messages.enterProviderMode}</h2>
-      <p>{messages.providerModeExplained}</p>
+    <Panel.Root>
+      <form aria-label={messages.enterProviderMode} onSubmit={onSubmit} noValidate className={layout.column}>
+        <Panel.Header>
+          <Panel.Title>{messages.enterProviderMode}</Panel.Title>
+          <Panel.Description>{messages.providerModeExplained}</Panel.Description>
+        </Panel.Header>
 
-      <label htmlFor={ids.reason}>{messages.reason}</label>
-      <textarea
-        id={ids.reason}
-        value={reason}
-        required
-        aria-invalid={submitted && reasonError !== null}
-        aria-describedby={ids.reasonHint}
-        onChange={(event) => {
-          setReason(event.target.value);
-        }}
-      />
-      <p id={ids.reasonHint}>
-        {submitted && reasonMessage !== null
-          ? reasonMessage
-          : messages.reasonHint(minReasonLength, maxReasonLength)}
-      </p>
-
-      <label htmlFor={ids.duration}>{messages.duration}</label>
-      <input
-        id={ids.duration}
-        type="number"
-        min={1}
-        max={max}
-        step={1}
-        value={duration}
-        required
-        aria-invalid={submitted && durationError}
-        aria-describedby={ids.durationHint}
-        onChange={(event) => {
-          setDuration(event.target.value);
-        }}
-      />
-      <p id={ids.durationHint}>
-        {submitted && durationError ? messages.durationInvalid(max) : messages.durationHint(max)}
-      </p>
-
-      <fieldset>
-        <legend>{messages.targets}</legend>
-        <label>
-          <input
-            type="radio"
-            name="targets"
-            checked={targets === 'named'}
-            onChange={() => {
-              setTargets('named');
+        <div className={fieldClasses.field}>
+          <label htmlFor={ids.reason} className={fieldClasses.label}>
+            {messages.reason}
+          </label>
+          <textarea
+            id={ids.reason}
+            className={fieldClasses.area}
+            value={reason}
+            required
+            aria-invalid={submitted && reasonError !== null}
+            aria-describedby={ids.reasonHint}
+            onChange={(event) => {
+              setReason(event.target.value);
             }}
           />
-          {messages.targetsNamed}
-        </label>
-        <label>
+          <p
+            id={ids.reasonHint}
+            className={submitted && reasonMessage !== null ? fieldClasses.error : fieldClasses.hint}
+          >
+            {submitted && reasonMessage !== null
+              ? reasonMessage
+              : messages.reasonHint(minReasonLength, maxReasonLength)}
+          </p>
+        </div>
+
+        <div className={fieldClasses.field}>
+          <label htmlFor={ids.duration} className={fieldClasses.label}>
+            {messages.duration}
+          </label>
           <input
-            type="radio"
-            name="targets"
-            checked={targets === 'all'}
-            onChange={() => {
-              setTargets('all');
+            id={ids.duration}
+            className={fieldClasses.input}
+            type="number"
+            min={1}
+            max={max}
+            step={1}
+            value={duration}
+            required
+            aria-invalid={submitted && durationError}
+            aria-describedby={ids.durationHint}
+            onChange={(event) => {
+              setDuration(event.target.value);
             }}
           />
-          {messages.targetsAll}
-        </label>
-        {targets === 'named' ? (
-          <>
-            <label htmlFor={ids.list}>{messages.targetsList}</label>
-            <textarea
-              id={ids.list}
-              value={list}
-              spellCheck={false}
-              aria-invalid={submitted && targetsError}
-              onChange={(event) => {
-                setList(event.target.value);
+          <p
+            id={ids.durationHint}
+            className={submitted && durationError ? fieldClasses.error : fieldClasses.hint}
+          >
+            {submitted && durationError ? messages.durationInvalid(max) : messages.durationHint(max)}
+          </p>
+        </div>
+
+        <fieldset className={fieldClasses.fieldset}>
+          <legend className={fieldClasses.legend}>{messages.targets}</legend>
+          <label className={fieldClasses.choice}>
+            <input
+              type="radio"
+              name="targets"
+              className={fieldClasses.choiceInput}
+              checked={targets === 'named'}
+              onChange={() => {
+                setTargets('named');
               }}
             />
-            {submitted && targetsError ? <p role="alert">{messages.targetsInvalid}</p> : null}
-          </>
-        ) : null}
-      </fieldset>
+            {messages.targetsNamed}
+          </label>
+          <label className={fieldClasses.choice}>
+            <input
+              type="radio"
+              name="targets"
+              className={fieldClasses.choiceInput}
+              checked={targets === 'all'}
+              onChange={() => {
+                setTargets('all');
+              }}
+            />
+            {messages.targetsAll}
+          </label>
+          {targets === 'named' ? (
+            <div className={fieldClasses.field}>
+              <label htmlFor={ids.list} className={fieldClasses.label}>
+                {messages.targetsList}
+              </label>
+              <textarea
+                id={ids.list}
+                className={fieldClasses.area}
+                value={list}
+                spellCheck={false}
+                aria-invalid={submitted && targetsError}
+                onChange={(event) => {
+                  setList(event.target.value);
+                }}
+              />
+              {submitted && targetsError ? (
+                <p role="alert" className={fieldClasses.error}>
+                  {messages.targetsInvalid}
+                </p>
+              ) : null}
+            </div>
+          ) : null}
+        </fieldset>
 
-      {refusal === null ? null : <RefusalMessage refusal={refusal} returnTo={returnTo} />}
-      <button type="submit" disabled={sending}>
-        {sending ? messages.requesting : messages.requestProviderMode}
-      </button>
-    </form>
+        {refusal === null ? null : <RefusalMessage refusal={refusal} returnTo={returnTo} />}
+        <div className={layout.actions}>
+          <Button type="submit" disabled={sending} icon={<Icon name="shield" />}>
+            {sending ? messages.requesting : messages.requestProviderMode}
+          </Button>
+        </div>
+      </form>
+    </Panel.Root>
   );
 }
 
@@ -233,12 +273,18 @@ function LeaveProviderMode({
       });
   };
   return (
-    <p>
-      <button type="button" disabled={leaving} onClick={onLeave}>
-        {pending ? messages.withdrawRequest : messages.leaveProviderMode}
-      </button>
-      {unconfirmed ? <span role="alert"> {messages.leaveUnconfirmed}</span> : null}
-    </p>
+    <div className={layout.stack}>
+      <div className={layout.actions}>
+        <Button variant="secondary" disabled={leaving} onClick={onLeave} icon={<Icon name="logout" />}>
+          {pending ? messages.withdrawRequest : messages.leaveProviderMode}
+        </Button>
+      </div>
+      {unconfirmed ? (
+        <Notice tone="warning" role="alert">
+          <p>{messages.leaveUnconfirmed}</p>
+        </Notice>
+      ) : null}
+    </div>
   );
 }
 
@@ -253,7 +299,11 @@ export function ProviderModeGate({
 }): ReactElement {
   return (
     <>
-      {scope.closed === undefined ? null : <p role="status">{messages.providerClosed[scope.closed]}</p>}
+      {scope.closed === undefined ? null : (
+        <Notice tone={scope.closed === 'ended' ? 'info' : 'warning'} role="status">
+          <p>{messages.providerClosed[scope.closed]}</p>
+        </Notice>
+      )}
       {scope.window === null ? (
         <ProviderModeForm scope={scope} csrfToken={csrfToken} returnTo={returnTo} />
       ) : (

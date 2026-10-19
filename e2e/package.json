@@ -5,9 +5,11 @@
   "type": "module",
   "scripts": {
     "stack": "playwright test",
+    "test:browser": "playwright test -c browser.config.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "devDependencies": {
+    "@axe-core/playwright": "4.13.0",
     "@playwright/test": "1.63.0",
     "@types/node": "24.19.0",
     "@types/pg": "8.23.1",

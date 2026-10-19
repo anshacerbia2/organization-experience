@@ -11,7 +11,14 @@ import tseslint from 'typescript-eslint';
 
 export default tseslint.config(
   {
-    ignores: ['**/dist/**', '**/coverage/**', '**/node_modules/**', 'apps/*/src/routeTree.gen.ts'],
+    ignores: [
+      '**/dist/**',
+      '**/coverage/**',
+      '**/node_modules/**',
+      '**/browser-results/**',
+      '.cache/**',
+      'apps/*/src/routeTree.gen.ts',
+    ],
   },
   js.configs.recommended,
   ...tseslint.configs.strictTypeChecked,

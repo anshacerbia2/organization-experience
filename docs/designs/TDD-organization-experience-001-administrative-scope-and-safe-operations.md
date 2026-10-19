@@ -3,12 +3,12 @@ doc_meta:
   id: TDD-organization-experience-001
   title: Administrative Scope, Provider Mode, and Safe Bulk Operations
   owner: Core Platform Team
-  version: 1.8.0
+  version: 1.9.0
   status: approved
   classification: restricted
   review_cycle_days: 90
   created_date: 2026-08-11
-  last_reviewed: 2026-10-09
+  last_reviewed: 2026-10-18
   parent_sad: SAD-012
 ---
 
@@ -89,6 +89,7 @@ will cross by accident.
 | `BulkOperationRunner` | Preview, submit, per-item outcome, resumable reporting |
 | `FreshnessIndicator` | Surfaces projection age and stale behavior to the operator |
 | `ConfirmationGate` | Confirmation contract for irreversible operations |
+| `AppFrame` | The navigation rail, the bar with the session, and the banner under it (1.9.0, §Visual Language) |
 
 ### The Two Scopes
 
@@ -203,6 +204,99 @@ the operator remembering the banner.
 This is deliberate redundancy. The single most likely error in cross-tenant
 administration is an operator acting correctly on the wrong Tenant, and that error is
 invisible at the moment it is made.
+
+### Visual Language (1.9.0)
+
+**The administration console looks like Identity Experience's applications.** An operator signs in on
+identity-kernel's hosted login, which since `TDD-identity-kernel-004` 1.7.0 draws Identity Experience's
+tokens, and moves between this console and Identity Experience's Admin Portal. The three read as one
+product. Until 1.9.0 this application had one stylesheet of four rules, the scope banner's, and the
+browser's own form controls everywhere else.
+
+**Source, by copy.** The UI Platform is deferred (SAD-012 1.1.0 §7.3), and this repository keeps its
+own components. It takes Identity Experience's by copying, not by depending on that repository. The
+source is identity-experience at commit `c723e417c0eee97db6b1d5b6dab608fe6a406ac2`, the merge of its
+pull request #54, which fixed the light theme's contrast (`TDD-identity-experience-003` 1.26.0
+§Contrast and Focus). Everything copied lives under `apps/admin/src/ui/`, and `src/ui/index.ts` is the
+one door the surfaces import through, so a component moves to `@scnx/system` by changing its line.
+
+| Copied from (identity-experience) | Here | What |
+| :-- | :-- | :-- |
+| `packages/ui/src/styles/tokens/_ds-temporary.scss` | `src/ui/styles/tokens/` | Every Tier-2 `--ds-*` token, same names and values, both schemes |
+| `packages/ui/src/styles/foundations/*`, `_layers.scss`, `index.scss` | `src/ui/styles/` | Reset, the canvas with its two auroras and grid, focus as an outline, links underlined, reduced motion, forced colours, the layer order. The utility prefix is `scnx-org-` (STD-GLB-FE-005 §3.2) |
+| `packages/ui/src/styles/contrast.test.ts`, `src/test/contrast.ts` | `src/ui/styles/`, `src/ui/test/` | The contrast measurement, its 40 pairs unchanged, and this application's pairs added (below) |
+| `packages/ui/src/primitives/button-base`, `system/button`, `icon`, `panel`, `status-pill`, `table`, `field` (styles) | `src/ui/primitives/`, `src/ui/system/` | The components, with their tests. `Panel.Title` takes a heading level here, because a page's panels sit under its `h2` |
+| `packages/app-core/src/shell/AppFrame.*`, `preferences/ThemeToggle.tsx`, `session/SignInNotice.module.scss`, `api/MutationError.module.scss` | `src/ui/shell/`, `src/ui/preferences/`, `src/ui/system/notice/` | The frame, the theme toggle, and the notice: a glyph and words on a tint, in each scheme's tone |
+| `apps/admin/vite.config.ts` (`css`), `.stylelintrc.json`, `apps/admin/public/favicon.svg` | `apps/admin/` | SCSS Modules in cascade layers, the style rules stylelint holds, the shield mark |
+| `@fontsource-variable/inter` and `jetbrains-mono` 5.3.0 | `apps/admin/package.json` | The two faces, served as files under the content security policy |
+
+**No token departs.** Every `--ds-*` value equals the source's in both schemes, and no component reads
+a colour of its own. `pnpm --filter @organization-experience/admin test` compiles the stylesheet and
+holds every pair to WCAG 2.2 AA after alpha composition, over the plain canvas and under each aurora:
+4.5:1 for text, 3:1 for what identifies a component, a state or focus [R5]. This application's own
+pairs, at their worst, light / dark:
+
+| Pair | Light | Dark |
+| :-- | --: | --: |
+| Scope banner lead, Tenant / provider mode / provider sign-in | 5.38 / 5.25 / 5.25 | 7.66 / 6.12 / 6.65 |
+| Scope banner text and glyph (lowest) | 5.00 | 5.81 |
+| Session pill in the bar | 5.57 | 11.08 |
+| A row's facts under the pointer; selected | 5.17; 5.30 | 6.08; 5.69 |
+| The danger note in a confirmation; a field's edge there | 6.96; 3.18 | 9.03; 4.02 |
+| The current stage's text; its edge; a passed stage's check | 10.44; 4.62; 6.50 | 11.65; 10.93; 13.51 |
+
+**The scope banner (§Scope Visibility).** It is drawn in the scheme of the scope it names, with its
+own glyph and its words as well as its colour [R5, SC 1.4.1]: info and a building for a Tenant, danger
+and the shield for provider mode, warning and a key for a provider sign-in without it and for a scope
+that could not be read. It sits under the frame's bar and sticks with it, so it stays in view whatever
+the page scrolls to; the browser test scrolls a long page and asserts the banner fully in the viewport.
+The time left is set apart at the end of the banner in tabular figures. The banner reads the same
+sentence it always has, word for word: the parts are styled, not reworded.
+
+**Information design.** The surfaces share one shape: the page's `h2`, a panel per create form with its
+fields in a grid, the filters in a toolbar, then the records.
+
+- **Records are list items drawn as the rows of a dense table**, in the Table component's tokens. They
+  stay list items, which is what a screen reader announces and what the tests and the stack proof
+  find them by. A row's head holds the record's name, an identifier in the monospace face, and its
+  facts with the status as a pill of its tone; its actions follow, right-aligned. What the row says
+  beneath (a note, a status, a refusal) takes the full width under the head. CSS `order` places it
+  there while the document keeps its order, so the reading sequence is the source's [R5, SC 1.3.2],
+  and focus order is unchanged, since nothing moved is focusable. A selected row takes the selected
+  surface beside its checked box. Figures are tabular.
+- **Destructive actions are drawn apart and ask first.** Archive, restore and the like are secondary.
+  Suspend, revoke, retire, deny, offboard, release and the freeze's next batch take the danger
+  variant. An action with a reason or a typed confirmation opens its form in place, inside the row it
+  acts on, drawn in the danger scheme with an edge, and states the scope it acts in inside it, as
+  §Irreversible Operations requires. The one destructive action without a confirmation is an
+  invitation's revoke, unchanged by this version.
+- **Every list has a loading, an empty and an error state**, each in words: placeholder bars beside
+  "Loading", a glyph beside the empty sentence, and the refusal as a danger notice with its reference.
+- **Tables are real tables** where the data is a grid: the obligation board and the bulk preview, with
+  a caption, scoped headers, a keyboard-reachable scroll region and statuses as pills.
+- **Responsive to tablet width.** Under 60rem the rail becomes a bar above the page with its links in
+  a row. The browser test checks every route at 820px and 1440px for horizontal page overflow and
+  finds none [R5, SC 1.4.10].
+- **Motion** is decoration only, and the foundations remove it under `prefers-reduced-motion: reduce`
+  [R5, SC 2.3.3].
+
+**Departures from Identity Experience,** each this application's and none in a token:
+
+| Here | Identity Experience | Why |
+| :-- | :-- | :-- |
+| The theme follows the system's `prefers-color-scheme` until the viewer chooses one, and only a choice is stored, in this origin's `localStorage` | Opens dark, and stores the preference | MDN: the feature "is used to detect if a user has requested light or dark color themes" [R6]. Following it needs no storage, so the page still "holds nothing in browser storage" after a sign-in (§End to End). The hosted login follows the system too (`TDD-identity-kernel-004` §Visual Language) |
+| The bar holds the application's `h1` and the session; the scope banner sticks under it | The bar holds the environment, the session, the language and the theme | §Scope Visibility. This application has no environment setting and one locale, so there is no environment pill and no language switch |
+| Under 60rem the rail is a bar with its links in a row | The rail is a column above the page | A tablet reaches the page without scrolling past a column of links |
+| The rail is the page's full height, and what it holds sticks in view at the viewport's height | The rail itself is sticky at `100dvh`, so a full-page rendering of a long page shows its surface and edge ending at the first screen | The column reads as one surface beside the longest page; `behaviour.spec.ts` asserts the rail spans the page and its navigation stays in view after a scroll, on Tenants, an offboarding and Memberships |
+| `Notice`, `Facts`, `Rows`, `Page` and the field classes | `TextField`, `SelectField`, `TextAreaField` own their ids and errors | This application's forms already own the ids, hints and errors their tests read, so they take Identity Experience's field styles as classes rather than its components |
+| No modal dialog | Has none to port | A confirmation stays in the row it acts on, beside the record it names |
+
+**Before and after.** The CI artifact `browser-screens` holds a screenshot of every main route, signed
+in, with data, in Tenant scope and in provider mode, light and dark, at desktop and tablet width. The
+run on the change's first commit, before any styling, recorded the interface as it was; axe in Chromium
+(CI run 39153399401) then found one rule violated on 46 of the 48 views (the two signed-out views passed), WCAG 2.2 SC 2.5.8 on the
+navigation links, plain text links under the minimum: "The size of the target for pointer inputs is at
+least 24 by 24 CSS pixels" [R5]. A navigation item is now 40px tall, and a row's button 32px.
 
 ## Data Model
 
@@ -499,6 +593,31 @@ These are the defined checks:
   pass, contrast and target size in a real browser. The automated checks keep a known failure out;
   they do not certify conformance.
 
+**In a browser (1.9.0).** jsdom lays nothing out, so `e2e/browser/` runs the built application in
+Chromium (`pnpm test:browser`, the `browser` job of `ci.yml`). `browser/serve.ts` serves the build with
+the BFF's own security headers, imported from `bff/src/http/security-headers.ts`, so a style or script
+the content security policy refuses fails here as it would in production. It stands in for the BFF's
+session and scope per persona (signed out, Tenant scope, a provider sign-in, a pending window, provider
+mode in force) and answers every Organization Control read from `browser/fixtures.ts`; it takes no
+command. The stand-in proves no BFF behaviour: `bff/test` and the stack-proof workflow do.
+
+- `screens.spec.ts`: every main route, 19 views (an open revoke confirmation and the bulk action among
+  them), light and dark, desktop and five at tablet width, 48 in all. Each is kept as a screenshot and
+  checked for horizontal overflow, and axe-core's WCAG 2.0, 2.1 and 2.2 A and AA rules run with layout
+  and computed style. It fails on any violation.
+- What axe cannot decide is recorded as "needs review" on the test and in `needs-review.txt` beside
+  the screenshots, never passed. At 1.9.0 that is colour contrast alone, on every view, 8 to 92 nodes:
+  the canvas is gradients and the surfaces are translucent over it, so axe resolves no single
+  background. The contrast test computes those pairs instead (§Visual Language).
+- `behaviour.spec.ts`, in each theme: the scope banner stays in view on a scrolled page; the rail spans
+  a long page and its navigation stays in view; a field and a
+  button reached by Tab show a 2px solid outline 2px off them, with and without forced colours; a link
+  is underlined at rest; a destructive action takes the danger variant and its confirmation names the
+  scope.
+- Playwright's guide: "Note that automated testing cannot detect all types of WCAG violations", and
+  "many accessibility problems can only be discovered through manual testing" [R7]. The manual WCAG
+  2.2 AA audit above is not replaced by any of it.
+
 ### End to End (1.7.0)
 
 **At each boundary** (1.4.0), each control is exercised across the boundary it crosses:
@@ -642,6 +761,8 @@ when its session store does not answer (1.5.0); the operator's steps are identit
 | Depends on | `organization-control` — the Organization Control API, which reauthorizes every command |
 | Depends on | `identity-kernel` — hosted login and step-up, and a Tenant sign-in on a provider sign-in's kernel session (`TDD-identity-kernel-001` 1.18.0, 1.8.0) |
 | Build-time dependency | `scnehaux-ui-platform` — design system packages, once shipped (SAD-012 1.1.0 §1, §7.3) |
+| Copies | `identity-experience` `packages/ui` and its frame at `c723e417c0eee97db6b1d5b6dab608fe6a406ac2` — the visual language, by copy until the UI Platform ships (1.9.0) |
+| Conforms to | `TDD-identity-kernel-004` §Visual Language — the hosted login in the same tokens (1.9.0) |
 | Conforms to | SAD-012 1.1.0 — a React SPA built with Vite behind the identity Fastify BFF, as ADR-GLB-FE-003 §5 and ADR-GLB-FE-011 §5.2 place an internal tool |
 | Governed by | ADR-IAM-008 — one client, the privileged form chosen per sign-in (1.2.0) |
 | Governed by | ADR-ORG-004 — bulk actions previewed by the server, revocation shown by its evidence (1.3.0) |
@@ -666,3 +787,6 @@ UI Platform ships its primitives (SAD-012 1.1.0 §7.3).
 | R2 | OWASP, *Multi-Tenant Application Security Cheat Sheet*, §1, <https://cheatsheetseries.owasp.org/cheatsheets/Multi_Tenant_Security_Cheat_Sheet.html>, accessed 2026-10-04 (as quoted by ADR-IAM-006): "Treat client-supplied tenant identifiers as selectors only. Verify that the authenticated principal is authorized to act in the selected tenant." The window's targets and the entry page's Tenant are selectors; the API decides. |
 | R3 | Deque, *axe-core* README, <https://github.com/dequelabs/axe-core/blob/develop/README.md>, accessed 2026-10-07: "With axe-core, you can find on average 57% of WCAG issues automatically." and "Additionally, axe-core will return elements as "incomplete" where axe-core could not be certain, and manual review is needed." (1.4.0) |
 | R4 | IETF, *The Idempotency-Key HTTP Header Field*, draft-ietf-httpapi-idempotency-key-header-07, §2.6, <https://datatracker.ietf.org/doc/html/draft-ietf-httpapi-idempotency-key-header>, accessed 2026-10-07: "The request was retried after the original request completed. The resource SHOULD respond with the result of the previously completed operation, success or an error." (1.4.0) |
+| R5 | W3C, *Web Content Accessibility Guidelines (WCAG) 2.2*, W3C Recommendation 12 December 2024, <https://www.w3.org/TR/WCAG22/>, accessed 2026-10-18. SC 1.3.2: "When the sequence in which content is presented affects its meaning, a correct reading sequence can be programmatically determined." SC 1.4.1: "Color is not used as the only visual means of conveying information, indicating an action, prompting a response, or distinguishing a visual element." SC 1.4.3: "The visual presentation of text and images of text has a contrast ratio of at least 4.5:1, except for the following". SC 1.4.10: "Content can be presented without loss of information or functionality, and without requiring scrolling in two dimensions". SC 1.4.11: "The visual presentation of the following have a contrast ratio of at least 3:1 against adjacent color(s): User Interface Components: Visual information required to identify user interface components and states, except for inactive components". SC 2.3.3 (AAA): "Motion animation triggered by interaction can be disabled, unless the animation is essential". SC 2.4.7: "Any keyboard operable user interface has a mode of operation where the keyboard focus indicator is visible." SC 2.5.8: "The size of the target for pointer inputs is at least 24 by 24 CSS pixels, except when:" (1.9.0) |
+| R6 | MDN, *prefers-color-scheme*, <https://developer.mozilla.org/en-US/docs/Web/CSS/@media/prefers-color-scheme>, accessed 2026-10-18: "The prefers-color-scheme CSS media feature is used to detect if a user has requested light or dark color themes." (1.9.0) |
+| R7 | Playwright, *Accessibility testing*, <https://playwright.dev/docs/accessibility-testing>, accessed 2026-10-18: "Note that automated testing cannot detect all types of WCAG violations."; "But many accessibility problems can only be discovered through manual testing." (1.9.0) |

@@ -6,6 +6,8 @@ import { useIdempotencyKey } from '../api/idempotency';
 import { messages } from '../messages';
 import { maxReasonLength, minReasonLength, normalizeReason, reasonProblem } from '../scope';
 import { useSignedIn } from '../SessionContext';
+import { Button, fieldClasses, layout, Notice, Panel, StatusPill, Table, toneOf } from '../ui';
+import styles from './bulk.module.scss';
 import { ApiErrorMessage, facts } from './common';
 import { EnforcementStatus } from './enforcement';
 
@@ -127,17 +129,21 @@ export function BulkMembershipAction({
       executed.items.filter((item) => item.outcome?.status === status);
     const failed = by('failed');
     return (
-      <section aria-labelledby="bulk-outcome-heading">
-        <h3 id="bulk-outcome-heading">{messages.bulkOutcome}</h3>
-        <p>
+      <Panel.Root aria-labelledby="bulk-outcome-heading">
+        <Panel.Title level={3} id="bulk-outcome-heading">
+          {messages.bulkOutcome}
+        </Panel.Title>
+        <p className={styles['counts']}>
           {messages.bulkCounts(
             executed.counts.succeeded,
             executed.counts.failed,
             executed.counts.not_attempted,
           )}
         </p>
-        <h4>{messages.outcomeHeading('succeeded')}</h4>
-        <ul>
+        <h4 className={styles['outcome']} data-outcome="succeeded">
+          {messages.outcomeHeading('succeeded')}
+        </h4>
+        <ul className={styles['items']}>
           {by('succeeded').map((item) => (
             <li key={item.membership_id}>
               {facts(item.principal_id, item.resulting_status)}
@@ -145,14 +151,18 @@ export function BulkMembershipAction({
             </li>
           ))}
         </ul>
-        <h4>{messages.outcomeHeading('failed')}</h4>
-        <ul>
+        <h4 className={styles['outcome']} data-outcome="failed">
+          {messages.outcomeHeading('failed')}
+        </h4>
+        <ul className={styles['items']}>
           {failed.map((item) => (
             <li key={item.membership_id}>{facts(item.principal_id, problemText(item.outcome?.problem))}</li>
           ))}
         </ul>
-        <h4>{messages.outcomeHeading('not_attempted')}</h4>
-        <ul>
+        <h4 className={styles['outcome']} data-outcome="not_attempted">
+          {messages.outcomeHeading('not_attempted')}
+        </h4>
+        <ul className={styles['items']}>
           {by('not_attempted').map((item) => (
             <li key={item.membership_id}>
               {facts(
@@ -163,121 +173,161 @@ export function BulkMembershipAction({
             </li>
           ))}
         </ul>
-        {failed.length === 0 ? null : (
-          <button
-            type="button"
-            onClick={() => {
-              setContinues({ batchId: executed.batch_id, ids: failed.map((item) => item.membership_id) });
-              setAction(executed.action);
-              preview.reset();
-              execute.reset();
-            }}
-          >
-            {messages.resubmitFailed(failed.length)}
-          </button>
-        )}{' '}
-        <button type="button" onClick={onClose}>
-          {messages.close}
-        </button>
-      </section>
+        <div className={layout.actions}>
+          {failed.length === 0 ? null : (
+            <Button
+              onClick={() => {
+                setContinues({ batchId: executed.batch_id, ids: failed.map((item) => item.membership_id) });
+                setAction(executed.action);
+                preview.reset();
+                execute.reset();
+              }}
+            >
+              {messages.resubmitFailed(failed.length)}
+            </Button>
+          )}{' '}
+          <Button variant="secondary" onClick={onClose}>
+            {messages.close}
+          </Button>
+        </div>
+      </Panel.Root>
     );
   }
 
   if (previewed !== undefined) {
     return (
-      <section aria-labelledby="bulk-preview-heading">
-        <h3 id="bulk-preview-heading">{messages.bulkPreview}</h3>
-        <table>
-          <caption>
-            {messages.bulkPreviewCaption(previewed.counts.would_change, previewed.counts.would_not_change)}
-          </caption>
-          <thead>
-            <tr>
-              <th scope="col">{messages.principalId}</th>
-              <th scope="col">{messages.currentState}</th>
-              <th scope="col">{messages.resultingState}</th>
-            </tr>
-          </thead>
-          <tbody>
-            {previewed.items.map((item) => (
-              <tr key={item.membership_id}>
-                <td>{item.principal_id ?? item.membership_id}</td>
-                <td>{item.current_status ?? ''}</td>
-                <td>
-                  {item.refusal === null
-                    ? (item.resulting_status ?? '')
-                    : messages.refusedBy(problemText(item.refusal))}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-        <p>{messages.bulkConfirm(previewed.action, previewed.counts.would_change, tenantId)}</p>
-        <button
-          type="button"
-          disabled={execute.isPending || previewed.counts.would_change === 0}
-          onClick={() => {
-            execute.mutate(previewed);
-          }}
+      <Panel.Root aria-labelledby="bulk-preview-heading">
+        <Panel.Title level={3} id="bulk-preview-heading">
+          {messages.bulkPreview}
+        </Panel.Title>
+        <Table.Root
+          caption={messages.bulkPreviewCaption(
+            previewed.counts.would_change,
+            previewed.counts.would_not_change,
+          )}
         >
-          {messages.bulkExecute(previewed.action, previewed.counts.would_change)}
-        </button>{' '}
-        <button type="button" onClick={onClose}>
-          {messages.cancel}
-        </button>
+          <Table.Head>
+            <Table.Row>
+              <Table.HeaderCell>{messages.principalId}</Table.HeaderCell>
+              <Table.HeaderCell>{messages.currentState}</Table.HeaderCell>
+              <Table.HeaderCell>{messages.resultingState}</Table.HeaderCell>
+            </Table.Row>
+          </Table.Head>
+          <Table.Body>
+            {previewed.items.map((item) => (
+              <Table.Row key={item.membership_id}>
+                <Table.Cell mono>{item.principal_id ?? item.membership_id}</Table.Cell>
+                <Table.Cell>
+                  {item.current_status === null ? (
+                    ''
+                  ) : (
+                    <StatusPill tone={toneOf(item.current_status)}>{item.current_status}</StatusPill>
+                  )}
+                </Table.Cell>
+                <Table.Cell>
+                  {item.refusal === null ? (
+                    item.resulting_status === null ? (
+                      ''
+                    ) : (
+                      <StatusPill tone={toneOf(item.resulting_status)}>{item.resulting_status}</StatusPill>
+                    )
+                  ) : (
+                    <span className={styles['refusal']}>{messages.refusedBy(problemText(item.refusal))}</span>
+                  )}
+                </Table.Cell>
+              </Table.Row>
+            ))}
+          </Table.Body>
+        </Table.Root>
+        <Notice tone={previewed.action === 'restore' ? 'info' : 'danger'}>
+          <p>{messages.bulkConfirm(previewed.action, previewed.counts.would_change, tenantId)}</p>
+        </Notice>
+        <div className={layout.actions}>
+          <Button
+            variant={previewed.action === 'restore' ? 'primary' : 'danger'}
+            disabled={execute.isPending || previewed.counts.would_change === 0}
+            onClick={() => {
+              execute.mutate(previewed);
+            }}
+          >
+            {messages.bulkExecute(previewed.action, previewed.counts.would_change)}
+          </Button>{' '}
+          <Button variant="ghost" onClick={onClose}>
+            {messages.cancel}
+          </Button>
+        </div>
         {execute.isError ? <ApiErrorMessage error={execute.error} /> : null}
-      </section>
+      </Panel.Root>
     );
   }
 
   return (
-    <form
-      aria-label={messages.bulkAction}
-      noValidate
-      onSubmit={(event) => {
-        event.preventDefault();
-        requestPreview();
-      }}
-    >
-      <h3>{messages.bulkSelected(items.length)}</h3>
-      {continues === null ? null : <p>{messages.bulkContinues}</p>}
-      <label htmlFor={ids.action}>{messages.bulkActionLabel}</label>
-      <select
-        id={ids.action}
-        value={action}
-        onChange={(event) => {
-          setAction(event.target.value as BulkAction);
+    <Panel.Root>
+      <form
+        aria-label={messages.bulkAction}
+        noValidate
+        className={layout.column}
+        onSubmit={(event) => {
+          event.preventDefault();
+          requestPreview();
         }}
       >
-        <option value="suspend">{messages.suspend}</option>
-        <option value="restore">{messages.restore}</option>
-        <option value="revoke">{messages.revoke}</option>
-      </select>
-      <label htmlFor={ids.reason}>{action === 'revoke' ? messages.reason : messages.reasonOptional}</label>
-      <textarea
-        id={ids.reason}
-        value={reason}
-        aria-invalid={submitted && problem !== null}
-        onChange={(event) => {
-          setReason(event.target.value);
-        }}
-      />
-      {submitted && problem !== null ? (
-        <p role="alert">
-          {problem === 'short'
-            ? messages.reasonShort(minReasonLength)
-            : problem === 'long'
-              ? messages.reasonLong(maxReasonLength)
-              : messages.reasonCharacters}
-        </p>
-      ) : null}
-      <button type="submit" disabled={preview.isPending}>
-        {messages.bulkPreviewAction}
-      </button>{' '}
-      <button type="button" onClick={onClose}>
-        {messages.cancel}
-      </button>
-      {preview.isError ? <ApiErrorMessage error={preview.error} /> : null}
-    </form>
+        <Panel.Title level={3}>{messages.bulkSelected(items.length)}</Panel.Title>
+        {continues === null ? null : (
+          <Notice tone="info">
+            <p>{messages.bulkContinues}</p>
+          </Notice>
+        )}
+        <div className={fieldClasses.field}>
+          <label htmlFor={ids.action} className={fieldClasses.label}>
+            {messages.bulkActionLabel}
+          </label>
+          <select
+            id={ids.action}
+            className={fieldClasses.select}
+            value={action}
+            onChange={(event) => {
+              setAction(event.target.value as BulkAction);
+            }}
+          >
+            <option value="suspend">{messages.suspend}</option>
+            <option value="restore">{messages.restore}</option>
+            <option value="revoke">{messages.revoke}</option>
+          </select>
+        </div>
+        <div className={fieldClasses.field}>
+          <label htmlFor={ids.reason} className={fieldClasses.label}>
+            {action === 'revoke' ? messages.reason : messages.reasonOptional}
+          </label>
+          <textarea
+            id={ids.reason}
+            className={fieldClasses.area}
+            value={reason}
+            aria-invalid={submitted && problem !== null}
+            onChange={(event) => {
+              setReason(event.target.value);
+            }}
+          />
+          {submitted && problem !== null ? (
+            <p role="alert" className={fieldClasses.error}>
+              {problem === 'short'
+                ? messages.reasonShort(minReasonLength)
+                : problem === 'long'
+                  ? messages.reasonLong(maxReasonLength)
+                  : messages.reasonCharacters}
+            </p>
+          ) : null}
+        </div>
+        <div className={layout.actions}>
+          <Button type="submit" disabled={preview.isPending}>
+            {messages.bulkPreviewAction}
+          </Button>{' '}
+          <Button variant="ghost" onClick={onClose}>
+            {messages.cancel}
+          </Button>
+        </div>
+        {preview.isError ? <ApiErrorMessage error={preview.error} /> : null}
+      </form>
+    </Panel.Root>
   );
 }

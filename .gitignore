@@ -12,3 +12,5 @@ test-results/
 # The BFF's private client key, made by scripts/new-client-key.mjs. It never leaves this machine.
 keys/
 *.pem
+.cache/
+e2e/browser-results/

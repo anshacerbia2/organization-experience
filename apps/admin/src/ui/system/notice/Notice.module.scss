@@ -1,0 +1,70 @@
+// identity-experience's SignInNotice.module.scss and MutationError.module.scss (packages/app-core, at
+// c723e417c0eee97db6b1d5b6dab608fe6a406ac2), with a tone for each scheme rather than danger alone.
+@layer components {
+  .root {
+    --notice-text: var(--ds-color-neutral-text-default-default);
+    --notice-surface: var(--ds-color-neutral-surface-subtle-default);
+    --notice-border: var(--ds-color-neutral-border-default-default);
+    --notice-icon: var(--ds-color-neutral-icon-default-default);
+
+    display: flex;
+    align-items: flex-start;
+    gap: var(--ds-spacing-sm);
+    padding: var(--ds-spacing-sm) var(--ds-spacing-md);
+    border: var(--ds-stroke-thin) solid var(--notice-border);
+    border-radius: var(--ds-radius-md);
+    font-size: var(--ds-font-size-sm);
+    color: var(--notice-text);
+    background: var(--notice-surface);
+  }
+
+  .root[data-tone='info'] {
+    --notice-text: var(--ds-color-info-text-default-default);
+    --notice-surface: var(--ds-color-info-surface-subtle-default);
+    --notice-border: var(--ds-color-info-border-default-default);
+    --notice-icon: var(--ds-color-info-icon-default-default);
+  }
+
+  .root[data-tone='success'] {
+    --notice-text: var(--ds-color-success-text-default-default);
+    --notice-surface: var(--ds-color-success-surface-subtle-default);
+    --notice-border: var(--ds-color-success-border-default-default);
+    --notice-icon: var(--ds-color-success-icon-default-default);
+  }
+
+  .root[data-tone='warning'] {
+    --notice-text: var(--ds-color-warning-text-default-default);
+    --notice-surface: var(--ds-color-warning-surface-subtle-default);
+    --notice-border: var(--ds-color-warning-border-default-default);
+    --notice-icon: var(--ds-color-warning-icon-default-default);
+  }
+
+  .root[data-tone='danger'] {
+    --notice-text: var(--ds-color-danger-text-default-default);
+    --notice-surface: var(--ds-color-danger-surface-subtle-default);
+    --notice-border: var(--ds-color-danger-border-default-default);
+    --notice-icon: var(--ds-color-danger-icon-default-default);
+  }
+
+  .glyph {
+    display: inline-flex;
+    flex: none;
+    padding-block-start: 0.15em;
+    font-size: var(--ds-size-icon-sm);
+    color: var(--notice-icon);
+  }
+
+  .text {
+    display: flex;
+    flex-direction: column;
+    gap: var(--ds-spacing-2xs);
+    min-inline-size: 0;
+    overflow-wrap: anywhere;
+  }
+
+  @media (forced-colors: active) {
+    .root {
+      border-color: CanvasText;
+    }
+  }
+}
