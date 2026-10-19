@@ -1,17 +1,19 @@
 import { createRootRoute, createRoute, createRouter } from '@tanstack/react-router';
 
 import { ApprovalsPage } from './features/approvals';
+import { AcceptInvitationPage } from './features/invitation';
 import { OffboardingDetail, OffboardingsPage } from './features/offboarding';
 import { ProjectionsPage } from './features/projections';
 import { OrganizationsPage, TenantsPage } from './features/provider';
 import { AccessReviewPage, TenantProviderAccessPage } from './features/review';
 import { InvitationsPage, MembershipsPage, WorkspacesPage } from './features/tenant';
-import { Home, RequireScope, Shell } from './Shell';
+import { acceptancePath } from './invitationLink';
+import { Home, RequireScope, Root } from './Shell';
 
 // The application's routes. Each surface states the scope it belongs to; the BFF's scope guard
 // refuses the requests of any other. Each route is declared with its literal path, so links and
 // parameters are typed against it.
-const root = createRootRoute({ component: Shell });
+const root = createRootRoute({ component: Root });
 
 const home = createRoute({ getParentRoute: () => root, path: '/', component: Home });
 
@@ -35,6 +37,14 @@ const invitations = createRoute({
   getParentRoute: () => root,
   path: '/invitations',
   component: () => <RequireScope scope="tenant">{() => <InvitationsPage />}</RequireScope>,
+});
+
+// The invitation acceptance page: any signed-in person, with or without a Tenant, in no particular
+// scope (ADR-ORG-007 §5.6). Root draws it outside the administration frame.
+const acceptInvitation = createRoute({
+  getParentRoute: () => root,
+  path: acceptancePath,
+  component: AcceptInvitationPage,
 });
 
 const organizations = createRoute({
@@ -92,6 +102,7 @@ const routeTree = root.addChildren([
   workspaces,
   memberships,
   invitations,
+  acceptInvitation,
   organizations,
   tenants,
   offboardings,

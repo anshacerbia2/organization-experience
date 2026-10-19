@@ -23,7 +23,10 @@ const days = (count: number): string => new Date(Date.now() + count * 86_400_000
 export const me = '0199a1b2-c3d4-7e5f-8a9b-0c1d2e3f4aaa';
 const other = '0199a1b2-c3d4-7e5f-8a9b-0c1d2e3f4bbb';
 export const tenantId = '0192f0e0-aaaa-7000-8000-00000000a001';
-const betaTenant = '0192f0e0-aaaa-7000-8000-00000000a002';
+export const betaTenant = '0192f0e0-aaaa-7000-8000-00000000a002';
+// An invitation token as Organization Control returns one on issue (TDD-organization-experience-002
+// 1.8.0). Invented: the stand-in takes no command, so a test answers the acceptance itself.
+export const invitationToken = 'Gm9xQ2R0c1p4b1h3a2ZlTmVwV3l5UjZ2dE1qYkF1Q0k';
 const correlation = '0199a1b2-c3d4-7e5f-8a9b-0c1d2e3f4aff';
 export const offboardingId = '0192f0e0-bbbb-7000-8000-00000000b001';
 const etaTenant = '0192f0e0-aaaa-7000-8000-00000000a007';
@@ -111,7 +114,7 @@ const memberships = [
 
 const invitations = [
   ['pending', 3],
-  ['identity_verified', 1],
+  ['revoked', 1],
   ['accepted', -2],
   ['expired', -5],
 ].map(([state, expires], index) => ({

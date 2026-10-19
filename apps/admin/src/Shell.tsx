@@ -1,9 +1,11 @@
 import { useQueryClient } from '@tanstack/react-query';
-import { Link, Outlet } from '@tanstack/react-router';
+import { Link, Outlet, useRouterState } from '@tanstack/react-router';
 import { useState, type ReactElement, type ReactNode } from 'react';
 
 import { sessionQueryKey } from './api/query';
 import { ContextSwitcher } from './features/contexts';
+import { Gate, gateClasses } from './Gate';
+import { acceptancePath, waitingInvitationToken } from './invitationLink';
 import { messages } from './messages';
 import { ProviderModeGate } from './ProviderMode';
 import { ScopeBanner } from './ScopeBanner';
@@ -11,7 +13,6 @@ import { ScopeProvider, useScope, useWindowInForce } from './ScopeContext';
 import { ProviderSignIn, TenantSignIn } from './ScopeEntry';
 import { signInOutcome, signOut } from './session';
 import { SignedInProvider, useSessionQuery, useSignedIn } from './SessionContext';
-import shellStyles from './Shell.module.scss';
 import {
   AppFrame,
   Button,
@@ -30,6 +31,14 @@ import {
 export const here = (): string =>
   `${window.location.pathname}${window.location.search}${window.location.hash}`;
 
+// Root picks the frame. The invitation acceptance page stands alone, outside the administration
+// frame and its signed-out entry, because its visitor is often no administrator and its address bar
+// must lose the token before anything reads the location (TDD-organization-experience-002 1.8.0).
+export function Root(): ReactElement {
+  const path = useRouterState({ select: (state) => state.location.pathname });
+  return path === acceptancePath ? <Outlet /> : <Shell />;
+}
+
 // Shell frames every view: the session, the scope banner, the navigation the active scope allows,
 // and the view itself. It makes no authorization decision; the BFF's scope guard and the
 // Organization Control API decide every request.
@@ -41,6 +50,9 @@ export function Shell(): ReactElement {
   const outcome = signInOutcome(window.location.search);
   const { theme, choose } = useTheme();
   const themeToggle = <ThemeToggle theme={theme} onChoose={choose} />;
+  // A token waiting in this tab: a sign-in for an invitation that landed somewhere else, such as a
+  // failed one, which lands at the root.
+  const [invitationWaiting] = useState(() => waitingInvitationToken() !== null);
 
   // What the page says about the sign-in and the session before anything else.
   const notices = (
@@ -60,6 +72,13 @@ export function Shell(): ReactElement {
           <p>{messages.unavailable}</p>
         </Notice>
       ) : null}
+      {invitationWaiting ? (
+        <Notice tone="info" icon="mail" role="status">
+          <p>
+            {messages.invitationWaiting} <Link to={acceptancePath}>{messages.invitationContinue}</Link>
+          </p>
+        </Notice>
+      ) : null}
     </>
   );
 
@@ -67,34 +86,17 @@ export function Shell(): ReactElement {
   // (TDD-identity-kernel-004 §Visual Language).
   if (session.data?.authenticated !== true) {
     return (
-      <div className={shellStyles['gate']}>
-        <div className={shellStyles['gateTheme']}>{themeToggle}</div>
-        <main className={shellStyles['gateMain']}>
-          <div className={shellStyles['gateBrand']}>
-            <span className={shellStyles['gateMark']} aria-hidden="true">
-              <Icon name="shield" />
-            </span>
-            <span className={shellStyles['gateBrandName']}>{messages.brand}</span>
+      <Gate title={messages.title} description={session.data === undefined ? undefined : messages.signedOut}>
+        {notices}
+        {session.data === undefined ? null : (
+          <div className={gateClasses.body}>
+            <TenantSignIn returnTo={here()} label={messages.signInTenant} />
+            <div className={gateClasses.provider}>
+              <ProviderSignIn returnTo={here()} label={messages.signInProvider} />
+            </div>
           </div>
-          <Panel.Root elevation="floating">
-            <Panel.Header>
-              <h1 className={shellStyles['gateTitle']}>{messages.title}</h1>
-              {session.data === undefined ? null : (
-                <Panel.Description>{messages.signedOut}</Panel.Description>
-              )}
-            </Panel.Header>
-            {notices}
-            {session.data === undefined ? null : (
-              <div className={shellStyles['gateBody']}>
-                <TenantSignIn returnTo={here()} label={messages.signInTenant} />
-                <div className={shellStyles['gateProvider']}>
-                  <ProviderSignIn returnTo={here()} label={messages.signInProvider} />
-                </div>
-              </div>
-            )}
-          </Panel.Root>
-        </main>
-      </div>
+        )}
+      </Gate>
     );
   }
 

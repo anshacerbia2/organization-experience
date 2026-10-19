@@ -34,8 +34,9 @@ An operator never holds both at once, and the session records which scope was ac
 for every action taken.
 
 Beyond scope, this repository owns bulk operation preview and per-item outcome,
-projection freshness presentation, offboarding workflow views, and the confirmation
-contract for irreversible operations.
+projection freshness presentation, offboarding workflow views, the confirmation
+contract for irreversible operations, and the page where an invited person accepts an
+invitation, signed in as themselves (ADR-ORG-007).
 
 ## Two presentation rules that are security controls
 

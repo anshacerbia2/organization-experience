@@ -3,7 +3,7 @@
 // a link is underlined at rest, and a destructive action is drawn apart from the others.
 import { expect, test, type Page } from '@playwright/test';
 
-import type { Persona } from './fixtures.ts';
+import { invitationToken, type Persona } from './fixtures.ts';
 
 const themes = ['light', 'dark'] as const;
 
@@ -177,3 +177,44 @@ for (const theme of themes) {
     );
   });
 }
+
+// TDD-organization-experience-002 1.8.0 (ADR-ORG-007 §5.5, §5.6): in Chromium, the invitation token
+// leaves the address bar before anything is read, reaches no server in a URL, is sent only in the
+// body of the acceptance command, and the page is served with no referrer.
+test('the invitation token is sent only in the acceptance body, never in a URL', async ({
+  page,
+  baseURL,
+}) => {
+  await page.context().addCookies([{ name: 'persona', value: 'provider', url: baseURL ?? '' }]);
+  const urls: string[] = [];
+  page.on('request', (request) => {
+    urls.push(request.url());
+  });
+  const bodies: string[] = [];
+  await page.route(
+    (url) => url.pathname === '/api/v1/invitations/accept',
+    async (route) => {
+      bodies.push(route.request().postData() ?? '');
+      expect(route.request().headers()['idempotency-key']).toMatch(/^[0-9a-f-]{36}$/);
+      await route.fulfill({
+        status: 404,
+        contentType: 'application/problem+json',
+        body: JSON.stringify({ type: 'https://problems.scnehaux.com/not-found', status: 404 }),
+      });
+    },
+  );
+  const response = await page.goto(`/invitations/accept#${invitationToken}`);
+  expect(response?.headers()['referrer-policy']).toBe('no-referrer');
+  await expect(page.getByRole('button', { name: 'Accept invitation' })).toBeVisible();
+  expect(new URL(page.url()).hash).toBe('');
+  expect(await page.evaluate("window.sessionStorage.getItem('scnx-org-invitation')")).toBe(invitationToken);
+
+  await page.getByRole('button', { name: 'Accept invitation' }).click();
+  await expect(page.getByRole('alert')).toContainText('This invitation cannot be accepted.');
+  expect(bodies).toEqual([JSON.stringify({ token: invitationToken })]);
+  for (const url of urls) {
+    expect(url).not.toContain(invitationToken);
+  }
+  // A refusal the same token would get again leaves nothing waiting in the tab.
+  expect(Number(await page.evaluate('window.sessionStorage.length'))).toBe(0);
+});

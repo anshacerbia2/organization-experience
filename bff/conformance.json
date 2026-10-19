@@ -69,7 +69,7 @@
     },
     {
       "path": "bff/src/scope/guard.ts",
-      "why": "Target-only: the scope guard, what each scope reaches before a request leaves the BFF."
+      "why": "Target-only: the scope guard, what each scope reaches before a request leaves the BFF, and the two self routes every scope reaches (TDD-organization-experience-001 1.10.0)."
     },
     {
       "path": "bff/src/scope/routes.ts",
@@ -93,11 +93,11 @@
     },
     {
       "path": "bff/test/scope.test.ts",
-      "why": "Target-only: Tenant scope and provider mode against PostgreSQL and a stand-in Organization Control API."
+      "why": "Target-only: Tenant scope, provider mode and invitation acceptance against PostgreSQL and a stand-in Organization Control API."
     },
     {
       "path": "bff/test/server.test.ts",
-      "why": "Developer Console and account experience suites replaced by one test that their paths get this application's shell; configuration tests use the ORGANIZATION_EXPERIENCE_* names and organizationControlBaseUrl. The defaults test asserts tenantSignIn, the scope guard on, and the provider mode bounds."
+      "why": "Developer Console and account experience suites replaced by one test that their paths get this application's shell; configuration tests use the ORGANIZATION_EXPERIENCE_* names and organizationControlBaseUrl. The defaults test asserts tenantSignIn, the scope guard on, and the provider mode bounds. It also asserts the invitation acceptance page's shell carries Referrer-Policy: no-referrer (TDD-organization-experience-002 1.8.0)."
     },
     {
       "path": "bff/test/support/harness.ts",
