@@ -108,14 +108,13 @@ PostgreSQL, keeping its `search_path` option. The issuer and organization-contro
 `127.0.0.1:8083` are the development server's already. Then:
 
 ```sh
-pnpm install
 pwsh -NoProfile -File ./scripts/dev-local.ps1
 ```
 
 `dev-local.ps1` exports every value in `.env` (the BFF reads its environment and nothing else), makes
-`ORGANIZATION_EXPERIENCE_SESSION_KEY` and writes it back when it is empty, builds the application and
-the BFF, creates the schema the `search_path` names, applies the session store's migrations, and
-serves on `http://127.0.0.1:8091` until Ctrl+C. `-NoBuild` skips the build. Open
+`ORGANIZATION_EXPERIENCE_SESSION_KEY` and writes it back when it is empty, installs the dependencies
+the lockfile names (`pnpm install --frozen-lockfile`), builds the application and the BFF, creates the schema the `search_path` names, applies the session store's migrations, and
+serves on `http://127.0.0.1:8091` until Ctrl+C. `-NoBuild` skips the install and the build. Open
 `http://127.0.0.1:8091` and sign in.
 
 The migration runs as `ORGANIZATION_EXPERIENCE_MIGRATION_DATABASE_URL`, the owning role, when it is set,
@@ -132,8 +131,8 @@ approver uses the Activation requests page (`/approvals`), which calls
 
 ## Updating
 
-On the laptop, `git pull`, `pnpm install`, then `./scripts/dev-local.ps1` again: it rebuilds and
-applies any new session store migration.
+On the laptop, `git pull`, then `./scripts/dev-local.ps1` again: it installs any new dependency,
+rebuilds, and applies any new session store migration.
 On the server, nothing is updated for this application. A change to the client is a change to its
 registration in identity-control, never a change in the Keycloak console.
 

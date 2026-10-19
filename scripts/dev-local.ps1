@@ -14,12 +14,12 @@
   keys/organization-experience-bff.pem, made on this machine by scripts/new-client-key.mjs and
   registered on the server (deploy/dev/README.md); the client has no secret (ADR-IAM-001 §5.12).
 
-  Steps: build the application and the BFF, create the session schema if absent, apply the
+  Steps: install the dependencies the lockfile names, build the application and the BFF, create the session schema if absent, apply the
   session store's migrations, and serve. Ctrl+C stops the server.
 #>
 [CmdletBinding()]
 param(
-    # Skip the build when only the server needs restarting.
+    # Skip the install and the build when only the server needs restarting.
     [switch] $NoBuild
 )
 
@@ -91,6 +91,10 @@ if (-not (Test-Path $clientKey)) {
 Push-Location $root
 try {
     if (-not $NoBuild) {
+        # The lockfile, not this machine's last install, decides the dependencies: a pull that adds one
+        # would otherwise fail the build on a missing module. --frozen-lockfile refuses to change it.
+        pnpm install --frozen-lockfile
+        if ($LASTEXITCODE -ne 0) { throw 'pnpm install failed' }
         pnpm build
         if ($LASTEXITCODE -ne 0) { throw 'build failed' }
     }
