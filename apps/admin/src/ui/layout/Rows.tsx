@@ -59,7 +59,6 @@ const tones: Readonly<Record<string, StatusTone>> = {
   appropriate: 'success',
   realized: 'success',
   pending: 'info',
-  identity_verified: 'info',
   requested: 'info',
   provisioning: 'info',
   propagating: 'info',

@@ -6,6 +6,7 @@ import { App } from '../App';
 import { navigation } from '../session';
 import { checkWcag } from '../test/a11y';
 import { headersOf, json, me, providerScope, sent, signedInto, stub, visit, type Handler } from '../test/bff';
+import { toneOf } from '../ui';
 
 // TDD-organization-experience-002 1.8.0 §Testing Strategy, Invitation (ADR-ORG-007): the link shown
 // once on issue, and the page where the invited person accepts, signed in as themselves.
@@ -144,6 +145,11 @@ describe('the link shown once on issue', () => {
     const filter = await screen.findByLabelText('Status');
     expect(filter).not.toHaveTextContent('identity_verified');
     expect(filter).toHaveTextContent('pending');
+  });
+
+  it('has no tone for identity_verified, which Organization Control no longer serves', () => {
+    expect(toneOf('identity_verified')).toBe(toneOf('no-such-state'));
+    expect(toneOf('pending')).not.toBe(toneOf('no-such-state'));
   });
 });
 
