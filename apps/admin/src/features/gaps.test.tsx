@@ -197,11 +197,48 @@ describe('provisioning', () => {
       return undefined;
     });
     render(<App />);
-    const status = await screen.findByText(/Provisioning outcome unknown \(corr-9\)/);
+    const status = await screen.findByText(/Provisioning outcome unknown \(correlation corr-9\)/);
     expect(status).toHaveTextContent('Do not retry');
+    // TDD-organization-experience-002 1.6.0: how it is resolved, per TDD-organization-control-003
+    // 1.15.0 §Resolving an `unresolved` Request.
+    expect(status).toHaveTextContent(
+      "ask the provisioning system's owner for the outcome of this correlation identifier and have it reported as realized or failed",
+    );
+    expect(status).toHaveTextContent('scripts/dev-provisioning.ps1');
     expect(
-      within(status.closest('li') as HTMLElement).queryByRole('button', { name: /retry/i }),
+      within(status.closest('li') as HTMLElement).queryByRole('button', { name: /provisioning/i }),
     ).not.toBeInTheDocument();
+  });
+
+  it('a requested Tenant whose request timed out may still be started, and is never retried', async () => {
+    visit('/tenants');
+    const requested = {
+      tenant_id: tenantA,
+      organization_id: 'org-1',
+      display_name: 'Acme',
+      status: 'requested',
+      isolation_profile: 'pooled',
+      version: 1,
+      security_version: 1,
+      created_at: '2026-10-01T00:00:00Z',
+    };
+    stub(signedInto(null, providerScope(inForce)), (url) => {
+      if (url === '/api/v1/tenants') {
+        return json({ tenants: [requested], next: null });
+      }
+      if (url === `/api/v1/tenants/${tenantA}`) {
+        return json({
+          ...requested,
+          provisioning: { request_id: 'r-1', correlation_id: 'corr-3', state: 'unresolved' },
+        });
+      }
+      return undefined;
+    });
+    render(<App />);
+    const status = await screen.findByText(/Provisioning outcome unknown \(correlation corr-3\)/);
+    const row = status.closest('li') as HTMLElement;
+    expect(within(row).getByRole('button', { name: 'Start provisioning' })).toBeInTheDocument();
+    expect(within(row).queryByRole('button', { name: 'Retry provisioning' })).not.toBeInTheDocument();
   });
 });
 

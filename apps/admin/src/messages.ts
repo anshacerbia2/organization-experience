@@ -170,11 +170,15 @@ export const messages = {
   isolationProfile: 'Isolation profile',
   noTenants: 'No Tenants match.',
   activate: 'Activate',
-  tenantRequested: 'Awaiting provisioning. Membership cannot be granted yet.',
+  startProvisioning: 'Start provisioning',
+  retryProvisioning: 'Retry provisioning',
+  tenantRequested:
+    'Awaiting provisioning. Membership cannot be granted yet. Start provisioning records that the request has been sent to the provisioning system.',
   tenantProvisioning:
     'Provisioning in progress. Activation is a deliberate step, taken here once provisioning has been confirmed.',
   tenantActive: 'Usable.',
-  tenantFailed: 'Provisioning was refused. Nothing in this Tenant is usable.',
+  tenantFailed:
+    'Provisioning was refused. Nothing in this Tenant is usable. Fix the cause the reason names, then retry: a retry is a new request.',
   tenantSuspended: 'Access is stopped for every membership in this Tenant.',
   tenantOffboarding: 'Offboarding: staged, and resumable. It is not finished.',
   tenantRetired: 'Retired.',
@@ -259,10 +263,10 @@ export const messages = {
       .join(', '),
   provisioningState: (state: string, correlation: string, detail: string): string =>
     ({
-      requested: `Provisioning requested (${correlation}). Membership cannot be granted yet.`,
-      realized: `Provisioning realized (${correlation}). Activation is the next, deliberate step.`,
-      failed: `Provisioning failed (${correlation})${detail === '' ? '' : `: ${detail}`}.`,
-      unresolved: `Provisioning outcome unknown (${correlation}). Do not retry: awaiting reconciliation, because a retry could provision this Tenant twice.`,
+      requested: `Provisioning requested (correlation ${correlation}). Membership cannot be granted yet.`,
+      realized: `Provisioning realized (correlation ${correlation}). Activation is the next, deliberate step.`,
+      failed: `Provisioning failed (correlation ${correlation})${detail === '' ? '' : `: ${detail}`}.`,
+      unresolved: `Provisioning outcome unknown (correlation ${correlation}). Do not retry: a retry could provision this Tenant twice. To resolve it, ask the provisioning system's owner for the outcome of this correlation identifier and have it reported as realized or failed. On a development server, report it with organization-control's scripts/dev-provisioning.ps1.`,
     })[state] ?? state,
   cancelOffboarding: 'Cancel this offboarding',
   cancelExplained:

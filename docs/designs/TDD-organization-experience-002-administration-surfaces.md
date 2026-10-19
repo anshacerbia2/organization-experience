@@ -3,12 +3,12 @@ doc_meta:
   id: TDD-organization-experience-002
   title: Organization, Tenant, Workspace, and Membership Administration Surfaces
   owner: Core Platform Team
-  version: 1.5.0
+  version: 1.6.0
   status: approved
   classification: restricted
   review_cycle_days: 90
   created_date: 2026-08-11
-  last_reviewed: 2026-10-08
+  last_reviewed: 2026-10-19
   parent_sad: SAD-012
 ---
 
@@ -257,22 +257,63 @@ POST  /api/v1/privileged-access/reviews   {"actor_id", "from", "to", "outcome"}
   `to` without an offset is refused by the API (`STD-GLB-001` 1.6.0), so the page sends each as an
   RFC 3339 instant in UTC.
 
+**Starting and retrying provisioning (1.6.0).** Reported from the development server on 2026-10-19:
+a Tenant requested here stayed `requested`, "Awaiting provisioning". The console offered no action for
+`POST /v1/tenants/{tenant_id}/provisioning`, so the dispatch that moves a Tenant to `provisioning` could
+not be made from it, and a `failed` Tenant could not be retried, although §Tenant States Are Rendered
+Individually said "Retry is available". `TDD-organization-control-003` serves both on that one route
+(§Who issues which transition, §Provisioning Correlation).
+
+```text
+Provider mode, window in force
+POST  /api/v1/tenants/{id}/provisioning   {"expected_version"}   requested: Start provisioning; failed: Retry provisioning
+```
+
+- **Start provisioning** on a `requested` Tenant records that the desired state has left and moves it
+  to `provisioning`. It is offered whatever its request reads, `unresolved` included:
+  `TDD-organization-control-003` 1.15.0 §Resolving an `unresolved` Request accepts that dispatch,
+  because it records the same attempt and writes no new request.
+- **Retry provisioning** on a `failed` Tenant makes a new request with a new correlation identifier. The
+  failed request's reason is shown beside it, so the operator reads why before retrying.
+- **Both are provider-mode commands like Activate**: the primary variant, a confirmation in the row
+  that names the Tenant and takes an optional reason (the window's otherwise), the Tenant's
+  `expected_version`, and an `Idempotency-Key` per distinct request with the session's CSRF token.
+  Neither is destructive, so neither takes the danger variant (`TDD-organization-experience-001`
+  §Visual Language). Each reads the Tenant again when it settles, so the new state and correlation
+  identifier show at once.
+- **The correlation identifier is shown** with every provisioning state, because it is the one handle
+  the operator and the provisioning system's owner share (`docs/runbooks/provisioning.md` in
+  organization-control).
+- **An `unresolved` request offers no retry control at all, not a disabled one.** Retry exists only for
+  a `failed` Tenant, and an `unresolved` request's Tenant is never `failed`. The 1.0.0 rule below said
+  "disabled"; a disabled button explains nothing to a screen reader user and little to anyone else. The
+  GOV.UK Design System: "Disabled buttons have poor contrast and can confuse some users, so avoid them
+  if possible" [R1]. The state's sentence says not to retry, and why, and how it is resolved instead:
+  ask the provisioning system's owner for the outcome of this correlation identifier, and have it
+  reported as realized or failed (`TDD-organization-control-003` 1.15.0 §Resolving an `unresolved`
+  Request). On a development server the operator reports it with organization-control's
+  `scripts/dev-provisioning.ps1`.
+
+| # | Source |
+| :-- | :-- |
+| R1 | GOV.UK Design System, *Button*, "Disabled buttons", <https://design-system.service.gov.uk/components/button/>, accessed 2026-10-19: "Disabled buttons have poor contrast and can confuse some users, so avoid them if possible." |
+
 ## Algorithms / Logic
 
 ### Tenant States Are Rendered Individually
 
 ```text
-requested       Awaiting provisioning. Membership cannot be granted yet
+requested       Awaiting provisioning. Membership cannot be granted yet. Start provisioning (1.6.0)
 provisioning    Provisioning in progress, with the correlation identifier
-unresolved      Provisioning outcome unknown. Do not retry; awaiting reconciliation
-failed          Provisioning refused, with the reason. Retry is available
+unresolved      Provisioning outcome unknown. Do not retry; how it is resolved (1.6.0)
+failed          Provisioning refused, with the reason. Retry provisioning (1.6.0)
 active          Usable
 suspended       Access stopped for every Membership in this Tenant
 ```
 
-`unresolved` renders with the retry control **disabled** and an explanation. It is the
-state most likely to be mistaken for failure, and the mistake provisions the Tenant
-twice.
+`unresolved` renders with no retry control and an explanation (1.6.0: offered nowhere, rather than
+disabled, §The Interface as Served). It is the state most likely to be mistaken for failure, and the
+mistake provisions the Tenant twice.
 
 Activation is a deliberate action, not an automatic consequence of provisioning
 succeeding. The interface shows the gate and who may pass it, matching the explicit
@@ -383,7 +424,13 @@ An `extra` reconciliation finding renders as a security finding, matching how
 
 - `requested`, `provisioning`, `unresolved`, `failed`, `active`, and `suspended` each
   render distinctly.
-- `unresolved` disables retry and explains why.
+- `unresolved` offers no retry, explains why, and says how it is resolved (1.6.0).
+- A `requested` Tenant offers Start provisioning, and a `failed` one Retry provisioning, each a
+  confirmation in the row naming the Tenant, sending `expected_version`, an `Idempotency-Key` and the
+  reason to `POST /api/v1/tenants/{id}/provisioning`. No other state offers either (1.6.0).
+- Every provisioning state shows its correlation identifier (1.6.0).
+- The fixture-backed browser tests render a `requested` Tenant with an `unresolved` request and open
+  Start provisioning, in both themes, with a screenshot and axe-core's WCAG 2.2 A and AA rules (1.6.0).
 - Membership cannot be granted into a Tenant that is not `active`, and the control is
   disabled with the reason shown.
 - Activation is an explicit action and does not occur automatically.
@@ -464,3 +511,5 @@ investigation.
 | Governed by | ADR-ORG-002 §5.6 — the privileged-access record read and reviewed (1.5.0) |
 | Depends on | `TDD-organization-control-001` 1.21.0 §Privileged Access Review — the routes this review reads and writes (1.5.0) |
 | Conforms to | STD-GLB-001 1.6.0 §Pagination — the time window, `from` inclusive and `to` exclusive (1.5.0) |
+| Depends on | `TDD-organization-control-003` 1.15.0 §Resolving an `unresolved` Request, §The Provisioning System on a Development Server — starting, retrying and resolving provisioning (1.6.0) |
+| Follows | GOV.UK Design System, Button, "Disabled buttons" — no disabled retry control (1.6.0) |

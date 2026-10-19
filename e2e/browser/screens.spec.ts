@@ -127,6 +127,30 @@ const screens: readonly Screen[] = [
     ready: (page) => page.getByText('the silo region is at capacity', { exact: false }),
     tablet: true,
   },
+  // TDD-organization-experience-002 1.6.0: Start provisioning opened on a requested Tenant whose
+  // request is `unresolved`, beside the sentence that says how that is resolved.
+  {
+    name: 'provider-mode-tenants-start-provisioning',
+    persona: 'provider-mode',
+    path: '/tenants',
+    ready: (page) => page.getByText('Provisioning outcome unknown', { exact: false }),
+    act: async (page) => {
+      const row = page.getByRole('listitem').filter({ hasText: 'Eta Mobility' });
+      await row.getByRole('button', { name: 'Start provisioning' }).click();
+      await row.getByRole('form', { name: 'Start provisioning' }).waitFor();
+    },
+  },
+  {
+    name: 'provider-mode-tenants-retry-provisioning',
+    persona: 'provider-mode',
+    path: '/tenants',
+    ready: (page) => page.getByText('the silo region is at capacity', { exact: false }),
+    act: async (page) => {
+      const row = page.getByRole('listitem').filter({ hasText: 'Epsilon Labs' });
+      await row.getByRole('button', { name: 'Retry provisioning' }).click();
+      await row.getByRole('form', { name: 'Retry provisioning' }).waitFor();
+    },
+  },
   {
     name: 'provider-mode-offboardings',
     persona: 'provider-mode',

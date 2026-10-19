@@ -152,6 +152,15 @@ conflict as one, and reads the list again rather than retrying".
 - ✅ **The reconciliation age on projection health (TDD-organization-experience-002 1.4.0):** each
   consumer shows when Organization Control last reconciled it, how long ago, and how many findings
   the run reported, or "never reconciled" before its first run.
+- ✅ **Starting and retrying provisioning (TDD-organization-experience-002 1.6.0):** reported from the
+  development server, a requested Tenant could not leave `requested` from the console.
+  - Start provisioning on a `requested` Tenant and Retry provisioning on a `failed` one, both
+    `POST /v1/tenants/{id}/provisioning`, as provider commands like Activate: primary, confirmed in
+    the row with the Tenant named, an optional reason, `expected_version`, and an `Idempotency-Key`
+    per distinct request.
+  - Every provisioning state shows its correlation identifier. `unresolved` offers no retry control,
+    not a disabled one, and says how it is resolved (`TDD-organization-control-003` 1.15.0).
+  - Unit tests, and the fixture-backed browser tests with screenshots and axe-core for both forms.
 
 ## Week 4 · Bulk, freshness, and offboarding
 

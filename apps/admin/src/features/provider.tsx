@@ -376,6 +376,19 @@ export function TenantsPage(): ReactElement {
               tenant.status === 'failed' ? (
                 <ProvisioningStatus tenantId={tenant.tenant_id} />
               ) : null}
+              {tenant.status === 'requested' || tenant.status === 'failed' ? (
+                <Action
+                  label={
+                    tenant.status === 'requested' ? messages.startProvisioning : messages.retryProvisioning
+                  }
+                  tone="primary"
+                  path={`${base}/provisioning`}
+                  body={versioned}
+                  reason="optional"
+                  scopeNote={note}
+                  invalidates={[tenantsKey, ['tenant', tenant.tenant_id]]}
+                />
+              ) : null}
               {tenant.status === 'provisioning' ? (
                 <Action
                   label={messages.activate}
@@ -423,8 +436,12 @@ export function TenantsPage(): ReactElement {
 }
 
 // ProvisioningStatus reads the Tenant's latest provisioning request (TDD-organization-experience-002
-// §Tenant States Are Rendered Individually). `unresolved` is its own state: the outcome is unknown,
-// and retrying could provision the Tenant twice, so nothing here retries it.
+// §Tenant States Are Rendered Individually), with its correlation identifier, the handle the operator
+// and the provisioning system's owner share. `unresolved` is its own state: the outcome is unknown,
+// and retrying could provision the Tenant twice, so nothing here retries it, and its sentence says
+// how it is resolved instead (1.6.0). Start provisioning and Retry provisioning are the row's
+// (TenantsPage): a `requested` Tenant may be dispatched whatever its request reads, and only a
+// `failed` one is retried.
 function ProvisioningStatus({ tenantId }: { readonly tenantId: string }): ReactElement | null {
   const detail = useQuery({
     queryKey: ['tenant', tenantId],
