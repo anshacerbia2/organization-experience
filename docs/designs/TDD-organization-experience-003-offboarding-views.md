@@ -3,12 +3,12 @@ doc_meta:
   id: TDD-organization-experience-003
   title: Offboarding Workflow and Obligation Tracking Views
   owner: Core Platform Team
-  version: 1.4.0
+  version: 1.5.0
   status: approved
   classification: restricted
   review_cycle_days: 90
   created_date: 2026-08-11
-  last_reviewed: 2026-10-07
+  last_reviewed: 2026-10-19
   parent_sad: SAD-012
 ---
 
@@ -34,6 +34,8 @@ nobody can act on and would make finalisation look like the next step.
 - Legal hold, and rendering precisely what it blocks.
 - Resumability made visible.
 - The finalisation refusal.
+- Every operator transition of the offboarding, deprovisioning and obligation machines, with its
+  action or the reason for none (1.5.0).
 
 **Out of scope**
 
@@ -110,6 +112,7 @@ POST  /api/v1/offboardings/{id}/obligations {domain, type, due_at?}          rai
 POST  /api/v1/offboardings/{id}/legal-hold {hold}                            set or lift the hold
 POST  /api/v1/offboardings/{id}/release                                      obligations → release
 POST  /api/v1/offboardings/{id}/retire    {expected_version}                 release → retired
+POST  /api/v1/offboardings/{id}/deprovisioning/resend                        a failed deprovisioning (1.5.0)
 ```
 
 How the served API meets this design:
@@ -143,6 +146,32 @@ How the served API meets this design:
     the ROADMAP.
 - **Ambiguous release** is a deprovisioning that was requested and has no outcome yet. It renders
   as awaiting its outcome, with retirement disabled and the cause named.
+
+**A failed deprovisioning is sent again from the release stage (1.5.0).** The audit of 2026-10-19
+found it unreachable: `TDD-organization-control-004` 1.11.0 serves
+`POST /v1/offboardings/{id}/deprovisioning/resend`, and the console rendered a failed deprovisioning
+with its detail and offered nothing, so the offboarding stayed in `release` with Retire disabled.
+
+- **Send deprovisioning again** is offered on a `failed` deprovisioning only, beside its detail, so the
+  operator reads why it failed first. It repeats a command that removes infrastructure, so it takes
+  the danger variant, a reason, and a confirmation in place naming the Tenant
+  (`TDD-organization-experience-001` §Visual Language). It sends no `expected_version`: the route takes
+  none. The offboarding is read again when it settles; the new request reads `requested`.
+- **Each deprovisioning state has its own sentence.** `requested` waits for the provisioning system's
+  report. `unresolved` says the outcome is unknown, not to send it again, because the target may have
+  released the infrastructure already, and how it is resolved: the provisioning system's owner reports
+  it as realized or failed (`TDD-organization-control-004` §Sending a Failed Deprovisioning Again).
+  `realized` enables Retire. On a development server no provisioning system runs, and the sentences for
+  `requested` and `unresolved` name organization-control's `scripts/dev-deprovisioning.ps1`, which
+  reports for it (`TDD-organization-control-004` 1.13.0).
+- **No resend control is drawn for `requested`, `unresolved` or `realized`,** not even a disabled one.
+  The GOV.UK Design System: "Disabled buttons have poor contrast and can confuse some users, so avoid
+  them if possible" [R1]. Retire keeps its disabled form with the cause named, as §Legal Hold decides,
+  because a missing finalisation is indistinguishable from a permission problem.
+- **Obligations are still resolved by their domains, not here.** No domain is connected on a
+  development server, so the board says that organization-control's `scripts/dev-obligation.ps1`
+  resolves an obligation there, acting for its domain through the same route
+  (`TDD-organization-control-004` 1.13.0). The board itself still offers no completion or waiver.
 
 ## Algorithms / Logic
 
@@ -249,8 +278,56 @@ right domain instead of asking who is blocking.
 ### Ambiguous Release
 
 A deprovisioning outcome that never arrived holds the release stage. It renders as
-unresolved, not failed, with the retry control disabled — the same treatment
-`TDD-organization-experience-002` gives Tenant provisioning, and for the same reason.
+unresolved, not failed, with no retry control — the same treatment
+`TDD-organization-experience-002` gives Tenant provisioning, and for the same reason. Until 1.5.0
+this said "the retry control disabled"; 1.5.0 offers it nowhere instead, and only a `failed`
+deprovisioning is sent again (§As Served).
+
+### Operator Transitions (1.5.0)
+
+`TDD-organization-experience-002` 1.6.0 §Operator Transitions lists every transition of the Tenant
+machine with the console's action or the reason for none. These are the same tables for the three
+machines this view shows, from `TDD-organization-control-004` §Offboarding Stages, §Where the
+deprovisioning outcome is recorded and §Sending a Failed Deprovisioning Again.
+`apps/admin/src/features/transitions.ts` holds them as code, and `transitions.test.ts` fails on an
+edge with no row, an operator row with no action, or a disagreement with these tables.
+
+#### Offboarding Stage
+
+| From | To | Driven by | Route | Console action |
+| :-- | :-- | :-- | :-- | :-- |
+| `new` | `freeze` | operator | `POST /v1/offboardings` | Begin offboarding |
+| `freeze` | `obligations` | operator | `POST /v1/offboardings/{id}/complete-freeze` | Complete the freeze |
+| `obligations` | `release` | operator | `POST /v1/offboardings/{id}/release` | Release |
+| `release` | `retired` | operator | `POST /v1/offboardings/{id}/retire` | Retire |
+| `freeze` | `cancelled` | operator | `POST /v1/offboardings/{id}/cancel` | Cancel this offboarding |
+| `obligations` | `cancelled` | operator | `POST /v1/offboardings/{id}/cancel` | Cancel this offboarding |
+
+#### Deprovisioning Request
+
+The latest deprovisioning request of an offboarding, the one retirement is gated on.
+
+| From | To | Driven by | Route | Console action |
+| :-- | :-- | :-- | :-- | :-- |
+| `new` | `requested` | operator | `POST /v1/offboardings/{id}/release` | Release |
+| `requested` | `realized` | provisioning system | `POST /v1/offboardings/{id}/deprovisioning` | None: the provisioning system reports it, and the console reports no outcome. On a development server, organization-control's `scripts/dev-deprovisioning.ps1` |
+| `requested` | `failed` | provisioning system | `POST /v1/offboardings/{id}/deprovisioning` | None: as realized |
+| `requested` | `unresolved` | service | the scheduled sweep, after `ORGANIZATION_PROVISIONING_TIMEOUT` | None: the sweep ages a request with no outcome |
+| `unresolved` | `realized` | provisioning system | `POST /v1/offboardings/{id}/deprovisioning` | None: reported with the provisioning system's answer, never sent again. On a development server, `scripts/dev-deprovisioning.ps1` |
+| `unresolved` | `failed` | provisioning system | `POST /v1/offboardings/{id}/deprovisioning` | None: as realized |
+| `failed` | `requested` | operator | `POST /v1/offboardings/{id}/deprovisioning/resend` | Send deprovisioning again |
+
+#### Obligation
+
+| From | To | Driven by | Route | Console action |
+| :-- | :-- | :-- | :-- | :-- |
+| `new` | `open` | operator | `POST /v1/offboardings/{id}/obligations` | Raise obligation |
+| `open` | `completed` | owning domain | `POST /v1/obligations/{id}/resolve` | None: the accountable domain resolves its own obligation, stating its domain, and the board offers no control that would let an operator resolve another domain's (§As Served). On a development server, organization-control's `scripts/dev-obligation.ps1` |
+| `open` | `waived` | owning domain | `POST /v1/obligations/{id}/resolve` | None: as completed |
+| `open` | `failed` | owning domain | `POST /v1/obligations/{id}/resolve` | None: as completed |
+| `failed` | `completed` | owning domain | `POST /v1/obligations/{id}/resolve` | None: as completed |
+| `failed` | `waived` | owning domain | `POST /v1/obligations/{id}/resolve` | None: as completed |
+| `open` | `cancelled` | operator | `POST /v1/offboardings/{id}/cancel` | Cancel this offboarding |
 
 ## Configuration
 
@@ -300,7 +377,20 @@ unresolved, not failed, with the retry control disabled — the same treatment
 
 ### Ambiguous Release
 
-- An unresolved deprovisioning outcome renders as unresolved with retry disabled.
+- An unresolved deprovisioning outcome renders as unresolved with no resend control, and says how
+  it is resolved (1.5.0).
+
+### Deprovisioning and Transitions (1.5.0)
+
+- A failed deprovisioning offers Send deprovisioning again beside its detail, in the danger variant
+  with a reason, and sends `POST /api/v1/offboardings/{id}/deprovisioning/resend` with an
+  `Idempotency-Key`, the reason and the CSRF token. No other deprovisioning state offers it.
+- The `requested` and `unresolved` sentences name `scripts/dev-deprovisioning.ps1`, and the board
+  names `scripts/dev-obligation.ps1`, for a development server.
+- Every transition of §Operator Transitions has a row, and every operator-driven row names its
+  action; `transitions.test.ts` fails otherwise.
+- The fixture-backed browser tests open Send deprovisioning again, in both themes, with a screenshot
+  and axe-core's WCAG 2.2 A and AA rules.
 
 ## Security Notes
 
@@ -352,3 +442,10 @@ release steps are these three.
 | Depends on | `TDD-organization-control-004` — stages, obligations, legal hold, refusals |
 | Depends on | `TDD-organization-control-003` — the Tenant terminal transitions this flow drives |
 | Enterprise constraint | EAD-003 — deletion accounts for projections, derived products, backups, evidence, and legal hold |
+| Depends on | `TDD-organization-control-004` 1.11.0 §Sending a Failed Deprovisioning Again — the resend route (1.5.0) |
+| Depends on | `TDD-organization-control-004` 1.13.0 — the development server's stand-ins for the provisioning system's deprovisioning report and for a domain's obligation resolution (1.5.0) |
+| Follows | GOV.UK Design System, Button, "Disabled buttons" — no disabled resend control (1.5.0) |
+
+| # | Source |
+| :-- | :-- |
+| R1 | GOV.UK Design System, *Button*, "Disabled buttons", <https://design-system.service.gov.uk/components/button/>, accessed 2026-10-19: "Disabled buttons have poor contrast and can confuse some users, so avoid them if possible." |

@@ -11,7 +11,7 @@ import path from 'node:path';
 import { AxeBuilder } from '@axe-core/playwright';
 import { expect, test, type Page } from '@playwright/test';
 
-import { offboardingId, type Persona } from './fixtures.ts';
+import { offboardingId, releasedOffboardingId, type Persona } from './fixtures.ts';
 
 const wcagTags = ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa'];
 
@@ -174,6 +174,83 @@ const screens: readonly Screen[] = [
     persona: 'provider-mode',
     path: '/access-review?actor_id=0199a1b2-c3d4-7e5f-8a9b-0c1d2e3f4bbb',
     ready: (page) => page.getByText('Each access matched an incident ticket.', { exact: false }),
+  },
+  // TDD-organization-experience-002 1.7.0: the first administrator of an active Tenant, granted from
+  // its row, with the confirmation open.
+  {
+    name: 'provider-mode-tenants-grant-administrator',
+    persona: 'provider-mode',
+    path: '/tenants',
+    ready: (page) => page.getByText('Zeta Freight'),
+    act: async (page) => {
+      const row = page.getByRole('listitem').filter({ hasText: 'Acme Retail' });
+      await row.getByRole('button', { name: 'Administrators' }).click();
+      await row.getByText('Onboarding finished', { exact: false }).waitFor();
+      await row.getByLabel('Principal identifier').fill('0199a1b2-c3d4-7e5f-8a9b-0c1d2e3f4ccc');
+      await row.getByRole('button', { name: 'Grant administrator' }).click();
+      await row.getByRole('form', { name: 'Grant administrator' }).waitFor();
+    },
+  },
+  // TDD-organization-experience-003 1.5.0: a failed deprovisioning, sent again.
+  {
+    name: 'provider-mode-offboarding-resend-deprovisioning',
+    persona: 'provider-mode',
+    path: `/offboardings/${releasedOffboardingId}`,
+    ready: (page) => page.getByText('locked by a retention policy', { exact: false }),
+    act: async (page) => {
+      await page.getByRole('button', { name: 'Send deprovisioning again' }).click();
+      await page.getByRole('form', { name: 'Send deprovisioning again' }).waitFor();
+    },
+  },
+  // TDD-organization-experience-002 1.7.0: an active consumer's dead letters, and a retired one's
+  // incident with Waive open; the pause a restore recorded, with Lift the pause open.
+  {
+    name: 'provider-mode-projections-dead-letters',
+    persona: 'provider-mode',
+    path: '/projections',
+    ready: (page) => page.getByText('Stale: past its budget', { exact: false }),
+    act: async (page) => {
+      const row = page.getByRole('listitem').filter({ hasText: 'use with marker' });
+      await row.getByRole('button', { name: 'Dead letters' }).click();
+      await row.getByText('the consumer does not know the Tenant', { exact: false }).waitFor();
+    },
+  },
+  {
+    name: 'provider-mode-projections-waive',
+    persona: 'provider-mode',
+    path: '/projections',
+    ready: (page) => page.getByText('Stale: past its budget', { exact: false }),
+    act: async (page) => {
+      const row = page.getByRole('listitem').filter({ hasText: 'legacy-search' }).first();
+      await row.getByRole('button', { name: 'Dead letters' }).click();
+      await row.getByRole('button', { name: 'Waive' }).click();
+      await row.getByRole('form', { name: 'Waive' }).waitFor();
+    },
+  },
+  {
+    name: 'provider-mode-projections-lift-pause',
+    persona: 'provider-mode',
+    path: '/projections',
+    ready: (page) => page.getByText('INC-12 restored', { exact: false }),
+    act: async (page) => {
+      await page.getByRole('button', { name: 'Lift the pause' }).click();
+      await page.getByRole('form', { name: 'Lift the pause' }).waitFor();
+    },
+  },
+  // TDD-organization-experience-002 1.7.0: provider grants in the Access review area, an emergency
+  // grant being made.
+  {
+    name: 'provider-mode-access-review-grant-provider',
+    persona: 'provider-mode',
+    path: '/access-review',
+    ready: (page) => page.getByText('On-call rotation', { exact: false }),
+    act: async (page) => {
+      const panel = page.getByRole('region', { name: 'Provider grants' });
+      await panel.getByLabel('Principal identifier').fill('0199a1b2-c3d4-7e5f-8a9b-0c1d2e3f4ccc');
+      await panel.getByLabel('Kind').selectOption('emergency');
+      await panel.getByRole('button', { name: 'Grant provider access' }).click();
+      await panel.getByRole('form', { name: 'Grant provider access' }).waitFor();
+    },
   },
   {
     name: 'provider-mode-approvals',

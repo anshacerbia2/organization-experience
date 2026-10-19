@@ -3,7 +3,7 @@ doc_meta:
   id: TDD-organization-experience-002
   title: Organization, Tenant, Workspace, and Membership Administration Surfaces
   owner: Core Platform Team
-  version: 1.6.0
+  version: 1.7.0
   status: approved
   classification: restricted
   review_cycle_days: 90
@@ -36,6 +36,8 @@ interface or it will be misread.
 - Context switching for operators holding many Memberships.
 - Projection consumer health.
 - The provider-access review, and a Tenant's read of the provider access to it (1.5.0).
+- Every operator transition of the machines these surfaces show, each with its action or the reason
+  for none (1.6.0 for the Tenant, 1.7.0 for the rest).
 
 **Out of scope**
 
@@ -64,12 +66,12 @@ Each is rendered as its own state here, with the consequence stated.
 | Component | Responsibility |
 | :-- | :-- |
 | `OrganizationRegistry` | Organization list, detail, external references, relationships |
-| `TenantLifecyclePanel` | State, provisioning correlation, activation gate |
+| `TenantLifecyclePanel` | State, provisioning correlation, activation gate, and the Tenant's administrators (1.7.0) |
 | `WorkspaceManager` | Workspace list and lifecycle within one Tenant |
 | `MembershipAdmin` | Grant, suspend, revoke, restore, and the invitation path |
 | `ContextSwitcher` | Operator's eligible contexts and the switch |
-| `ProjectionHealth` | Consumer registry, freshness, reconciliation status |
-| `AccessReview` | Provider access no one has reviewed, one provider's access over a period, and the review recorded (1.5.0) |
+| `ProjectionHealth` | Consumer registry, freshness, reconciliation status; a consumer's dead letters and their resolution, its retirement, and the Tenant-administration pause (1.7.0) |
+| `AccessReview` | Provider access no one has reviewed, one provider's access over a period, and the review recorded (1.5.0); the provider grants, granted and revoked (1.7.0) |
 | `TenantProviderAccess` | A Tenant administrator's read of the provider access that named its Tenant (1.5.0) |
 
 ## Data Model
@@ -294,6 +296,91 @@ POST  /api/v1/tenants/{id}/provisioning   {"expected_version"}   requested: Star
   Request). On a development server the operator reports it with organization-control's
   `scripts/dev-provisioning.ps1`.
 
+**The operator transitions nothing triggered (1.7.0).** An audit on 2026-10-19 (organization-control
+`fd935f8`, this repository `fda907d`) found more transitions like the one 1.6.0 closed: Organization
+Control serves them, an operator drives them, and the console offered no action. The worst of them
+left a Tenant unusable after Activate. Its first administrator is granted by a provider together with
+the first Membership (`ADR-ORG-003 §5.2`), and no surface sent that grant, so no one could ever sign
+in for the Tenant. 1.7.0 adds each action, and §Operator Transitions of the Other Machines lists them.
+
+```text
+Provider mode, window in force
+GET   /api/v1/tenants/{id}/administrators                              every grant, newest first
+POST  /api/v1/tenants/{id}/administrators                {"principal_id"}   Grant administrator
+POST  /api/v1/tenants/{id}/administrators/{grant_id}/revoke                 Revoke administrator
+GET   /api/v1/provider-grants                                          every grant, newest first
+POST  /api/v1/provider-grants         {"principal_id", "scope", "kind"}     Grant provider access
+POST  /api/v1/provider-grants/{grant_id}/revoke                             Revoke grant
+GET   /api/v1/projections/consumers/{id}/dead-letters   ?state=open|resolved&after&limit
+POST  /api/v1/dead-letters/{event_id}/consumers/{consumer}/replay           Replay
+POST  /api/v1/dead-letters/{event_id}/consumers/{consumer}/resolve  {"resolution_type"}
+POST  /api/v1/dead-letters/{event_id}/consumers/{consumer}/waive    {"reason", "expires_at"}
+POST  /api/v1/projections/consumers/{id}/retire                              Retire consumer
+GET   /api/v1/tenant-administration-pause
+POST  /api/v1/tenant-administration-pause                {"paused"}          Pause; Lift the pause
+```
+
+Every command is a provider command under the mutation contract above: an `Idempotency-Key` per
+distinct request with the session's CSRF token, the reason, and the window's correlation. None of these
+routes takes an `expected_version`, so none is sent. Each opens its confirmation in the row it acts on
+and names its target there.
+
+- **Tenant administrators, on the Tenants page.** Each Tenant's row offers Administrators, which opens
+  the Tenant's grants: the Principal, who granted it, when and why, and for a revoked one who revoked
+  it, when and why. Opening it is a provider read and records an access, so nothing is read until the
+  operator asks.
+  - **Grant administrator** takes a Principal identifier and is offered on an `active` Tenant only:
+    Organization Control refuses a grant in any other state (`TDD-organization-control-001` §The
+    Tenant Administration Grant). The confirmation says that the grant also gives the Principal a
+    Tenant-wide Membership when it has none, and the answer says whether it did
+    (`membership_created`). It is the primary action: after Activate, it is what makes the Tenant
+    usable.
+  - **Revoke administrator** is on each active grant, in the danger variant, with a reason required. It
+    does not revoke the Membership the grant stands on; that is the Tenant's own administration.
+  - **Who.** A provider, as `ADR-ORG-003 §5.2` decides: "A provider grants and revokes it, through the
+    API, with a reason". No Tenant-scope surface offers either.
+- **Provider grants, in the Access review area.** Below the review, the grants: each holder, scope,
+  kind, who granted it, when and why, and a revoked one's revocation.
+  - **Grant provider access** takes a Principal, a scope (`provider:organization-control` or
+    `provider:identity-control`) and a kind. The two kinds are explained where they are chosen, in
+    `ADR-ORG-002`'s words: an eligible grant "confers nothing until it is activated", and an activation
+    is approved by another provider (§5.1); an emergency grant "is therefore standing", every use is
+    reported, it is validated at least every 90 days, and production keeps at least two (§5.2). An
+    emergency grant is standing authority, so choosing it draws the confirmation in the danger scheme
+    and requires a reason.
+  - **Revoke grant** is on each active grant, danger, with a reason required. Organization Control
+    refuses to revoke the last grant of its own scope with `409`; the page shows its sentence.
+- **Dead letters, on projection health.** Each consumer's row offers Dead letters, which reads its open
+  incidents (`TDD-organization-control-005` 2.5.0 §Listing a consumer's dead letters), and a filter
+  shows resolved ones. Each incident shows its event type, whether it bears authority, its aggregate and
+  version, its lane, its failure, attempts and times, and any waiver with its expiry and reason.
+  - **Replay** re-sends the event to the consumer. It does not resolve the incident; the answer says so
+    (`resolved: false`). It is offered for an active consumer only: a retired consumer no longer
+    subscribes, and the API refuses with `412`.
+  - **Resolve as replayed** and **Resolve as superseded** close an open or waived incident, on the
+    evidence the API checks (`TDD-organization-control-005` §The resolution predicate). Missing evidence
+    is `412` with the API's sentence naming the receipts it found.
+  - **Waive** is offered for a retired consumer's incident only, because the API waives no active
+    consumer's (§WAIVED there), with a reason and an expiry no more than 90 days ahead. The reason is
+    sent as the waiver's own and as the access record's. A waiver is not a closure, and the incident
+    renders as waived until its expiry, never as resolved.
+- **Retire consumer, on projection health.** On an active consumer, in the danger variant, with a reason
+  and the consumer's identifier typed, as Tenant retirement takes its name (`TDD-organization-experience-001`
+  §Irreversible Operations): retiring abandons what the consumer was owed (`TDD-organization-control-002`
+  §Consumer Registry).
+- **The Tenant-administration pause, on projection health.** The page reads the latest decision and
+  shows it: paused, by whom, when, why and under which correlation, or not paused. A pause naming no
+  actor is the one `deploy/dev/restore.sh` records before the service serves (`ADR-ORG-003 §5.5`).
+  - **Lift the pause** is the primary action while paused, with a reason required: lifting is always a
+    provider's named decision.
+  - **Pause Tenant administration** is offered when not paused, danger, with a reason required: every
+    Tenant administrator's commands are then refused until it is lifted.
+  - It sits with projection health because the reconciliation it contains is there
+    (`docs/runbooks/organization-experience-operations.md`, and organization-control's
+    `organization-database-restore.md`).
+- **No disabled controls.** An action the API would refuse in a state is not drawn in that state; the
+  state's own words say what is possible instead (1.6.0, [R1]).
+
 | # | Source |
 | :-- | :-- |
 | R1 | GOV.UK Design System, *Button*, "Disabled buttons", <https://design-system.service.gov.uk/components/button/>, accessed 2026-10-19: "Disabled buttons have poor contrast and can confuse some users, so avoid them if possible." |
@@ -350,6 +437,71 @@ and the console's action for it, or `None` with the reason.
 - `apps/admin/src/features/tenantTransitions.ts` holds the same table as code, and its test fails
   when the machine has an edge with no row, when an operator row names no action, or when this table
   and the code disagree (§Testing Strategy).
+
+### Operator Transitions of the Other Machines (1.7.0)
+
+The same table as §Operator Transitions, for each other machine these surfaces show. Each row is a
+transition its organization-control design declares, who drives it, the route, and the console's
+action, or `None` with the reason. `apps/admin/src/features/transitions.ts` holds the same tables as
+code, and `transitions.test.ts` fails when a machine has an edge with no row, when an operator row
+names no action, or when a table here and the code disagree. The offboarding machines are in
+`TDD-organization-experience-003` 1.5.0 §Operator Transitions.
+
+#### Tenant Administration Grant
+
+`TDD-organization-control-001` §The Tenant Administration Grant, `ADR-ORG-003`.
+
+| From | To | Driven by | Route | Console action |
+| :-- | :-- | :-- | :-- | :-- |
+| `new` | `active` | operator | `POST /v1/tenants/{id}/administrators` | Grant administrator |
+| `active` | `revoked` | operator | `POST /v1/tenants/{id}/administrators/{grant_id}/revoke` | Revoke administrator |
+
+#### Provider Grant
+
+`TDD-organization-control-001` §Caller Authority, `ADR-ORG-002 §5.1`, §5.2. An activation of an
+eligible grant is its own machine, served by the approval surface (1.2.0).
+
+| From | To | Driven by | Route | Console action |
+| :-- | :-- | :-- | :-- | :-- |
+| `new` | `eligible` | operator | `POST /v1/provider-grants` | Grant provider access |
+| `new` | `emergency` | operator | `POST /v1/provider-grants` | Grant provider access |
+| `eligible` | `revoked` | operator | `POST /v1/provider-grants/{grant_id}/revoke` | Revoke grant |
+| `emergency` | `revoked` | operator | `POST /v1/provider-grants/{grant_id}/revoke` | Revoke grant |
+
+The first grant of a database is the bootstrap command's (`bootstrap-provider`, organization-control
+`deploy/dev/README.md` §One-off tasks), once, before any provider can use the console.
+
+#### Projection Consumer
+
+`TDD-organization-control-002` §Consumer Registry.
+
+| From | To | Driven by | Route | Console action |
+| :-- | :-- | :-- | :-- | :-- |
+| `new` | `active` | deployment procedure | `POST /v1/projections/consumers` | None: a consumer is registered with the declaration its owner wrote (`ADR-ORG-001 §5.7`), by the procedure that deploys it (organization-control `scripts/dev-wire.ps1`, §Wiring step 4). Registering again replaces the subscription and clears the snapshot mark, so it stays with that procedure |
+| `active` | `retired` | operator | `POST /v1/projections/consumers/{id}/retire` | Retire consumer |
+
+#### Dead Letter
+
+`TDD-organization-control-005` §API / Interface, §WAIVED. The incident is one event at one consumer.
+
+| From | To | Driven by | Route | Console action |
+| :-- | :-- | :-- | :-- | :-- |
+| `new` | `open` | service | the delivery dispatcher, after its attempts | None: Organization Control dead-letters a delivery its consumer kept refusing |
+| `open` | `open` | operator | `POST /v1/dead-letters/{event_id}/consumers/{consumer}/replay` | Replay |
+| `open` | `resolved` | operator | `POST /v1/dead-letters/{event_id}/consumers/{consumer}/resolve` | Resolve as replayed; Resolve as superseded |
+| `open` | `waived` | operator | `POST /v1/dead-letters/{event_id}/consumers/{consumer}/waive` | Waive |
+| `waived` | `resolved` | operator | `POST /v1/dead-letters/{event_id}/consumers/{consumer}/resolve` | Resolve as replayed; Resolve as superseded |
+| `waived` | `open` | service | none: `waived_until` passes | None: a waiver expires on its own, and the incident alerts again |
+
+#### Tenant-Administration Pause
+
+`ADR-ORG-003 §5.5`, `TDD-organization-control-001` §Pausing Tenant Administration.
+
+| From | To | Driven by | Route | Console action |
+| :-- | :-- | :-- | :-- | :-- |
+| `new` | `paused` | restore procedure | `deploy/dev/restore.sh` with `PAUSE_REASON` | None: recorded in the restored database before the service serves, naming no actor |
+| `unpaused` | `paused` | operator | `POST /v1/tenant-administration-pause` | Pause Tenant administration |
+| `paused` | `unpaused` | operator | `POST /v1/tenant-administration-pause` | Lift the pause |
 
 ### Membership Grant Has Two Paths
 
@@ -467,6 +619,12 @@ An `extra` reconciliation finding renders as a security finding, matching how
   table in this document (1.6.0).
 - The fixture-backed browser tests render a `requested` Tenant with an `unresolved` request and open
   Start provisioning, in both themes, with a screenshot and axe-core's WCAG 2.2 A and AA rules (1.6.0).
+- Every transition of the machines in §Operator Transitions of the Other Machines has a row there,
+  and every operator-driven row names its action; `transitions.test.ts` fails otherwise (1.7.0).
+- An `active` Tenant's administrators open on request; Grant administrator sends the Principal, an
+  `Idempotency-Key`, the reason and the CSRF token to `POST /api/v1/tenants/{id}/administrators` and
+  shows whether a Membership was created; it is offered on an `active` Tenant only. Revoke
+  administrator requires a reason (1.7.0).
 - Membership cannot be granted into a Tenant that is not `active`, and the control is
   disabled with the reason shown.
 - Activation is an explicit action and does not occur automatically.
@@ -498,6 +656,21 @@ An `extra` reconciliation finding renders as a security finding, matching how
   findings (1.4.0).
 - A consumer without the reconciliation fields renders as "never reconciled", with no age and no
   count (1.4.0).
+- A consumer's dead letters open on request, filtered by state. Replay is offered for an active
+  consumer and Waive for a retired one, never both; Waive sends the reason and the expiry; Resolve
+  sends its `resolution_type`. A replay's answer says the incident is still open (1.7.0).
+- Retire consumer requires a reason and the consumer's identifier typed, and is offered on an active
+  consumer only (1.7.0).
+- The pause renders paused or not, with who, when and why; Lift the pause and Pause Tenant
+  administration each require a reason and send `{"paused": false}` or `{"paused": true}` (1.7.0).
+
+### Provider Grants (1.7.0)
+
+- The grants list each holder, scope, kind and revocation. Grant provider access sends the Principal,
+  the scope and the kind; choosing emergency draws the confirmation in the danger scheme. Revoke grant
+  requires a reason, and a refusal of the last grant shows the API's sentence.
+- The fixture-backed browser tests open Grant administrator, a consumer's dead letters, Lift the pause
+  and Grant provider access, in both themes, with a screenshot and axe-core's WCAG 2.2 A and AA rules.
 
 ## Security Notes
 
@@ -549,3 +722,8 @@ investigation.
 | Conforms to | STD-GLB-001 1.6.0 §Pagination — the time window, `from` inclusive and `to` exclusive (1.5.0) |
 | Depends on | `TDD-organization-control-003` 1.15.0 §Resolving an `unresolved` Request, §The Provisioning System on a Development Server — starting, retrying and resolving provisioning (1.6.0) |
 | Follows | GOV.UK Design System, Button, "Disabled buttons" — no disabled retry control (1.6.0) |
+| Governed by | ADR-ORG-003 §5.2, §5.5 — a provider grants and revokes a Tenant administrator, and pauses and lifts Tenant administration (1.7.0) |
+| Governed by | ADR-ORG-002 §5.1, §5.2 — eligible and emergency provider grants, made and revoked by a provider with a reason (1.7.0) |
+| Depends on | `TDD-organization-control-001` §The Tenant Administration Grant, §Pausing Tenant Administration — the grant, list, revoke and pause routes (1.7.0) |
+| Depends on | `TDD-organization-control-005` 2.5.0 §Listing a consumer's dead letters, §API / Interface — the dead-letter list, replay, resolve and waive (1.7.0) |
+| Depends on | `TDD-organization-control-002` §Consumer Registry — retiring a consumer (1.7.0) |

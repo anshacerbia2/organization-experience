@@ -461,6 +461,7 @@ export function OffboardingDetail(): ReactElement {
       ) : null}
 
       <ObligationBoard obligations={obligations} />
+      {obligations.length > 0 ? <p className={layout.lead}>{messages.obligationsDevNote}</p> : null}
       {board.isError ? <ApiErrorMessage error={board.error} /> : null}
       {offboarding.stage === 'freeze' || offboarding.stage === 'obligations' ? (
         <RaiseObligation offboardingId={offboarding.offboarding_id} invalidate={invalidate} />
@@ -519,8 +520,23 @@ export function OffboardingDetail(): ReactElement {
                 ? messages.deprovisioningRealized(formatTime(deprovisioning.resolved_at))
                 : deprovisioning.state === 'failed'
                   ? messages.deprovisioningFailed(deprovisioning.detail ?? '')
-                  : messages.deprovisioningAwaiting(formatTime(deprovisioning.requested_at))}
+                  : deprovisioning.state === 'unresolved'
+                    ? messages.deprovisioningUnresolved(formatTime(deprovisioning.requested_at))
+                    : messages.deprovisioningAwaiting(formatTime(deprovisioning.requested_at))}
           </p>
+          {deprovisioning?.state === 'failed' ? (
+            <div className={layout.actions}>
+              <Action
+                tone="danger"
+                label={messages.resendDeprovisioning}
+                path={`${base}/deprovisioning/resend`}
+                body={{}}
+                reason="required"
+                scopeNote={`${messages.resendWill} ${note}`}
+                invalidates={invalidate}
+              />
+            </div>
+          ) : null}
           {offboarding.legal_hold ? (
             <Notice tone="warning" icon="shield" role="status">
               <p>{messages.blockedByHold(messages.retirement)}</p>

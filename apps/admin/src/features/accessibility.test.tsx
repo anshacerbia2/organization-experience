@@ -174,6 +174,15 @@ const cases: readonly {
         ],
         next: null,
       },
+      // TDD-organization-experience-002 1.7.0: the Tenant-administration pause, here paused.
+      '/api/v1/tenant-administration-pause': {
+        paused: true,
+        pause_id: 'p-1',
+        reason: 'INC-12 restored from the 2026-10-18 backup',
+        actor_id: null,
+        correlation_id: null,
+        recorded_at: '2026-10-19T09:00:00Z',
+      },
     },
     shows: 'billing',
   },
@@ -214,8 +223,25 @@ const cases: readonly {
           },
         ],
       },
+      // TDD-organization-experience-002 1.7.0: the provider grants, below the review.
+      '/api/v1/provider-grants': {
+        grants: [
+          {
+            grant_id: 'pg-1',
+            principal_id: 'provider-b',
+            scope: 'provider:organization-control',
+            kind: 'emergency',
+            granted_by: 'provider-a',
+            reason: 'Second emergency holder',
+            granted_at: '2026-10-01T00:00:00Z',
+            active: true,
+            revoked_at: null,
+            revoked_by: null,
+          },
+        ],
+      },
     },
-    shows: 'provider-b',
+    shows: 'Second emergency holder',
   },
   {
     path: '/provider-access',

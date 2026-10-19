@@ -252,10 +252,101 @@ describe('retirement', () => {
       ),
     );
     render(<App />);
+    const awaiting = await screen.findByText(
+      /has no outcome yet. Retirement waits for the provisioning system's report./,
+    );
+    expect(awaiting).toHaveTextContent('scripts/dev-deprovisioning.ps1');
+    expect(screen.getByRole('button', { name: 'Retire' })).toBeDisabled();
+    expect(screen.queryByRole('button', { name: 'Send deprovisioning again' })).not.toBeInTheDocument();
+  });
+
+  // TDD-organization-experience-003 1.5.0: unresolved is its own state, says how it is resolved, and
+  // offers no resend control at all, not a disabled one.
+  it('renders an unresolved deprovisioning as unknown, never sent again', async () => {
+    visit(`/offboardings/${offboardingId}`);
+    stub(
+      provider,
+      detail(
+        offboarding({
+          stage: 'release',
+          active_memberships: 0,
+          deprovisioning: {
+            state: 'unresolved',
+            detail: 'no outcome within 30m0s',
+            requested_at: new Date().toISOString(),
+            resolved_at: new Date().toISOString(),
+          },
+        }),
+      ),
+    );
+    render(<App />);
+    const unknown = await screen.findByText(/Deprovisioning outcome unknown/);
+    expect(unknown).toHaveTextContent('Do not send it again');
+    expect(unknown).toHaveTextContent("ask the provisioning system's owner for the outcome");
+    expect(unknown).toHaveTextContent('scripts/dev-deprovisioning.ps1');
+    expect(screen.getByRole('button', { name: 'Retire' })).toBeDisabled();
+    expect(screen.queryByRole('button', { name: 'Send deprovisioning again' })).not.toBeInTheDocument();
+  });
+
+  it('sends a failed deprovisioning again beside its detail, with a reason, a key and the CSRF token', async () => {
+    visit(`/offboardings/${offboardingId}`);
+    const fetchMock = stub(provider, (url, init) =>
+      url.endsWith('/deprovisioning/resend') && init?.method === 'POST'
+        ? json(
+            offboarding({
+              stage: 'release',
+              deprovisioning: {
+                state: 'requested',
+                detail: null,
+                requested_at: new Date().toISOString(),
+                resolved_at: null,
+              },
+            }),
+          )
+        : detail(
+            offboarding({
+              stage: 'release',
+              active_memberships: 0,
+              deprovisioning: {
+                state: 'failed',
+                detail: 'the storage account is locked',
+                requested_at: new Date().toISOString(),
+                resolved_at: new Date().toISOString(),
+              },
+            }),
+          )(url),
+    );
+    render(<App />);
     expect(
-      await screen.findByText(/has no outcome yet. Retirement waits; nothing is retried here./),
+      await screen.findByText(/Deprovisioning failed: the storage account is locked/),
     ).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Retire' })).toBeDisabled();
+    const resend = screen.getByRole('button', { name: 'Send deprovisioning again' });
+    expect(resend).toHaveAttribute('data-variant', 'danger');
+    await userEvent.click(resend);
+    const form = screen.getByRole('form', { name: 'Send deprovisioning again' });
+    expect(form).toHaveTextContent('removes the Tenant’s infrastructure');
+    expect(form).toHaveTextContent('In Tenant Acme');
+    await userEvent.click(within(form).getByRole('button', { name: 'Send deprovisioning again' }));
+    expect(sent(fetchMock, `/api/v1/offboardings/${offboardingId}/deprovisioning/resend`)).toHaveLength(0);
+    await userEvent.type(within(form).getByLabelText('Reason'), 'The storage lock was released');
+    await userEvent.click(within(form).getByRole('button', { name: 'Send deprovisioning again' }));
+    await waitFor(() => {
+      expect(sent(fetchMock, `/api/v1/offboardings/${offboardingId}/deprovisioning/resend`)).toHaveLength(1);
+    });
+    const [init] = sent(fetchMock, `/api/v1/offboardings/${offboardingId}/deprovisioning/resend`);
+    expect(headersOf(init)['x-administrative-reason']).toBe('The storage lock was released');
+    expect(headersOf(init)['x-csrf-token']).toBe('csrf-token');
+    expect(headersOf(init)['idempotency-key']).toMatch(/^[0-9a-f-]{36}$/);
+  });
+
+  it('names the development stand-in for the domains under the obligation board', async () => {
+    visit(`/offboardings/${offboardingId}`);
+    stub(provider, detail(offboarding({ stage: 'obligations', active_memberships: 0 }), [obligation({})]));
+    render(<App />);
+    expect(
+      await screen.findByText(/scripts\/dev-obligation.ps1 resolves one for its domain/),
+    ).toBeInTheDocument();
   });
 
   it('retires with the Tenant’s version, a reason and the name typed, stating it cannot be undone', async () => {

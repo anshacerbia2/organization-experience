@@ -329,9 +329,17 @@ export const messages = {
   blockedByObligations: 'Release waits on these obligations:',
   deprovisioningNone: 'Deprovisioning has not been requested.',
   deprovisioningRealized: (at: string): string => `Deprovisioning is complete, ${at}.`,
-  deprovisioningFailed: (detail: string): string => `Deprovisioning failed: ${detail}`,
+  deprovisioningFailed: (detail: string): string =>
+    `Deprovisioning failed: ${detail}. Fix the cause it names, then send it again: that records a new request.`,
   deprovisioningAwaiting: (at: string): string =>
-    `Deprovisioning was requested ${at} and has no outcome yet. Retirement waits; nothing is retried here.`,
+    `Deprovisioning was requested ${at} and has no outcome yet. Retirement waits for the provisioning system's report. On a development server, report it with organization-control's scripts/dev-deprovisioning.ps1.`,
+  deprovisioningUnresolved: (at: string): string =>
+    `Deprovisioning outcome unknown: requested ${at}, and no outcome arrived in time. Do not send it again: the infrastructure may already be released. To resolve it, ask the provisioning system's owner for the outcome and have it reported as realized or failed. On a development server, report it with organization-control's scripts/dev-deprovisioning.ps1.`,
+  resendDeprovisioning: 'Send deprovisioning again',
+  resendWill:
+    'This sends the deprovisioning command again, which removes the Tenant’s infrastructure. The failed request keeps its record.',
+  obligationsDevNote:
+    'Each obligation is resolved by its domain. On a development server no domain is connected: organization-control’s scripts/dev-obligation.ps1 resolves one for its domain.',
   offboard: 'Offboarding',
   beginOffboarding: 'Begin offboarding',
   resumeOffboarding: 'Resume its offboarding',
@@ -401,6 +409,93 @@ export const messages = {
   noProviderAccess: 'No provider access to this Tenant matches.',
   providerAccessLeavesOut:
     'Not shown: a provider read across every Tenant, or of a record addressed by its own identifier, names no Tenant. Providers review those.',
+
+  // Tenant administrators (TDD-organization-experience-002 1.7.0, ADR-ORG-003).
+  administrators: 'Administrators',
+  hideAdministrators: 'Hide administrators',
+  administratorsOf: (name: string): string => `Administrators of ${name}`,
+  noAdministrators:
+    'No administrator is granted in this Tenant. Grant one so someone can sign in for it and grant memberships.',
+  grantAdministrator: 'Grant administrator',
+  revokeAdministrator: 'Revoke administrator',
+  principalIdentifier: 'Principal identifier',
+  grantAdministratorWill: (name: string, tenantId: string): string =>
+    `This makes the Principal an administrator of Tenant ${name} (${tenantId}), in provider mode, and gives it a Tenant-wide membership if it has none.`,
+  revokeAdministratorWill: (principal: string): string =>
+    `This ends ${principal}’s administration of the Tenant. Its membership is not revoked.`,
+  administratorGranted: (created: boolean): string =>
+    created
+      ? 'Administrator granted, with a new Tenant-wide membership.'
+      : 'Administrator granted. The Principal already held a membership, which is kept.',
+  administratorsOnlyActive: 'An administrator is granted in an active Tenant only.',
+  grantActive: 'active',
+  grantRevoked: 'revoked',
+  grantedBy: (who: string, at: string, reason: string): string =>
+    `granted by ${who}, ${at}${reason === '' ? '' : `: ${reason}`}`,
+  revokedBy: (who: string, at: string, reason: string): string =>
+    `revoked by ${who}, ${at}${reason === '' ? '' : `: ${reason}`}`,
+
+  // Provider grants (TDD-organization-experience-002 1.7.0, ADR-ORG-002 §5.1, §5.2).
+  providerGrants: 'Provider grants',
+  providerGrantsExplained:
+    'Who holds provider authority. A grant is made and revoked by a provider, with a reason; both are recorded.',
+  noProviderGrants: 'No provider grant is recorded.',
+  grantProvider: 'Grant provider access',
+  revokeGrant: 'Revoke grant',
+  scope: 'Scope',
+  kind: 'Kind',
+  kindName: (kind: string): string =>
+    ({ eligible: 'eligible', emergency: 'emergency (standing)' })[kind] ?? kind,
+  kindExplained: (kind: string): string =>
+    kind === 'emergency'
+      ? 'Emergency: standing authority, in force without an activation. Every use is reported, it is validated at least every 90 days, and production keeps at least two.'
+      : 'Eligible: confers nothing until it is activated, and another provider approves each activation.',
+  grantProviderWill: (kind: string): string =>
+    kind === 'emergency'
+      ? 'This grants standing emergency provider authority: it is in force at once, without an activation.'
+      : 'This makes the Principal eligible: it can ask for an activation, which another provider approves.',
+  revokeGrantWill: (principal: string, scope: string): string =>
+    `This ends ${principal}’s ${scope} grant, and any activation of it.`,
+
+  // Dead letters, consumer retirement and the pause (TDD-organization-experience-002 1.7.0).
+  deadLetters: 'Dead letters',
+  hideDeadLetters: 'Hide dead letters',
+  deadLettersOf: (consumer: string): string => `Dead letters of ${consumer}`,
+  noDeadLetters: 'No dead letter matches.',
+  deadLetterState: (state: string): string =>
+    ({ open: 'open', resolved: 'resolved', waived: 'waived' })[state] ?? state,
+  authorityBearing: 'bears authority',
+  laneOf: (lane: string): string => `${lane} lane`,
+  aggregateOf: (aggregate: string, version: number | null): string =>
+    version === null ? aggregate : `${aggregate} at version ${String(version)}`,
+  attemptsOf: (attempts: number, at: string): string => `${String(attempts)} attempts, dead-lettered ${at}`,
+  failureOf: (failureClass: string, detail: string): string =>
+    detail === '' ? failureClass : `${failureClass}: ${detail}`,
+  waivedUntil: (until: string, who: string, reason: string): string =>
+    `Waived until ${until} by ${who}: ${reason}. A waiver is not a resolution; it alerts again when it expires.`,
+  resolvedAs: (type: string, who: string, at: string): string =>
+    `Resolved as ${type.toLowerCase()} by ${who}, ${at}.`,
+  replay: 'Replay',
+  replayed: 'Sent again. The incident stays open until it is resolved on the consumer’s receipt.',
+  resolveReplayed: 'Resolve as replayed',
+  resolveSuperseded: 'Resolve as superseded',
+  waive: 'Waive',
+  waiveExpiry: 'Waived until',
+  waiveExplained:
+    'Only a retired consumer’s incident is waived: no replay can reach it. The waiver lasts at most 90 days.',
+  deadLetterWill: (event: string, consumer: string): string => `Event ${event}, at ${consumer}.`,
+  retireConsumer: 'Retire consumer',
+  retireConsumerWill: (consumer: string): string =>
+    `This withdraws ${consumer}: its registration, its subscription, and what it was still owed, which is abandoned.`,
+  tenantAdministration: 'Tenant administration',
+  paused: (who: string | null, at: string, reason: string, correlation: string | null): string =>
+    `Paused ${at} by ${who ?? 'the restore procedure'}: ${reason}${correlation === null ? '' : ` (reference ${correlation})`}. Every Tenant administrator’s commands are refused; reads continue.`,
+  notPaused: 'Not paused. Tenant administrators’ commands are served.',
+  pauseAdministration: 'Pause Tenant administration',
+  liftPause: 'Lift the pause',
+  pauseWill:
+    'This refuses every Tenant administrator’s commands, in every Tenant, until the pause is lifted.',
+  liftWill: 'This serves Tenant administrators’ commands again, in every Tenant.',
 
   leaveUnconfirmed:
     'Provider mode is closed here, but Organization Control did not confirm the activation ended. It ends at its own time.',
