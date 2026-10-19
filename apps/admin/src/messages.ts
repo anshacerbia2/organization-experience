@@ -338,6 +338,9 @@ export const messages = {
   resendDeprovisioning: 'Send deprovisioning again',
   resendWill:
     'This sends the deprovisioning command again, which removes the Tenant’s infrastructure. The failed request keeps its record.',
+  // The identifiers organization-control's development stand-ins take (TDD-organization-experience-003 1.5.0).
+  obligationIdentifier: 'Identifier',
+  offboardingIdentifier: (id: string): string => `offboarding ${id}`,
   obligationsDevNote:
     'Each obligation is resolved by its domain. On a development server no domain is connected: organization-control’s scripts/dev-obligation.ps1 resolves one for its domain.',
   offboard: 'Offboarding',

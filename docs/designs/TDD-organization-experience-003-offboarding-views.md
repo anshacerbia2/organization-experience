@@ -172,6 +172,9 @@ with its detail and offered nothing, so the offboarding stayed in `release` with
   development server, so the board says that organization-control's `scripts/dev-obligation.ps1`
   resolves an obligation there, acting for its domain through the same route
   (`TDD-organization-control-004` 1.13.0). The board itself still offers no completion or waiver.
+- **The identifiers those scripts take are shown.** The page's lead names the offboarding's identifier,
+  and the board has an Identifier column with each obligation's, so an operator reads them from the
+  console rather than from the API.
 
 ## Algorithms / Logic
 

@@ -342,11 +342,17 @@ describe('retirement', () => {
 
   it('names the development stand-in for the domains under the obligation board', async () => {
     visit(`/offboardings/${offboardingId}`);
-    stub(provider, detail(offboarding({ stage: 'obligations', active_memberships: 0 }), [obligation({})]));
+    stub(
+      provider,
+      detail(offboarding({ stage: 'obligations', active_memberships: 0 }), [obligation({ domain: 'HCM' })]),
+    );
     render(<App />);
     expect(
       await screen.findByText(/scripts\/dev-obligation.ps1 resolves one for its domain/),
     ).toBeInTheDocument();
+    // The identifiers the stand-in takes are on the page.
+    expect(screen.getByRole('cell', { name: 'ob-HCM' })).toBeInTheDocument();
+    expect(screen.getByText(new RegExp(`offboarding ${offboardingId}`))).toBeInTheDocument();
   });
 
   it('retires with the Tenant’s version, a reason and the name typed, stating it cannot be undone', async () => {

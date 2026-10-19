@@ -282,6 +282,7 @@ function ObligationBoard({ obligations }: { readonly obligations: readonly Oblig
           <Table.HeaderCell>{messages.state('state')}</Table.HeaderCell>
           <Table.HeaderCell>{messages.due}</Table.HeaderCell>
           <Table.HeaderCell>{messages.detail}</Table.HeaderCell>
+          <Table.HeaderCell>{messages.obligationIdentifier}</Table.HeaderCell>
         </Table.Row>
       </Table.Head>
       <Table.Body>
@@ -308,6 +309,7 @@ function ObligationBoard({ obligations }: { readonly obligations: readonly Oblig
                     obligation.detail ?? '',
                   )}
             </Table.Cell>
+            <Table.Cell mono>{obligation.obligation_id}</Table.Cell>
           </Table.Row>
         ))}
       </Table.Body>
@@ -413,7 +415,11 @@ export function OffboardingDetail(): ReactElement {
       <PageHeader>
         <PageTitle id="offboarding-heading">{messages.offboardingOf(name)}</PageTitle>
         <p className={layout.lead}>
-          {facts(messages.startedAt(formatTime(offboarding.started_at)), offboarding.reason)}
+          {facts(
+            messages.startedAt(formatTime(offboarding.started_at)),
+            offboarding.reason,
+            messages.offboardingIdentifier(offboarding.offboarding_id),
+          )}
         </p>
       </PageHeader>
       <StageTimeline offboarding={offboarding} />
