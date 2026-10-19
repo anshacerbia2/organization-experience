@@ -345,11 +345,128 @@ describe('tenants', () => {
     render(<App />);
     const requested = (await screen.findByText('Acme')).closest('li') as HTMLElement;
     expect(requested).toHaveTextContent('Membership cannot be granted yet');
-    expect(within(requested).queryByRole('button')).not.toBeInTheDocument();
+    expect(
+      within(requested)
+        .getAllByRole('button')
+        .map((button) => button.textContent),
+    ).toEqual(['Start provisioning']);
     const provisioning = screen.getByText('Beta').closest('li') as HTMLElement;
-    expect(within(provisioning).getByRole('button', { name: 'Activate' })).toBeInTheDocument();
+    expect(
+      within(provisioning)
+        .getAllByRole('button')
+        .map((button) => button.textContent),
+    ).toEqual(['Activate']);
     const suspended = screen.getByText('Gamma').closest('li') as HTMLElement;
     expect(suspended).toHaveTextContent('Access is stopped for every membership');
+  });
+
+  // TDD-organization-experience-002 1.6.0: the dispatch and the retry are one route, offered on a
+  // requested and on a failed Tenant, each a provider command like Activate.
+  it('starts provisioning on a requested Tenant, naming it, with the version, a key, the reason and the CSRF token', async () => {
+    visit('/tenants');
+    const fetchMock = stub(signedInto(null, providerScope(inForce)), (url, init) => {
+      if (url === '/api/v1/tenants') {
+        return json({ tenants: [tenant('requested', 'Acme')], next: null });
+      }
+      if (url === '/api/v1/tenants/t-requested/provisioning' && init?.method === 'POST') {
+        return json({ tenant: { ...tenant('provisioning', 'Acme'), tenant_id: 't-requested', version: 3 } });
+      }
+      return undefined;
+    });
+    render(<App />);
+    const start = await screen.findByRole('button', { name: 'Start provisioning' });
+    expect(start).toHaveAttribute('data-variant', 'primary');
+    await userEvent.click(start);
+    const form = screen.getByRole('form', { name: 'Start provisioning' });
+    expect(form).toHaveTextContent('In Tenant Acme (t-requested), in provider mode.');
+    await userEvent.type(within(form).getByLabelText('Reason (optional)'), 'Ticket 812: the region is ready');
+    expect(sent(fetchMock, '/api/v1/tenants/t-requested/provisioning')).toHaveLength(0);
+    await userEvent.click(within(form).getByRole('button', { name: 'Start provisioning' }));
+    await waitFor(() => {
+      expect(sent(fetchMock, '/api/v1/tenants/t-requested/provisioning')).toHaveLength(1);
+    });
+    const [init] = sent(fetchMock, '/api/v1/tenants/t-requested/provisioning');
+    expect(JSON.parse(init?.body as string)).toEqual({ expected_version: 2 });
+    expect(headersOf(init)['x-csrf-token']).toBe('csrf-token');
+    expect(headersOf(init)['idempotency-key']).toMatch(/^[0-9a-f-]{36}$/);
+    expect(headersOf(init)['x-administrative-reason']).toBe('Ticket 812: the region is ready');
+    // The list and the Tenant's own read are read again, so the new state and correlation show.
+    await waitFor(() => {
+      expect(fetchMock.mock.calls.filter(([url]) => url === '/api/v1/tenants').length).toBeGreaterThan(1);
+    });
+  });
+
+  it('retries a failed Tenant beside the reason it failed, and a different request takes a new key', async () => {
+    visit('/tenants');
+    const fetchMock = stub(signedInto(null, providerScope(inForce)), (url, init) => {
+      if (url === '/api/v1/tenants') {
+        return json({ tenants: [tenant('failed', 'Epsilon')], next: null });
+      }
+      if (url === '/api/v1/tenants/t-failed') {
+        return json({
+          ...tenant('failed', 'Epsilon'),
+          provisioning: {
+            request_id: 'r-1',
+            correlation_id: 'corr-7',
+            state: 'failed',
+            detail: 'the silo region is at capacity',
+          },
+        });
+      }
+      if (url === '/api/v1/tenants/t-failed/provisioning' && init?.method === 'POST') {
+        return json(
+          { type: 'about:blank', title: 'Conflict', detail: 'version 2 is stale', status: 409 },
+          409,
+        );
+      }
+      return undefined;
+    });
+    render(<App />);
+    const row = (await screen.findByText('Epsilon')).closest('li') as HTMLElement;
+    expect(
+      await within(row).findByText(
+        /Provisioning failed \(correlation corr-7\): the silo region is at capacity/,
+      ),
+    ).toBeInTheDocument();
+    expect(within(row).queryByRole('button', { name: 'Activate' })).not.toBeInTheDocument();
+    const retry = within(row).getByRole('button', { name: 'Retry provisioning' });
+    expect(retry).toHaveAttribute('data-variant', 'primary');
+    await userEvent.click(retry);
+    const form = within(row).getByRole('form', { name: 'Retry provisioning' });
+    expect(form).toHaveTextContent('In Tenant Epsilon (t-failed), in provider mode.');
+    await userEvent.click(within(form).getByRole('button', { name: 'Retry provisioning' }));
+    await waitFor(() => {
+      expect(sent(fetchMock, '/api/v1/tenants/t-failed/provisioning')).toHaveLength(1);
+    });
+    await userEvent.type(
+      within(form).getByLabelText('Reason (optional)'),
+      'Capacity added in the silo region',
+    );
+    await userEvent.click(within(form).getByRole('button', { name: 'Retry provisioning' }));
+    await waitFor(() => {
+      expect(sent(fetchMock, '/api/v1/tenants/t-failed/provisioning')).toHaveLength(2);
+    });
+    const [first, second] = sent(fetchMock, '/api/v1/tenants/t-failed/provisioning');
+    expect(JSON.parse(second?.body as string)).toEqual({ expected_version: 2 });
+    expect(headersOf(second)['x-administrative-reason']).toBe('Capacity added in the silo region');
+    expect(headersOf(second)['idempotency-key']).not.toBe(headersOf(first)['idempotency-key']);
+  });
+
+  it('offers neither provisioning action outside requested and failed', async () => {
+    visit('/tenants');
+    stub(signedInto(null, providerScope(inForce)), (url) =>
+      url === '/api/v1/tenants'
+        ? json({
+            tenants: ['provisioning', 'active', 'suspended', 'offboarding', 'retired'].map((status) =>
+              tenant(status, `Tenant ${status}`),
+            ),
+            next: null,
+          })
+        : undefined,
+    );
+    render(<App />);
+    await screen.findByText('Tenant retired');
+    expect(screen.queryByRole('button', { name: /provisioning/i })).not.toBeInTheDocument();
   });
 
   it('a suspension names the Tenant in its confirmation and needs a reason', async () => {

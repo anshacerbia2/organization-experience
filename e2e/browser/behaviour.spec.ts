@@ -100,6 +100,29 @@ for (const theme of themes) {
     );
   });
 
+  // TDD-organization-experience-002 1.6.0: starting and retrying provisioning are forward steps, drawn
+  // as primary like Activate, and each asks in its row, naming the Tenant, before it acts.
+  test(`provisioning is started and retried as a primary action that asks first, ${theme}`, async ({
+    page,
+    baseURL,
+  }) => {
+    await open(page, baseURL ?? '', 'provider-mode', theme, '/tenants');
+    for (const [name, label] of [
+      ['Eta Mobility', 'Start provisioning'],
+      ['Epsilon Labs', 'Retry provisioning'],
+    ] as const) {
+      const row = page.getByRole('listitem').filter({ hasText: name });
+      await expect(row.getByRole('button', { name: label })).toHaveAttribute('data-variant', 'primary');
+      await row.getByRole('button', { name: label }).click();
+      const confirm = row.getByRole('form', { name: label });
+      await expect(confirm).toContainText(`In Tenant ${name}`);
+      await expect(confirm.getByLabel('Reason (optional)')).toBeVisible();
+    }
+    const unresolved = page.getByRole('listitem').filter({ hasText: 'Eta Mobility' });
+    await expect(unresolved).toContainText('Do not retry');
+    await expect(unresolved.getByRole('button', { name: 'Retry provisioning' })).toHaveCount(0);
+  });
+
   test(`a destructive action is drawn apart, and asks before it acts, ${theme}`, async ({
     page,
     baseURL,

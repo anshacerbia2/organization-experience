@@ -119,6 +119,21 @@ the operator can see and resolve.
 ✅ **Met** by the Built block below, and tested in `administration.test.tsx`: "shows a version
 conflict as one, and reads the list again rather than retrying".
 
+**Gap found 2026-10-19, closed by #16.** Reported from the development server: a Tenant requested
+from the console stayed `requested` ("Awaiting provisioning") and could never become active.
+
+- **The gap.** Two Tenant transitions an operator drives had no action. `requested -> provisioning`
+  (the dispatch, `POST /v1/tenants/{id}/provisioning`) was never designed for the console.
+  `failed -> provisioning` (the retry) was promised by TDD-organization-experience-002 §Tenant States
+  Are Rendered Individually, "Retry is available", and never built.
+- **Why the exit missed it.** The item above lists "activate, suspend, restore", and the exit and the
+  "Lifecycle rendered honestly" check tested how each state is displayed and that a stale mutation is
+  a conflict. Nothing checked that each operator-driven transition of TDD-organization-control-003's
+  machine has an action.
+- **Closed.** Start provisioning and Retry provisioning (Built, below). TDD-organization-experience-002
+  1.6.0 §Operator Transitions maps every transition of the machine to its action or the reason for
+  none, and `tenantTransitions.test.ts` fails on a transition without a row.
+
 **Built (TDD-organization-experience-002 1.2.0):**
 
 - ✅ **The surfaces,** against what Organization Control serves.
@@ -152,6 +167,17 @@ conflict as one, and reads the list again rather than retrying".
 - ✅ **The reconciliation age on projection health (TDD-organization-experience-002 1.4.0):** each
   consumer shows when Organization Control last reconciled it, how long ago, and how many findings
   the run reported, or "never reconciled" before its first run.
+- ✅ **Starting and retrying provisioning (TDD-organization-experience-002 1.6.0):** reported from the
+  development server, a requested Tenant could not leave `requested` from the console.
+  - Start provisioning on a `requested` Tenant and Retry provisioning on a `failed` one, both
+    `POST /v1/tenants/{id}/provisioning`, as provider commands like Activate: primary, confirmed in
+    the row with the Tenant named, an optional reason, `expected_version`, and an `Idempotency-Key`
+    per distinct request.
+  - Every provisioning state shows its correlation identifier. `unresolved` offers no retry control,
+    not a disabled one, and says how it is resolved (`TDD-organization-control-003` 1.15.0).
+  - Unit tests, and the fixture-backed browser tests with screenshots and axe-core for both forms.
+  - §Operator Transitions in TDD-organization-experience-002 1.6.0, and its test over
+    `tenantTransitions.ts`.
 
 ## Week 4 · Bulk, freshness, and offboarding
 

@@ -26,6 +26,7 @@ export const tenantId = '0192f0e0-aaaa-7000-8000-00000000a001';
 const betaTenant = '0192f0e0-aaaa-7000-8000-00000000a002';
 const correlation = '0199a1b2-c3d4-7e5f-8a9b-0c1d2e3f4aff';
 export const offboardingId = '0192f0e0-bbbb-7000-8000-00000000b001';
+const etaTenant = '0192f0e0-aaaa-7000-8000-00000000a007';
 
 export function sessionOf(persona: Persona): unknown {
   if (persona === 'signed-out') {
@@ -155,6 +156,9 @@ const tenants = [
   ['0192f0e0-aaaa-7000-8000-00000000a004', 'Delta Health', 'requested', 'regional'],
   ['0192f0e0-aaaa-7000-8000-00000000a005', 'Epsilon Labs', 'failed', 'bridge'],
   ['0192f0e0-aaaa-7000-8000-00000000a006', 'Zeta Freight', 'suspended', 'pooled'],
+  // Requested and never dispatched within the timeout: its request reads `unresolved`
+  // (TDD-organization-control-003 1.15.0 §Resolving an `unresolved` Request).
+  [etaTenant, 'Eta Mobility', 'requested', 'pooled'],
 ].map(([id, name, status, profile], index) => ({
   tenant_id: id,
   organization_id: organizations[0]?.organization_id,
@@ -170,18 +174,26 @@ const provisioning: Readonly<Record<string, string>> = {
   failed: 'failed',
 };
 
+const requestState = (tenant: (typeof tenants)[number]): string | undefined =>
+  tenant.tenant_id === etaTenant ? 'unresolved' : provisioning[String(tenant.status)];
+
 const tenantDetail = (tenant: (typeof tenants)[number]) => ({
   ...tenant,
   offboarding_id: tenant.status === 'offboarding' ? offboardingId : null,
   active_memberships: 14,
   provisioning:
-    provisioning[String(tenant.status)] === undefined
+    requestState(tenant) === undefined
       ? null
       : {
           request_id: `${tenant.tenant_id}-p`,
           correlation_id: correlation,
-          state: provisioning[String(tenant.status)],
-          detail: tenant.status === 'failed' ? 'the silo region is at capacity' : null,
+          state: requestState(tenant),
+          detail:
+            tenant.status === 'failed'
+              ? 'the silo region is at capacity'
+              : requestState(tenant) === 'unresolved'
+                ? 'no outcome within 30m0s'
+                : null,
         },
 });
 
