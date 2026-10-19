@@ -21,6 +21,7 @@ import {
   RowTitle,
   rowClasses,
 } from '../ui';
+import { TenantAdministrators } from './administrators';
 import { Action, ApiErrorMessage, Field, ListState, LoadMore, usePagedList } from './common';
 import { BeginOffboarding, type TenantDetail } from './offboarding';
 
@@ -424,6 +425,16 @@ export function TenantsPage(): ReactElement {
                   reason="optional"
                   scopeNote={note}
                   invalidates={[tenantsKey]}
+                />
+              ) : null}{' '}
+              {tenant.status === 'active' ||
+              tenant.status === 'suspended' ||
+              tenant.status === 'offboarding' ||
+              tenant.status === 'retired' ? (
+                <TenantAdministrators
+                  tenantId={tenant.tenant_id}
+                  name={tenant.display_name}
+                  status={tenant.status}
                 />
               ) : null}
             </Row>

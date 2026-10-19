@@ -27,6 +27,10 @@ const betaTenant = '0192f0e0-aaaa-7000-8000-00000000a002';
 const correlation = '0199a1b2-c3d4-7e5f-8a9b-0c1d2e3f4aff';
 export const offboardingId = '0192f0e0-bbbb-7000-8000-00000000b001';
 const etaTenant = '0192f0e0-aaaa-7000-8000-00000000a007';
+// An offboarding in release whose deprovisioning failed (TDD-organization-experience-003 1.5.0).
+const thetaTenant = '0192f0e0-aaaa-7000-8000-00000000a008';
+export const releasedOffboardingId = '0192f0e0-bbbb-7000-8000-00000000b003';
+const eventId = '0192f0e0-cccc-7000-8000-00000000c001';
 
 export function sessionOf(persona: Persona): unknown {
   if (persona === 'signed-out') {
@@ -159,6 +163,7 @@ const tenants = [
   // Requested and never dispatched within the timeout: its request reads `unresolved`
   // (TDD-organization-control-003 1.15.0 §Resolving an `unresolved` Request).
   [etaTenant, 'Eta Mobility', 'requested', 'pooled'],
+  [thetaTenant, 'Theta Media', 'offboarding', 'pooled'],
 ].map(([id, name, status, profile], index) => ({
   tenant_id: id,
   organization_id: organizations[0]?.organization_id,
@@ -179,7 +184,12 @@ const requestState = (tenant: (typeof tenants)[number]): string | undefined =>
 
 const tenantDetail = (tenant: (typeof tenants)[number]) => ({
   ...tenant,
-  offboarding_id: tenant.status === 'offboarding' ? offboardingId : null,
+  offboarding_id:
+    tenant.tenant_id === thetaTenant
+      ? releasedOffboardingId
+      : tenant.status === 'offboarding'
+        ? offboardingId
+        : null,
   active_memberships: 14,
   provisioning:
     requestState(tenant) === undefined
@@ -212,6 +222,22 @@ const offboarding = {
   active_memberships: 0,
 };
 
+const releasedOffboarding = {
+  ...offboarding,
+  offboarding_id: releasedOffboardingId,
+  tenant_id: thetaTenant,
+  stage: 'release',
+  reason: 'Customer moved to another platform',
+  legal_hold: false,
+  released_at: days(-1),
+  deprovisioning: {
+    state: 'failed',
+    detail: 'the storage account is locked by a retention policy',
+    requested_at: days(-1),
+    resolved_at: minutes(-90),
+  },
+};
+
 const obligations = [
   ['billing', 'final-invoice', 'completed', -3],
   ['audit', 'export-retention', 'open', -1],
@@ -235,6 +261,7 @@ const consumers = [
   ['identity-control', 'active', 10, 'fail_closed', false, 0],
   ['billing', 'active', 60, 'use_with_marker', true, 2],
   ['audit', 'active', 300, 'revalidate', false, undefined],
+  ['legacy-search', 'retired', 120, 'fail_closed', false, undefined],
 ].map(([id, state, budget, behavior, stale, findings]) => ({
   consumer_id: id,
   state,
@@ -252,6 +279,63 @@ const consumers = [
         last_reconciled_findings: findings,
         reconciliation_age_seconds: 840,
       }),
+}));
+
+const deadLetter = (consumer: string, overrides: Record<string, unknown> = {}) => ({
+  event_id: eventId,
+  consumer,
+  event_type: 'com.scnehaux.organization.membership.security.revoked',
+  authority_bearing: true,
+  aggregate_id: memberships[3]?.membership_id,
+  version: 8,
+  lane: 'priority',
+  failure_class: 'rejected',
+  failure_detail: 'the consumer does not know the Tenant',
+  attempts: 12,
+  first_failed_at: days(-2),
+  dead_lettered_at: days(-1),
+  resolved_at: null,
+  resolution_type: null,
+  resolved_by: null,
+  resolution_reference: null,
+  waived_at: null,
+  waived_until: null,
+  waived_by: null,
+  waiver_reason: null,
+  ...overrides,
+});
+
+const administratorGrant = (principal: string, active: boolean, index: number) => ({
+  grant_id: `0192f0e0-adad-7000-8000-00000000ad0${String(index)}`,
+  tenant_id: tenantId,
+  principal_id: principal,
+  granted_by: me,
+  reason: active ? 'First administrator after activation' : 'Interim administrator during onboarding',
+  granted_at: days(-20 + index),
+  active,
+  revoked_at: active ? null : days(-5),
+  revoked_by: active ? null : me,
+  ...(active ? {} : { revoke_reason: 'Onboarding finished' }),
+});
+
+const providerGrants = [
+  ['provider:organization-control', 'emergency', me, true, 'the first provider of Organization Control'],
+  ['provider:organization-control', 'eligible', other, true, 'On-call rotation'],
+  ['provider:identity-control', 'emergency', me, true, 'Break glass for identity-control'],
+  ['provider:organization-control', 'eligible', '0199a1b2-c3d4-7e5f-8a9b-0c1d2e3f4ddd', false, 'Contractor'],
+].map(([scope, kind, principal, active, reason], index) => ({
+  grant_id: `0192f0e0-baba-7000-8000-00000000ba0${String(index + 1)}`,
+  principal_id: principal,
+  scope,
+  kind,
+  granted_by: index === 0 ? null : me,
+  ...(index === 0 ? { bootstrap_operator: 'ops@scnehaux.local' } : {}),
+  reason,
+  granted_at: days(-60 + index),
+  active,
+  revoked_at: active === true ? null : days(-3),
+  revoked_by: active === true ? null : me,
+  ...(active === true ? {} : { revoke_reason: 'Contract ended' }),
 }));
 
 const answers: Readonly<Record<string, () => unknown>> = {
@@ -292,6 +376,7 @@ const answers: Readonly<Record<string, () => unknown>> = {
         stage: 'freeze',
         legal_hold: false,
       },
+      releasedOffboarding,
     ],
     next: null,
   }),
@@ -301,6 +386,36 @@ const answers: Readonly<Record<string, () => unknown>> = {
     outstanding: ['audit', 'identity-control', 'support'],
   }),
   '/v1/projections/consumers': () => ({ consumers, next: null }),
+  '/v1/projections/consumers/billing/dead-letters': () => ({
+    dead_letters: [deadLetter('billing')],
+    next: null,
+  }),
+  '/v1/projections/consumers/legacy-search/dead-letters': () => ({
+    dead_letters: [deadLetter('legacy-search', { lane: 'standard', authority_bearing: false })],
+    next: null,
+  }),
+  '/v1/projections/consumers/identity-control/dead-letters': () => ({ dead_letters: [], next: null }),
+  '/v1/projections/consumers/audit/dead-letters': () => ({ dead_letters: [], next: null }),
+  // A restore recorded this pause before the service served (ADR-ORG-003 §5.5).
+  '/v1/tenant-administration-pause': () => ({
+    paused: true,
+    pause_id: '0192f0e0-1313-7000-8000-000000001301',
+    reason: 'INC-12 restored from the 2026-10-18 backup',
+    actor_id: null,
+    correlation_id: null,
+    recorded_at: minutes(-50),
+  }),
+  [`/v1/tenants/${tenantId}/administrators`]: () => ({
+    grants: [administratorGrant(other, true, 2), administratorGrant(me, false, 1)],
+  }),
+  '/v1/provider-grants': () => ({ grants: providerGrants }),
+  [`/v1/offboardings/${releasedOffboardingId}`]: () => releasedOffboarding,
+  [`/v1/offboardings/${releasedOffboardingId}/obligations`]: () => ({
+    obligations: obligations
+      .filter((obligation) => obligation.state === 'completed' || obligation.state === 'waived')
+      .map((obligation) => ({ ...obligation, offboarding_id: releasedOffboardingId })),
+    outstanding: [],
+  }),
   '/v1/privileged-access:unreviewed': () => ({
     review_due_days: 7,
     actors: [

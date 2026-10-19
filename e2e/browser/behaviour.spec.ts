@@ -123,6 +123,44 @@ for (const theme of themes) {
     await expect(unresolved.getByRole('button', { name: 'Retry provisioning' })).toHaveCount(0);
   });
 
+  // TDD-organization-experience-002 1.7.0 and -003 1.5.0: the first administrator is the forward step
+  // after Activate, drawn as primary; sending a failed deprovisioning again removes infrastructure, and
+  // is drawn as danger. Each asks in place, naming its Tenant.
+  test(`a Tenant's first administrator is granted, and a failed deprovisioning sent again, each asking first, ${theme}`, async ({
+    page,
+    baseURL,
+  }) => {
+    await open(page, baseURL ?? '', 'provider-mode', theme, '/tenants');
+    const row = page.getByRole('listitem').filter({ hasText: 'Acme Retail' });
+    await row.getByRole('button', { name: 'Administrators' }).click();
+    await expect(row.getByRole('button', { name: 'Grant administrator' })).toHaveAttribute(
+      'data-variant',
+      'primary',
+    );
+    await row.getByRole('button', { name: 'Grant administrator' }).click();
+    await expect(row.getByRole('form', { name: 'Grant administrator' })).toContainText('Tenant Acme Retail');
+    await expect(
+      page
+        .getByRole('listitem')
+        .filter({ hasText: 'Eta Mobility' })
+        .getByRole('button', { name: 'Administrators' }),
+    ).toHaveCount(0);
+
+    await open(
+      page,
+      baseURL ?? '',
+      'provider-mode',
+      theme,
+      '/offboardings/0192f0e0-bbbb-7000-8000-00000000b003',
+    );
+    const resend = page.getByRole('button', { name: 'Send deprovisioning again' });
+    await expect(resend).toHaveAttribute('data-variant', 'danger');
+    await resend.click();
+    const confirm = page.getByRole('form', { name: 'Send deprovisioning again' });
+    await expect(confirm).toHaveAttribute('data-tone', 'danger');
+    await expect(confirm).toContainText('In Tenant Theta Media');
+  });
+
   test(`a destructive action is drawn apart, and asks before it acts, ${theme}`, async ({
     page,
     baseURL,

@@ -178,6 +178,21 @@ from the console stayed `requested` ("Awaiting provisioning") and could never be
   - Unit tests, and the fixture-backed browser tests with screenshots and axe-core for both forms.
   - §Operator Transitions in TDD-organization-experience-002 1.6.0, and its test over
     `tenantTransitions.ts`.
+- ✅ **Every operator transition of every machine shown has an action (TDD-organization-experience-002
+  1.7.0, TDD-organization-experience-003 1.5.0).** An audit on 2026-10-19 (organization-control
+  `fd935f8`, this repository `fda907d`) found transitions an operator drives with no trigger.
+  - Tenant administrators on the Tenants page: the list, Grant administrator, which also grants the
+    first Membership, and Revoke administrator (ADR-ORG-003). This is what makes an active Tenant usable.
+  - Send deprovisioning again on a failed deprovisioning; `unresolved` has its own sentence and no
+    control.
+  - Projection health: a consumer's dead letters, with Replay, Resolve as replayed or superseded and
+    Waive; Retire consumer; the Tenant-administration pause, shown, paused and lifted.
+  - Provider grants in the Access review area: eligible or emergency, granted and revoked (ADR-ORG-002).
+  - The transitions only another party drives (the provisioning system, a domain, a sweep) name why
+    the console offers none, and the development server's stand-ins in organization-control.
+  - `transitions.ts` holds the tables of eight machines, and `transitions.test.ts` fails on an edge
+    without a row, an operator row without an action, or a disagreement with the designs.
+  - Unit tests, and the fixture-backed browser tests with screenshots and axe-core for each new form.
 
 ## Week 4 · Bulk, freshness, and offboarding
 

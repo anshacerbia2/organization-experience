@@ -183,6 +183,10 @@ export interface ActionProps<T> {
   // tone is how the action is drawn: danger for one that takes access or a record away, primary for
   // the one a page is for, secondary otherwise (TDD-organization-experience-001 §Visual Language).
   readonly tone?: ButtonVariant;
+  // reasonField, when set, also sends the operator's reason in the body under this name, for a command
+  // whose record keeps a reason of its own, such as a dead letter's waiver (TDD-organization-experience-002
+  // 1.7.0). The header carries it too, as the access record's.
+  readonly reasonField?: string;
 }
 
 // Action runs one command under the mutation contract: an idempotency key per distinct request, the
@@ -198,6 +202,7 @@ export function Action<T>({
   invalidates,
   onDone,
   tone = 'secondary',
+  reasonField,
 }: ActionProps<T>): ReactElement {
   const session = useSignedIn();
   const client = useQueryClient();
@@ -209,7 +214,7 @@ export function Action<T>({
   const [submitted, setSubmitted] = useState(false);
   const mutation = useMutation({
     mutationFn: (sent: { reason: string }) =>
-      apiCommand<T>(path, body, {
+      apiCommand<T>(path, reasonField === undefined ? body : { ...body, [reasonField]: sent.reason }, {
         csrfToken: session.csrfToken,
         idempotencyKey: keyFor({ path, body, reason: sent.reason }),
         reason: sent.reason,

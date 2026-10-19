@@ -22,6 +22,7 @@ import {
   StatusPill,
 } from '../ui';
 import { Action, Field, formatTime, ListState, LoadMore, usePagedList } from './common';
+import { ProviderGrants } from './grants';
 
 // The provider-access review (TDD-organization-experience-002 1.5.0, ADR-ORG-002 §5.6). A provider in
 // force reads who has provider access no review covers, reads one Principal's accesses over a period,
@@ -256,6 +257,7 @@ export function AccessReviewPage(): ReactElement {
           own={selected === session.principalId}
         />
       )}
+      <ProviderGrants />
     </Page>
   );
 }
