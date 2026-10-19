@@ -319,6 +319,38 @@ Activation is a deliberate action, not an automatic consequence of provisioning
 succeeding. The interface shows the gate and who may pass it, matching the explicit
 `:activate` transition in `TDD-organization-control-003`.
 
+### Operator Transitions (1.6.0)
+
+Rendering each state honestly (above) did not make each state reachable. Until 1.6.0 a Tenant
+requested here could not leave `requested`: no action sent the dispatch, and none sent the retry the
+table above promised. This table closes that class of gap. It lists every transition of
+`TDD-organization-control-003` §Tenant State Machine, creation included, who drives it, the route,
+and the console's action for it, or `None` with the reason.
+
+| From | To | Driven by | Route | Console action |
+| :-- | :-- | :-- | :-- | :-- |
+| `new` | `requested` | operator | `POST /v1/tenants` | Request tenant |
+| `requested` | `provisioning` | operator | `POST /v1/tenants/{id}/provisioning` | Start provisioning |
+| `provisioning` | `failed` | provisioning system | `POST /v1/provisioning/failed` | None: the provisioning system reports it. On a development server, organization-control's `scripts/dev-provisioning.ps1` |
+| `failed` | `provisioning` | operator | `POST /v1/tenants/{id}/provisioning` | Retry provisioning |
+| `provisioning` | `active` | operator | `POST /v1/tenants/{id}/activate` | Activate |
+| `active` | `suspended` | operator | `POST /v1/tenants/{id}/suspend` | Suspend |
+| `suspended` | `active` | operator | `POST /v1/tenants/{id}/restore` | Restore |
+| `active` | `offboarding` | operator | `POST /v1/offboardings` | Begin offboarding |
+| `suspended` | `offboarding` | operator | `POST /v1/offboardings` | Begin offboarding |
+| `offboarding` | `active` | operator | `POST /v1/offboardings/{id}/cancel` | Cancel this offboarding |
+| `offboarding` | `suspended` | operator | `POST /v1/offboardings/{id}/cancel` | Cancel this offboarding |
+| `offboarding` | `retired` | operator | `POST /v1/offboardings/{id}/retire` | Retire |
+
+- The first seven actions are on the Tenants page. Begin offboarding is on the Tenants page too; the
+  cancellation and the retirement are on the offboarding's page (`TDD-organization-experience-003`).
+- A provisioning system's realized report changes the request, not the Tenant's status, unless it
+  arrives before the dispatch; then it moves `requested -> provisioning` itself
+  (`TDD-organization-control-003` §Provisioning Correlation). The console does not report outcomes.
+- `apps/admin/src/features/tenantTransitions.ts` holds the same table as code, and its test fails
+  when the machine has an edge with no row, when an operator row names no action, or when this table
+  and the code disagree (§Testing Strategy).
+
 ### Membership Grant Has Two Paths
 
 ```text
@@ -429,6 +461,10 @@ An `extra` reconciliation finding renders as a security finding, matching how
   confirmation in the row naming the Tenant, sending `expected_version`, an `Idempotency-Key` and the
   reason to `POST /api/v1/tenants/{id}/provisioning`. No other state offers either (1.6.0).
 - Every provisioning state shows its correlation identifier (1.6.0).
+- Every transition of `TDD-organization-control-003` §Tenant State Machine has a row in
+  §Operator Transitions, and every operator-driven row names its action. A test over
+  `tenantTransitions.ts` fails on a missing row, a missing action, or a row that disagrees with the
+  table in this document (1.6.0).
 - The fixture-backed browser tests render a `requested` Tenant with an `unresolved` request and open
   Start provisioning, in both themes, with a screenshot and axe-core's WCAG 2.2 A and AA rules (1.6.0).
 - Membership cannot be granted into a Tenant that is not `active`, and the control is
