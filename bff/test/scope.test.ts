@@ -388,3 +388,73 @@ describe('provider mode', () => {
     expect((await post(session, '/auth/scope/provider', window)).statusCode).toBe(403);
   });
 });
+
+// TDD-organization-experience-001 1.10.0: accepting an invitation is a self command (ADR-ORG-007
+// §5.1), forwarded on the person's own session, with no Tenant, and carrying nothing of a window.
+describe('invitation acceptance', () => {
+  const token = 'aW52aXRhdGlvbi10b2tlbi0yNTYtYml0cy1vZi1yYW5kb20';
+
+  async function accept(session: string, key = 'key-accept-1', url = '/api/v1/invitations/accept') {
+    const { csrfToken } = await sessionOf(harness, session);
+    return harness.app.inject({
+      method: 'POST',
+      url,
+      cookies: cookies(session),
+      headers: {
+        origin: publicOrigin,
+        'x-csrf-token': csrfToken ?? '',
+        'content-type': 'application/json',
+        'idempotency-key': key,
+      },
+      payload: JSON.stringify({ token }),
+    });
+  }
+
+  it('reaches the API from a sign-in with no Tenant, the token in the body and the key forwarded', async () => {
+    routes.set(
+      'POST /v1/invitations/accept',
+      json(200, { invitation: { tenant_id: tenantA, state: 'accepted' }, membership: { membership: {} } }),
+    );
+    const { session } = await signIn(harness);
+    const response = await accept(session);
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toMatchObject({ invitation: { tenant_id: tenantA, state: 'accepted' } });
+    const forwarded = harness.upstream.last();
+    expect(forwarded.url).toBe('/v1/invitations/accept');
+    expect(JSON.parse(forwarded.body)).toEqual({ token });
+    expect(forwarded.headers['idempotency-key']).toBe('key-accept-1');
+    expect(forwarded.headers['x-administrative-reason']).toBeUndefined();
+    expect(forwarded.headers['x-correlation-id']).toBeUndefined();
+  });
+
+  it('reaches the API from a Tenant sign-in as well', async () => {
+    routes.set('POST /v1/invitations/accept', json(200, { invitation: { tenant_id: tenantB } }));
+    const { session } = await signIn(harness, { user: member, tenant: tenantA });
+    expect((await accept(session)).statusCode).toBe(200);
+    expect(harness.upstream.last().url).toBe('/v1/invitations/accept');
+  });
+
+  it('passes a refusal on once, as the API wrote it, and never sends it again', async () => {
+    routes.set('POST /v1/invitations/accept', {
+      status: 404,
+      headers: { 'content-type': 'application/problem+json' },
+      body: JSON.stringify({ type: 'https://problems.scnehaux.com/not-found', detail: 'not found' }),
+    });
+    const { session } = await signIn(harness);
+    const before = harness.upstream.received.length;
+    const refused = await accept(session);
+    expect(refused.statusCode).toBe(404);
+    expect(refused.json()).toMatchObject({ type: 'https://problems.scnehaux.com/not-found' });
+    expect(harness.upstream.received.length).toBe(before + 1);
+  });
+
+  it('refuses the token in a query, and any other method, before it leaves the BFF', async () => {
+    const { session } = await signIn(harness);
+    const before = harness.upstream.received.length;
+    expect((await accept(session, 'key-2', `/api/v1/invitations/accept?token=${token}`)).statusCode).toBe(
+      403,
+    );
+    expect((await get(session, '/api/v1/invitations/accept')).statusCode).toBe(403);
+    expect(harness.upstream.received.length).toBe(before);
+  });
+});

@@ -67,7 +67,6 @@ describe('Tenant scope', () => {
       `/v1/tenants/${tenantA}/suspend`,
       '/v1/organizations',
       '/v1/provider-activations',
-      '/v1/invitations/verify-identity',
       '/v1/invitations/expire-lapsed',
       '/v1/membershipsx',
       '/v1/membership-batchesx',
@@ -262,5 +261,45 @@ describe('own contexts (ADR-ORG-005)', () => {
     expect(
       guard(tenantScope, request(`/v1/principals/${me}/contexts`, { principalId: null }), now).allowed,
     ).toBe(false);
+  });
+});
+
+// TDD-organization-experience-001 1.10.0: the acceptance of an invitation is a self command
+// (ADR-ORG-007 §5.1), reached in every scope like the own contexts, and carrying nothing of a window.
+describe('invitation acceptance (ADR-ORG-007)', () => {
+  const accept = post('/v1/invitations/accept', { token: 'secret-token' });
+
+  it('is reached in every scope, with no window reason or correlation', () => {
+    for (const scope of [
+      tenantScope,
+      providerScope(null),
+      providerScope(window({ endsAt: null })),
+      providerScope(window()),
+      providerScope(window({ endsAt: new Date(now.getTime() - 1) })),
+    ]) {
+      expect(guard(scope, accept, now)).toEqual({ allowed: true, headers: {} });
+    }
+  });
+
+  it('is that method at that exact path alone, never with a query', () => {
+    expect(guard(providerScope(null), { ...accept, method: 'GET' }, now).allowed).toBe(false);
+    expect(
+      guard(providerScope(null), { ...accept, path: '/v1/invitations/accept?token=secret-token' }, now)
+        .allowed,
+    ).toBe(false);
+    expect(guard(providerScope(null), { ...accept, path: '/v1/invitations/accept/x' }, now).allowed).toBe(
+      false,
+    );
+    expect(guard(providerScope(null), { ...accept, principalId: null }, now).allowed).toBe(false);
+    expect(
+      guard(tenantScope, { ...accept, path: '/v1/invitations/accept?token=secret-token' }, now).allowed,
+    ).toBe(false);
+    expect(guard(tenantScope, { ...accept, method: 'GET' }, now).allowed).toBe(false);
+  });
+
+  it('leaves the other invitation routes to their scopes', () => {
+    expect(guard(providerScope(null), post('/v1/invitations', {}), now).allowed).toBe(false);
+    expect(guard(tenantScope, post('/v1/invitations/expire-lapsed', {}), now).allowed).toBe(false);
+    expect(guard(tenantScope, post('/v1/invitations', {}), now).allowed).toBe(true);
   });
 });

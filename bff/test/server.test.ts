@@ -199,6 +199,16 @@ describe('the one application', () => {
       expect(response.headers['cache-control'], url).toBe('no-store');
     }
   });
+
+  // TDD-organization-experience-002 1.8.0: the invitation acceptance page is reached by a link that
+  // carries its token in the fragment, so its response sends no referrer anywhere (ADR-ORG-007 §5.5).
+  it('serves the invitation acceptance page with Referrer-Policy: no-referrer, never cached', async () => {
+    const response = await app.inject({ method: 'GET', url: '/invitations/accept', headers: page });
+    expect(response.statusCode).toBe(200);
+    expect(response.body).toContain('<title>shell</title>');
+    expect(response.headers['referrer-policy']).toBe('no-referrer');
+    expect(response.headers['cache-control']).toBe('no-store');
+  });
 });
 
 describe('configuration', () => {

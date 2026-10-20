@@ -3,7 +3,7 @@ doc_meta:
   id: TDD-organization-experience-002
   title: Organization, Tenant, Workspace, and Membership Administration Surfaces
   owner: Core Platform Team
-  version: 1.7.0
+  version: 1.8.0
   status: approved
   classification: restricted
   review_cycle_days: 90
@@ -32,7 +32,8 @@ interface or it will be misread.
 - Organization registry and external reference presentation.
 - Tenant lifecycle, including the states between request and active.
 - Workspace administration within one Tenant.
-- Membership grant, suspend, revoke, restore, and the invitation path.
+- Membership grant, suspend, revoke, restore, and the invitation path, through its acceptance by
+  the invited person (1.8.0).
 - Context switching for operators holding many Memberships.
 - Projection consumer health.
 - The provider-access review, and a Tenant's read of the provider access to it (1.5.0).
@@ -57,7 +58,7 @@ error each time: an operator believing something is finished when it is not.
 | :-- | :-- | :-- |
 | Tenant `requested` and `provisioning` | "Creating…" | The Tenant is not usable and Membership cannot be granted into it |
 | Provisioning `unresolved` | "Failed" | The outcome is unknown; retrying may provision twice |
-| Membership granted by invitation | "Granted" | Nothing exists until identity is verified |
+| Membership granted by invitation | "Granted" | Nothing exists until the invited person accepts, signed in as themselves (1.8.0) |
 
 Each is rendered as its own state here, with the consequence stated.
 
@@ -68,7 +69,8 @@ Each is rendered as its own state here, with the consequence stated.
 | `OrganizationRegistry` | Organization list, detail, external references, relationships |
 | `TenantLifecyclePanel` | State, provisioning correlation, activation gate, and the Tenant's administrators (1.7.0) |
 | `WorkspaceManager` | Workspace list and lifecycle within one Tenant |
-| `MembershipAdmin` | Grant, suspend, revoke, restore, and the invitation path |
+| `MembershipAdmin` | Grant, suspend, revoke, restore, and the invitation path, with the acceptance link shown once (1.8.0) |
+| `InvitationAcceptance` | The page where an invited person, signed in as themselves, accepts (1.8.0) |
 | `ContextSwitcher` | Operator's eligible contexts and the switch |
 | `ProjectionHealth` | Consumer registry, freshness, reconciliation status; a consumer's dead letters and their resolution, its retirement, and the Tenant-administration pause (1.7.0) |
 | `AccessReview` | Provider access no one has reviewed, one provider's access over a period, and the review recorded (1.5.0); the provider grants, granted and revoked (1.7.0) |
@@ -381,9 +383,98 @@ and names its target there.
 - **No disabled controls.** An action the API would refuse in a state is not drawn in that state; the
   state's own words say what is possible instead (1.6.0, [R1]).
 
+**Accepting an invitation (1.8.0).** Until 1.8.0 no invitation could be accepted. Acceptance needed a
+token for the Tenant, which the invitee is not a member of, and nothing verified the invitee
+(`ADR-ORG-007 §3`). `ADR-ORG-007` makes acceptance a self command: the invited person accepts, signed
+in as themselves, and Organization Control checks that they hold the invited address, proven. This
+surface shows the link once, and serves the page where it is accepted.
+
+```text
+Tenant scope
+POST  /api/v1/invitations          {"target_identifier", "subject_type", "ttl_seconds"}   answers {"invitation", "token"}
+
+Any signed-in person, with or without a Tenant: a self command (ADR-ORG-007 §5.1)
+POST  /api/v1/invitations/accept   {"token"}                                              answers {"invitation", "membership"}
+```
+
+- **The link, shown once.** When an invitation is issued, the page builds
+  `https://<this origin>/invitations/accept#<token>` and shows it with a Copy link control.
+  - **The token is in the fragment only.** The fragment "is separated from the rest of the URI prior
+    to a dereference" [R3], so no server receives it when the link is opened, this BFF included.
+  - **It is never stored.** It is held in the page's memory until the administrator chooses Done or
+    leaves the page. It is never sent back to the BFF, and never written to the session, to local
+    storage or to a log. It is never shown again: the list carries no token, and the API keeps only
+    its digest.
+  - **On a development server the administrator relays it.** Nothing delivers the link there
+    (`ADR-ORG-007 §5.5`). The panel says so: the administrator sends it to the person by a channel of
+    their own, and a lost link is revoked and issued again.
+  - **Copying** uses the Clipboard API, which "can only be done in a secure context" [R5]. Where it is
+    refused, the page says so, and the link stays selectable to copy by hand.
+  - **In production the Notification Platform delivers it** to the invited address, and the
+    administrator never handles it (`ADR-ORG-007 §5.5`, a production gate). The panel goes when that
+    delivery is built.
+- **The acceptance page, `/invitations/accept`.** Any signed-in person reaches it, with no Tenant and
+  in no particular scope. It stands alone, on the canvas of the signed-out entry, without the
+  administration frame: the person accepting is often no administrator at all.
+  - **The token leaves the address bar first.** The page's script reads it from `location.hash`,
+    moves it to session storage, and removes the fragment with `history.replaceState`, which "modifies
+    the current history entry" [R6] without loading anything. No later link, reload or sign-in
+    `return_to` carries it.
+  - **Across a sign-in.** A person who is not signed in is asked to sign in without choosing a Tenant,
+    since they are not a member yet (`ADR-ORG-007 §5.6`). The token waits in session storage, which "is
+    partitioned by both origin and browser tabs", and closing the tab "clears the data" [R4]. It is
+    never in a URL the BFF sees. The sign-in returns to `/invitations/accept`, and the page resumes.
+    Anywhere else in the application, a token waiting in the tab is offered as "continue to your
+    invitation", so a sign-in that landed elsewhere is not a lost invitation.
+  - **Before acceptance** the page says that the person has been invited to join a Tenant, who they
+    are signed in as, and that only the person whose proven address the invitation was sent to can
+    accept it. It names no Tenant. Before acceptance Organization Control discloses nothing about the
+    invitation (SAD-004 §5.5, `ADR-ORG-007 §5.4`), and the page reads nothing to find out.
+  - **Accept** sends the token in the body of `POST /api/v1/invitations/accept`, with an
+    `Idempotency-Key` and the session's CSRF token. The BFF forwards the person's own session, with
+    or without a Tenant, and its scope guard admits the route as a self command, carrying nothing of
+    a provider window (`TDD-organization-experience-001` 1.10.0 §The Scope Guard).
+  - **After acceptance** the page names the Tenant joined, from the person's own contexts by the
+    invitation's `tenant_id` (`ADR-ORG-005`), and offers to open it. Opening it is a sign-in for that
+    Tenant (`ADR-IAM-006 §5.2`), as an entry of the context switcher is.
+  - **Each answer says what to do next:**
+
+| Answer | The page says | The token in the tab |
+| :-- | :-- | :-- |
+| `200` | You joined the Tenant, named, with Open it | Forgotten |
+| `404` | This invitation cannot be accepted. It may have expired, been revoked or been used already, or it was sent to an email address your account has not proven. Ask whoever invited you. If it was sent to your address, prove that address in your account first, then open the link again | Forgotten |
+| `409` | You could not join: the Tenant is not active, or you already hold this Membership, with the API's sentence | Forgotten |
+| `503`, or no answer | Organization Control could not check the invitation. Nothing changed. Try again later, with Try again | Kept |
+| `400` | The link is incomplete. Open it exactly as you received it, or ask for it again | Forgotten |
+| `401` | The session ended: sign in again, and the page resumes | Kept |
+
+  - **One sentence for every `404`.** The API answers one refusal for an unknown, expired, revoked,
+    used or mismatched token (`ADR-ORG-007 §5.4`), so the page cannot tell them apart and does not
+    try.
+  - **Nothing is sent again behind the person's back.** Neither the page nor the BFF retries a refused
+    acceptance (`ADR-ORG-007 §6`). Try again, after a `503`, is the person's own, and it resends the
+    same request with the same `Idempotency-Key`.
+  - **`Referrer-Policy: no-referrer`.** OWASP asks a page reached by a URL token to add "the Referrer
+    Policy tag with the no-referrer value" [R2]. The BFF's pattern sets that header on every response
+    (`TDD-identity-experience-001` §Security Headers), the page's included, so nothing is added here,
+    and a test holds it on this page.
+  - **The account application is named in words.** This application holds no link to
+    identity-experience's account application, so the `404` sentence names it and links nothing.
+  - **Not yet: a person without an account.** `ADR-IAM-011`, proposed, would let an invitee with no
+    account enrol from the invitation. Until it is accepted and built the page offers no such path,
+    and a provider creates the person first (`ADR-ORG-007 §5.7`).
+- **The invitation states.** `identity_verified` is gone (`ADR-ORG-007 §5.4`). An invitation is
+  `pending`, `accepted`, `expired` or `revoked`. The filter and the labels lose it, and a pending
+  invitation reads "nothing is granted until the invited person accepts, signed in as themselves".
+
 | # | Source |
 | :-- | :-- |
 | R1 | GOV.UK Design System, *Button*, "Disabled buttons", <https://design-system.service.gov.uk/components/button/>, accessed 2026-10-19: "Disabled buttons have poor contrast and can confuse some users, so avoid them if possible." |
+| R2 | OWASP, *Forgot Password Cheat Sheet*, §URL Tokens, <https://cheatsheetseries.owasp.org/cheatsheets/Forgot_Password_Cheat_Sheet.html>, accessed 2026-10-19 (as ADR-ORG-007 [R7] quotes it): "Ensure that the reset password page adds the Referrer Policy tag with the no-referrer value"; tokens are "Single use and expire after an appropriate period." (1.8.0) |
+| R3 | IETF, RFC 3986, *Uniform Resource Identifier (URI): Generic Syntax*, §3.5 Fragment, <https://www.rfc-editor.org/rfc/rfc3986#section-3.5>, accessed 2026-10-19: "the fragment identifier is not used in the scheme-specific processing of a URI; instead, the fragment identifier is separated from the rest of the URI prior to a dereference" (1.8.0) |
+| R4 | MDN, *Window: sessionStorage property*, <https://developer.mozilla.org/en-US/docs/Web/API/Window/sessionStorage>, accessed 2026-10-19: "while localStorage is partitioned by origin only, sessionStorage is partitioned by both origin and browser tabs (top-level browsing contexts)."; "A page session lasts as long as the tab or the browser is open, and survives over page reloads and restores."; "Closing the tab/window ends the session and clears the data in sessionStorage." (1.8.0) |
+| R5 | MDN, *Clipboard: writeText() method*, <https://developer.mozilla.org/en-US/docs/Web/API/Clipboard/writeText>, accessed 2026-10-19: "Writing to the clipboard can only be done in a secure context." (1.8.0) |
+| R6 | MDN, *History: replaceState() method*, <https://developer.mozilla.org/en-US/docs/Web/API/History/replaceState>, accessed 2026-10-19: "The replaceState() method of the History interface modifies the current history entry, replacing it with the state object and URL passed in the method parameters."; "The new URL must be of the same origin as the current URL" (1.8.0) |
 
 ## Algorithms / Logic
 
@@ -507,14 +598,14 @@ The first grant of a database is the bootstrap command's (`bootstrap-provider`, 
 
 ```text
 direct grant     the Principal already exists; Membership is created immediately
-invitation       the Principal may not exist; Membership exists only after
-                 identity verification completes
+invitation       Membership exists only once the invited person accepts, signed in
+                 as themselves, holding the invited address proven (1.8.0)
 ```
 
-The invitation path renders as pending until both facts hold. It never renders as
-"granted" on send, because `TDD-organization-control-004` is explicit that possession
-of an invitation proves nothing and Membership activates on the join of two independent
-facts.
+The invitation path renders as pending until it is accepted. It never renders as
+"granted" on send, because possession of an invitation proves nothing (SAD-004 §5.5). Until
+1.8.0 the join was of two facts recorded apart, a verification and an acceptance. `ADR-ORG-007`
+checks both in the one acceptance, so the pending state is the only one before `accepted`.
 
 A pending invitation shows its expiry as a countdown. An invitation that expires
 unaccepted is a common outcome and the administrator who sent it is the only person who
@@ -634,6 +725,20 @@ An `extra` reconciliation finding renders as a security finding, matching how
 - A sent invitation renders as pending, never as granted.
 - Expiry renders as a countdown.
 - An expired invitation renders as expired without an accept control.
+- No state filter or label names `identity_verified` (1.8.0).
+- Issuing shows `https://<origin>/invitations/accept#<token>` once, with Copy link and the sentence
+  that the administrator sends it; Done removes it, and nothing else shows the token again (1.8.0).
+- The acceptance page takes the token from the fragment, clears the fragment from the address bar,
+  and sends the token only in the body of `POST /api/v1/invitations/accept`, with an
+  `Idempotency-Key` and the CSRF token. No request the page makes carries it in a URL (1.8.0).
+- Signed out, the page keeps the token in session storage, offers a sign-in with no Tenant that
+  returns to `/invitations/accept`, and resumes after it (1.8.0).
+- A success names the Tenant from the person's contexts and offers its sign-in; `404`, `409`, `503`
+  and `400` each render their own sentence; the token is forgotten after `200`, `404`, `409` and
+  `400` and kept after `503` (1.8.0).
+- The page response carries `Referrer-Policy: no-referrer` (1.8.0).
+- The fixture-backed browser tests show the issued link, and the page accepted, refused and
+  unavailable, in both themes, with a screenshot and axe-core's WCAG 2.2 A and AA rules (1.8.0).
 
 ### Refusals
 
@@ -711,7 +816,10 @@ investigation.
 | Conforms to | `TDD-identity-experience-001` — BFF session and containment |
 | Conforms to | STD-IAM-001 §3.3 — the Membership set is never placed in a token |
 | Depends on | `TDD-organization-control-003` — Tenant, Organization, and Workspace lifecycle |
-| Depends on | `TDD-organization-control-004` — the invitation join |
+| Depends on | `TDD-organization-control-004` — the invitation join, and from `ADR-ORG-007` acceptance as a self command (1.8.0) |
+| Governed by | ADR-ORG-007 §5.5, §5.6 — the link shown once on issue, and the acceptance page for a person with no Tenant (1.8.0) |
+| Governed by | ADR-ORG-005 — the person's own contexts, which name the Tenant joined (1.8.0) |
+| Governed by | ADR-IAM-006 §5.2 — opening the Tenant joined is a sign-in for it (1.8.0) |
 | Depends on | `TDD-organization-control-002` — Membership, revocation, projection health |
 | Depends on | `TDD-organization-control-002` 1.13.0 §The Consumer List — the consumer's last reconciliation and its age (1.4.0) |
 | Conforms to | STD-GLB-001 §Pagination — keyset paging, no offsets (1.2.0) |

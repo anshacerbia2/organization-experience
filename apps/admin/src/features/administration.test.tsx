@@ -308,7 +308,7 @@ describe('invitations', () => {
     );
     render(<App />);
     const pending = (await screen.findByText('inv-1')).closest('li');
-    expect(pending).toHaveTextContent('nothing is granted until the invitee is verified');
+    expect(pending).toHaveTextContent('nothing is granted until the invited person accepts');
     expect(pending).toHaveTextContent(/expires in 2:59:\d\d|expires in 3:00:00/);
     const expired = screen.getByText('inv-2').closest('li');
     expect(expired).toHaveTextContent('expired');

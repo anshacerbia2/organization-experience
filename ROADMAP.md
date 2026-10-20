@@ -153,7 +153,7 @@ from the console stayed `requested` ("Awaiting provisioning") and could never be
   is beside it, and nothing is retried.
 - ✅ **Lifecycle rendered honestly.**
   - Each Tenant state carries its own consequence, and activation is an explicit step.
-  - An invitation is pending, granting nothing, with its countdown.
+  - An invitation is pending, granting nothing until the invited person accepts, with its countdown.
   - A revocation is accepted, with its time, and never shown as enforced.
   - Irreversible actions name their scope in the confirmation, and retirement needs the name
     typed.
@@ -193,6 +193,27 @@ from the console stayed `requested` ("Awaiting provisioning") and could never be
   - `transitions.ts` holds the tables of eight machines, and `transitions.test.ts` fails on an edge
     without a row, an operator row without an action, or a disagreement with the designs.
   - Unit tests, and the fixture-backed browser tests with screenshots and axe-core for each new form.
+- ✅ **An invitation can be accepted, by the person it names (TDD-organization-experience-002 1.8.0,
+  TDD-organization-experience-001 1.10.0, ADR-ORG-007).** Until now an invitation stayed `pending` until
+  it expired.
+  - **Issue shows the link once:** `/invitations/accept#<token>`, the token in the fragment only, with
+    Copy link. It is never stored, and the panel says the administrator sends it themselves on a
+    development server; a lost link is revoked and issued again.
+  - **The acceptance page,** `/invitations/accept`, for any signed-in person, no Tenant needed. It
+    clears the fragment from the address bar, keeps the token in the tab's session storage across a
+    sign-in, and sends it only in the body of `POST /v1/invitations/accept`. After acceptance it names
+    the Tenant from the person's own contexts and offers its sign-in. `404`, `409`, `503` and `400` each
+    have their own sentence.
+  - **The scope guard** admits the acceptance in every scope as a self command, like the own contexts,
+    and `verify-identity` leaves its provider-only list. `identity_verified` is gone from the states.
+  - Unit tests, BFF guard and proxy tests, and the fixture-backed browser tests with screenshots and
+    axe-core for the issued link and the page accepted, refused and unavailable.
+  - ⏳ **Works on a server once organization-control serves acceptance as a self command** and
+    identity-control serves the address match (`ADR-ORG-007 §5.8`). Until then the API refuses the
+    no-Tenant caller. A stack-proof journey for it waits on the same.
+  - ⏳ **A person without an account** waits on `ADR-IAM-011`, proposed. The page offers no such path.
+  - ⏳ **Production gate:** the Notification Platform delivers the link to the invited address, and the
+    shown-once panel goes (`ADR-ORG-007 §5.5`).
 
 ## Week 4 · Bulk, freshness, and offboarding
 

@@ -11,7 +11,14 @@ import path from 'node:path';
 import { AxeBuilder } from '@axe-core/playwright';
 import { expect, test, type Page } from '@playwright/test';
 
-import { offboardingId, releasedOffboardingId, type Persona } from './fixtures.ts';
+import {
+  betaTenant,
+  invitationToken,
+  me,
+  offboardingId,
+  releasedOffboardingId,
+  type Persona,
+} from './fixtures.ts';
 
 const wcagTags = ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa'];
 
@@ -24,7 +31,49 @@ interface Screen {
   // act, when set, opens what the page shows only on request: a confirmation, a review.
   readonly act?: (page: Page) => Promise<void>;
   readonly tablet?: boolean;
+  // commands, when set, are what the page's commands are answered with. The stand-in takes no command
+  // (serve.ts), so a screen that shows a command's outcome answers it here, in the browser.
+  readonly commands?: readonly Command[];
 }
+
+interface Command {
+  readonly path: string;
+  readonly status: number;
+  readonly body: unknown;
+}
+
+// The acceptance of an invitation (TDD-organization-experience-002 1.8.0), as the API answers it.
+const acceptPath = '/api/v1/invitations/accept';
+const acceptedInvitation = {
+  invitation: {
+    invitation_id: '0192f0e0-eeee-7000-8000-00000000e009',
+    tenant_id: betaTenant,
+    subject_type: 'human',
+    invited_by: '0199a1b2-c3d4-7e5f-8a9b-0c1d2e3f4bbb',
+    state: 'accepted',
+    correlation_id: '0199a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a77',
+    principal_id: me,
+    expires_at: new Date(Date.now() + 86_400_000).toISOString(),
+    created_at: new Date().toISOString(),
+    accepted_at: new Date().toISOString(),
+  },
+  membership: {
+    membership: { membership_id: 'm-2', status: 'active' },
+    accepted_at: new Date().toISOString(),
+  },
+};
+const acceptance = (name: string, status: number, body: unknown, shows: string): Screen => ({
+  name,
+  persona: 'provider',
+  path: `/invitations/accept#${invitationToken}`,
+  ready: (page) => page.getByText('You have been invited to join a Tenant.'),
+  commands: [{ path: acceptPath, status, body }],
+  act: async (page) => {
+    await page.getByRole('button', { name: 'Accept invitation' }).click();
+    await page.getByText(shows, { exact: false }).waitFor();
+  },
+  tablet: status === 200,
+});
 
 const screens: readonly Screen[] = [
   {
@@ -83,6 +132,56 @@ const screens: readonly Screen[] = [
     path: '/invitations',
     ready: (page) => page.getByText('0192f0e0-eeee-7000-8000-00000000e004'),
   },
+  // TDD-organization-experience-002 1.8.0: the acceptance link, shown once as the invitation is issued.
+  {
+    name: 'tenant-invitations-issued-link',
+    persona: 'tenant',
+    path: '/invitations',
+    ready: (page) => page.getByText('0192f0e0-eeee-7000-8000-00000000e004'),
+    commands: [
+      {
+        path: '/api/v1/invitations',
+        status: 201,
+        body: {
+          invitation: { invitation_id: '0192f0e0-eeee-7000-8000-00000000e009', state: 'pending' },
+          token: invitationToken,
+        },
+      },
+    ],
+    act: async (page) => {
+      await page.getByLabel('Invitee').fill('grace@example.com');
+      await page.getByRole('button', { name: 'Send invitation' }).click();
+      await page.getByRole('region', { name: 'The acceptance link, shown this once' }).waitFor();
+    },
+  },
+  // The acceptance page, signed in with no Tenant, before acceptance and after each answer; and
+  // signed out, where it asks for a sign-in first.
+  {
+    name: 'invitation-accept',
+    persona: 'provider',
+    path: `/invitations/accept#${invitationToken}`,
+    ready: (page) => page.getByRole('button', { name: 'Accept invitation' }),
+    tablet: true,
+  },
+  {
+    name: 'invitation-accept-signed-out',
+    persona: 'signed-out',
+    path: `/invitations/accept#${invitationToken}`,
+    ready: (page) => page.getByRole('button', { name: 'Sign in to accept' }),
+  },
+  acceptance('invitation-accepted', 200, acceptedInvitation, 'You joined Beta Logistics.'),
+  acceptance(
+    'invitation-refused',
+    404,
+    { type: 'https://problems.scnehaux.com/not-found', status: 404, detail: 'not found' },
+    'This invitation cannot be accepted.',
+  ),
+  acceptance(
+    'invitation-unavailable',
+    503,
+    { type: 'https://problems.scnehaux.com/dependency-unavailable', status: 503 },
+    'Nothing changed. Try again later.',
+  ),
   {
     name: 'tenant-provider-access',
     persona: 'tenant',
@@ -281,6 +380,22 @@ async function open(
       JSON.stringify({ theme }),
     )}); } catch {}`,
   });
+  for (const command of screen.commands ?? []) {
+    await page.route(
+      (url) => url.pathname === command.path,
+      async (route) => {
+        if (route.request().method() !== 'POST') {
+          await route.fallback();
+          return;
+        }
+        await route.fulfill({
+          status: command.status,
+          contentType: command.status >= 400 ? 'application/problem+json' : 'application/json',
+          body: JSON.stringify(command.body),
+        });
+      },
+    );
+  }
   await page.goto(screen.path);
   await expect(screen.ready(page).first()).toBeVisible();
   await expect(page.locator('[aria-busy="true"]')).toHaveCount(0);

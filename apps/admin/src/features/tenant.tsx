@@ -3,6 +3,7 @@ import { useState, type ReactElement } from 'react';
 
 import { apiCommand } from '../api/client';
 import { useIdempotencyKey } from '../api/idempotency';
+import { invitationLink } from '../invitationLink';
 import { messages } from '../messages';
 import { useSignedIn } from '../SessionContext';
 import { BulkMembershipAction } from './bulk';
@@ -60,7 +61,8 @@ export interface Invitation {
   readonly workspace_id?: string | null;
   readonly subject_type: string;
   readonly reason?: string | null;
-  readonly state: 'pending' | 'identity_verified' | 'accepted' | 'expired' | 'revoked';
+  // identity_verified is gone: ADR-ORG-007 §5.4 checks the address in the acceptance itself.
+  readonly state: 'pending' | 'accepted' | 'expired' | 'revoked';
   readonly expires_at: string;
   readonly created_at: string;
   readonly accepted_at?: string | null;
@@ -473,8 +475,63 @@ export function MembershipsPage({ tenantId }: { readonly tenantId: string }): Re
   );
 }
 
-const openInvitation = (state: Invitation['state']): boolean =>
-  state === 'pending' || state === 'identity_verified';
+const openInvitation = (state: Invitation['state']): boolean => state === 'pending';
+
+// IssuedLink shows the acceptance link once, as the invitation is issued (ADR-ORG-007 §5.5,
+// TDD-organization-experience-002 1.8.0). The token is in the link's fragment alone. It is held in
+// this component's state until Done or until the page is left, and never sent back to the BFF, stored,
+// or logged; the list never shows it again.
+function IssuedLink({
+  token,
+  onDone,
+}: {
+  readonly token: string;
+  readonly onDone: () => void;
+}): ReactElement {
+  const link = invitationLink(window.location.origin, token);
+  const [copied, setCopied] = useState<'not-yet' | 'copied' | 'refused'>('not-yet');
+  const copy = (): void => {
+    // The Clipboard API is a secure context's alone; where it is missing or refused, the link stays
+    // selectable.
+    const clipboard = typeof navigator.clipboard === 'undefined' ? null : navigator.clipboard;
+    if (clipboard === null) {
+      setCopied('refused');
+      return;
+    }
+    clipboard.writeText(link).then(
+      () => {
+        setCopied('copied');
+      },
+      () => {
+        setCopied('refused');
+      },
+    );
+  };
+  return (
+    <Panel.Root aria-labelledby="invitation-link-heading">
+      <Panel.Title level={3} id="invitation-link-heading">
+        {messages.invitationLinkTitle}
+      </Panel.Title>
+      <Notice tone="success" icon="key">
+        <p>{messages.invitationLinkSend}</p>
+        <p>{messages.invitationLinkOnce}</p>
+      </Notice>
+      <p className={layout.subtitle} id="invitation-link-label">
+        {messages.invitationLinkLabel}
+      </p>
+      <code className={layout.token}>{link}</code>
+      <div className={layout.actions}>
+        <Button onClick={copy}>{messages.copyLink}</Button>
+        <Button variant="secondary" onClick={onDone}>
+          {messages.invitationLinkDone}
+        </Button>
+      </div>
+      <p role="status">
+        {copied === 'copied' ? messages.linkCopied : copied === 'refused' ? messages.linkNotCopied : null}
+      </p>
+    </Panel.Root>
+  );
+}
 
 export function InvitationsPage(): ReactElement {
   const [state, setState] = useState('');
@@ -513,6 +570,8 @@ export function InvitationsPage(): ReactElement {
               {
                 onSuccess: (issued) => {
                   setToken(issued.token);
+                  // The token is the page's to show once, not the mutation cache's to keep.
+                  create.reset();
                 },
               },
             );
@@ -576,17 +635,20 @@ export function InvitationsPage(): ReactElement {
         </form>
       </Panel.Root>
       {token === null ? null : (
-        <Notice tone="success" icon="key" role="status">
-          <p>{messages.invitationToken}</p>
-          <code className={layout.token}>{token}</code>
-        </Notice>
+        <IssuedLink
+          token={token}
+          onDone={() => {
+            setToken(null);
+            create.reset();
+          }}
+        />
       )}
 
       <div className={layout.toolbar}>
         <StatusFilter
           label={messages.status}
           value={state}
-          options={['pending', 'identity_verified', 'accepted', 'expired', 'revoked']}
+          options={['pending', 'accepted', 'expired', 'revoked']}
           onChange={setState}
         />
       </div>

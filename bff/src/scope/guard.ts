@@ -28,10 +28,12 @@ export type GuardDecision =
   | { readonly allowed: false; readonly detail: string };
 
 // The routes a Tenant administrator reaches. None names a Tenant: the API takes it from the token.
-// Two invitation routes are the provider's, and stay out. Membership batches are the bulk actions,
-// tenant-scoped like the single transition (TDD-organization-control-002 §Membership Batches); they
-// are a sibling of /v1/memberships, not under it, so they are listed (1.4.0). /v1/provider-access is a
-// Tenant administrator's read of the provider access that named its Tenant (ADR-ORG-002 §5.6, 1.6.0).
+// One invitation route is the provider's, and stays out: the expiry sweep. verify-identity was the
+// other until ADR-ORG-007 §5.4 removed it (TDD-organization-experience-001 1.10.0). Membership
+// batches are the bulk actions, tenant-scoped like the single transition (TDD-organization-control-002
+// §Membership Batches); they are a sibling of /v1/memberships, not under it, so they are listed
+// (1.4.0). /v1/provider-access is a Tenant administrator's read of the provider access that named its
+// Tenant (ADR-ORG-002 §5.6, 1.6.0).
 const tenantRoutes = [
   '/v1/memberships',
   '/v1/membership-batches',
@@ -39,7 +41,7 @@ const tenantRoutes = [
   '/v1/invitations',
   '/v1/provider-access',
 ];
-const providerOnlyInvitationRoutes = ['/v1/invitations/verify-identity', '/v1/invitations/expire-lapsed'];
+const providerOnlyInvitationRoutes = ['/v1/invitations/expire-lapsed'];
 
 // The routes a provider reaches with no authority in force: the activation routes alone, as the API
 // admits an eligible caller (TDD-organization-control-001 §Provider Activation).
@@ -53,6 +55,13 @@ const ownContexts = (request: GuardRequest, path: string): boolean =>
   request.method === 'GET' &&
   request.principalId !== null &&
   path === `/v1/principals/${encodeURIComponent(request.principalId)}/contexts`;
+
+// acceptance is the other route every scope reaches: a person accepting an invitation for themselves
+// (ADR-ORG-007 §5.1). The API admits the caller with or without a Tenant and creates the Membership
+// for the caller's own Principal, so it is a self command, never a provider access. Exactly this path
+// and method: the token is in the body, never in a path or a query.
+const acceptance = (request: GuardRequest): boolean =>
+  request.method === 'POST' && request.principalId !== null && request.path === '/v1/invitations/accept';
 
 // namedTenants are the Tenants a request names: the identifier after /v1/tenants/ in its path, and
 // a tenant_id at the top of a JSON body. Those are the two places the API takes a Tenant from.
@@ -79,9 +88,17 @@ export function namedTenants(request: GuardRequest): string[] {
 export function guard(scope: ActiveScope, request: GuardRequest, now: Date): GuardDecision {
   const path = request.path.split('?')[0] ?? '';
 
-  // A self read is not a provider access: it carries no window reason or correlation.
-  if (ownContexts(request, path)) {
+  // A self read or a self command is not a provider access: it carries no window reason or correlation.
+  if (ownContexts(request, path) || acceptance(request)) {
     return { allowed: true, headers: {} };
+  }
+  // The invitation token is never in a query, in any scope: it would be in a URL this BFF and every
+  // log on the way read.
+  if (path === '/v1/invitations/accept') {
+    return {
+      allowed: false,
+      detail: 'An invitation is accepted with its token in the body, never in the URL.',
+    };
   }
 
   if (scope.kind === 'tenant') {

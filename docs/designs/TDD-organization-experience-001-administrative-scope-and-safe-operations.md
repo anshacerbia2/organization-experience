@@ -3,12 +3,12 @@ doc_meta:
   id: TDD-organization-experience-001
   title: Administrative Scope, Provider Mode, and Safe Bulk Operations
   owner: Core Platform Team
-  version: 1.9.0
+  version: 1.10.0
   status: approved
   classification: restricted
   review_cycle_days: 90
   created_date: 2026-08-11
-  last_reviewed: 2026-10-18
+  last_reviewed: 2026-10-19
   parent_sad: SAD-012
 ---
 
@@ -370,7 +370,7 @@ document naming the scope.
 
 | Active scope              | Reaches                                                                            |
 | :------------------------ | :--------------------------------------------------------------------------------- |
-| Tenant                    | `/v1/memberships…`, `/v1/membership-batches…`, `/v1/workspaces…`, `/v1/invitations…` except the provider-only invitation routes, and `/v1/provider-access` (1.6.0). No path names a Tenant, and the API takes the Tenant from the token |
+| Tenant                    | `/v1/memberships…`, `/v1/membership-batches…`, `/v1/workspaces…`, `/v1/invitations…` except the provider-only invitation route, `/v1/invitations/expire-lapsed` (1.10.0), and `/v1/provider-access` (1.6.0). No path names a Tenant, and the API takes the Tenant from the token |
 | Provider, no window       | `/v1/provider-activations…` alone, as the API admits an eligible caller              |
 | Provider, window pending  | The same                                                                           |
 | Provider, window in force | Every route, except a path or a JSON body naming a Tenant outside the window's targets |
@@ -391,6 +391,23 @@ A Tenant-scope request carries neither: the API records no privileged access for
 guard did not list it, so a bulk preview in a Tenant scope was refused before it left the BFF. The
 application's tests answer at `fetch` and never reached the guard, which is why the BFF now carries
 a bulk action through its own test (§Testing Strategy, End to End).
+
+**Two self routes, in every scope (1.10.0).** A person reaches two routes for themselves, whatever
+the scope, and neither carries anything of a provider window, because neither is a provider access:
+
+- `GET /v1/principals/{principal_id}/contexts`, the person's own contexts, for the session's own
+  Principal alone (`ADR-ORG-005`, 1.3.0);
+- `POST /v1/invitations/accept`, the acceptance of an invitation, exactly that path, with no query
+  (`ADR-ORG-007 §5.1`). The token is in the body, and the API admits the caller for themselves, with
+  or without a Tenant, and creates the Membership for the caller's own Principal. The BFF forwards
+  it on the person's own session, usually the no-Tenant sign-in the acceptance page asks for
+  (`TDD-organization-experience-002` 1.8.0), with the application's `Idempotency-Key`. A refused
+  acceptance is answered as the API answered it, and never sent again. Any other request to that path,
+  another method or a query, is refused in every scope: the token is never in a URL.
+
+`/v1/invitations/verify-identity` has left the provider-only list: `ADR-ORG-007 §5.4` removes the
+route. Under a Tenant session it would now reach the API, which serves no such route and answers
+`404`.
 
 **The provider access to a Tenant is a Tenant route (1.6.0).** `GET /v1/provider-access` is a Tenant
 administrator's read of the provider access that named its Tenant (`ADR-ORG-002 §5.6`,
@@ -547,6 +564,13 @@ Session, cookie, refresh, and client credential settings are inherited unchanged
   - a request in provider mode carries the window's reason and correlation identifier;
   - a window past `ends_at` reaches nothing but the activation routes;
   - leaving provider mode and signing out each end the activation.
+- 1.10.0:
+  - `POST /v1/invitations/accept` is reached in every scope, with no window header, and only by that
+    method at that exact path, with no query;
+  - through the BFF, a no-Tenant session's acceptance reaches the API with its token in the body and
+    its `Idempotency-Key`, and a refusal is answered once, never sent again;
+  - `/v1/invitations/expire-lapsed` stays refused in a Tenant scope, and `verify-identity` is no
+    longer listed.
 
 ### Bulk Operations
 
@@ -771,6 +795,7 @@ when its session store does not answer (1.5.0); the operator's steps are identit
 | Conforms to | STD-GLB-009 §Stack-Level Proofs — the browser journeys against the stack, in this repository's `stack-proof` workflow (1.7.0) |
 | Conforms to | STD-GLB-FE-008 §3.4 — Playwright in Chromium, one worker, no retry, the stack's certificate authority trusted (1.7.0) |
 | Conforms to | STD-GLB-FE-003 §3.5 — a sign-in is a navigation, never a form submitted to the BFF (1.7.0) |
+| Governed by | ADR-ORG-007 §5.1, §5.8 — invitation acceptance is a self command, and the guard's provider-only list loses `verify-identity` (1.10.0) |
 
 ### Standalone Operation
 

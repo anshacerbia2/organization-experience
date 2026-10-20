@@ -147,16 +147,59 @@ export const messages = {
   invitee: 'Invitee',
   inviteeHint: 'The address the invitation is for. It is stored only as a digest.',
   validForDays: 'Valid for days',
-  invitationToken:
-    'The invitation token, shown this once. Deliver it to the invitee; it grants nothing until their identity is verified.',
   noInvitations: 'No invitations match.',
   invitationState: (state: string): string =>
     state === 'pending'
-      ? 'pending: nothing is granted until the invitee is verified and accepts'
-      : state === 'identity_verified'
-        ? 'identity verified: awaiting acceptance'
-        : state.replace(/_/g, ' '),
+      ? 'pending: nothing is granted until the invited person accepts, signed in as themselves'
+      : state.replace(/_/g, ' '),
   expiresIn: 'expires in',
+
+  // The link, shown once when an invitation is issued (ADR-ORG-007 §5.5, TDD-organization-experience-002
+  // 1.8.0).
+  invitationLinkTitle: 'The acceptance link, shown this once',
+  invitationLinkSend:
+    'Nothing sends this link to the person on this server. Send it to them yourself, by a channel of your own. Only the person whose proven email address it was sent to can accept it, once, before it expires.',
+  invitationLinkOnce:
+    'It is not stored anywhere and is not shown again. If it is lost, revoke this invitation and send a new one.',
+  invitationLinkLabel: 'Acceptance link',
+  copyLink: 'Copy link',
+  linkCopied: 'Link copied.',
+  linkNotCopied: 'This browser did not allow copying. Select the link and copy it.',
+  invitationLinkDone: 'Done, I have sent it',
+
+  // The acceptance page (ADR-ORG-007 §5.6, TDD-organization-experience-002 1.8.0).
+  acceptTitle: 'Accept an invitation',
+  acceptInvited: 'You have been invited to join a Tenant.',
+  acceptNamedAfter:
+    'The Tenant is named once you have accepted: before that, the invitation discloses nothing about it.',
+  acceptWho:
+    'Only the person whose proven email address the invitation was sent to can accept it. Accepting makes you a member of the Tenant, as yourself.',
+  acceptSignedInAs: (who: string): string => `You are signed in as ${who}.`,
+  acceptSignIn: 'Sign in to accept',
+  acceptSignInWhy:
+    'Sign in as yourself, without choosing a Tenant: you are not a member yet. This page continues after you sign in.',
+  acceptAction: 'Accept invitation',
+  accepting: 'Accepting',
+  acceptNoToken:
+    'This page accepts an invitation from the link you were sent. Open that link again. If you no longer have it, ask whoever invited you to send a new invitation.',
+  acceptJoined: (tenant: string): string => `You joined ${tenant}.`,
+  acceptJoinedTenant: 'the Tenant',
+  acceptOpenTenant: (tenant: string): string => `Open ${tenant}`,
+  acceptOpenWhy: 'Opening it signs you in to that Tenant.',
+  acceptNotAcceptable:
+    'This invitation cannot be accepted. It may have expired, been revoked or been used already, or it was sent to an email address your account has not proven. Ask whoever invited you.',
+  acceptProveAddress:
+    'If it was sent to your address, prove that address first, in your account application, with the code it sends to that address. Then open the link again.',
+  acceptConflict: 'You could not join. The Tenant is not active, or you already hold this Membership.',
+  acceptUnavailable:
+    'Organization Control could not check your invitation just now. Nothing changed. Try again later.',
+  acceptTryAgain: 'Try again',
+  acceptMalformed:
+    'This link is incomplete. Open it exactly as you received it, or ask whoever invited you to send it again.',
+  acceptSessionEnded: 'Your session ended. Sign in again to accept.',
+  yourOverview: 'Go to your Tenants',
+  invitationWaiting: 'You have an invitation waiting in this tab.',
+  invitationContinue: 'Continue to your invitation',
 
   organizations: 'Organizations',
   createOrganization: 'Register organization',
