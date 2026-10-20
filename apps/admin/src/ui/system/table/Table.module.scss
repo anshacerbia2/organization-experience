@@ -9,6 +9,14 @@
     background: var(--ds-color-neutral-surface-raised-default);
     backdrop-filter: blur(18px) saturate(140%);
 
+    // A column narrows to its widest word, not to one character: a table too wide for the screen
+    // scrolls here rather than squeezing its text, whatever wrapping the panel around it sets
+    // (identity-experience#57).
+    &,
+    :is(p, h2, h3, h4, dd, li, label) {
+      overflow-wrap: normal;
+    }
+
     &:focus-visible {
       outline: var(--ds-stroke-default) solid var(--ds-color-neutral-border-default-focus);
       outline-offset: 2px;

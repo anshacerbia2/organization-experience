@@ -230,6 +230,11 @@ from the console stayed `requested` ("Awaiting provisioning") and could never be
   - Unit tests, the fixture-backed browser tests with screenshots and axe-core for the entry, the
     picker with one, several and no contexts, and the provider mode page; the stack proof signs in
     with no Tenant and chooses it from the list.
+- ✅ **A panel is never sized as if it were empty (TDD-organization-experience-001 1.11.0 §Visual
+  Language).** Ported from identity-experience#57: `Panel` loses `container-type: inline-size`, which
+  sized an unstretched panel to its padding, and gains `min-inline-size: 0` and
+  `overflow-wrap: anywhere`; `Table` keeps `overflow-wrap: normal`. Latent here. `e2e/browser/layout.spec.ts` checks
+  panel width, one-character lines and sideways scroll at 1440, 1024, 768 and 390 px.
 
 ## Week 4 · Bulk, freshness, and offboarding
 

@@ -379,8 +379,24 @@ fields in a grid, the filters in a toolbar, then the records.
   a caption, scoped headers, a keyboard-reachable scroll region and statuses as pills.
 - **Responsive to tablet width.** Under 60rem the rail becomes a bar above the page with its links in
   a row. The bar keeps its own height on a page shorter than the viewport (1.11.0): until then the
-  frame's grid stretched it, which the picker with no Tenant showed at tablet width. The browser test checks every route at 820px and 1440px for horizontal page overflow and
-  finds none [R5, SC 1.4.10].
+  frame's grid stretched it, which the picker with no Tenant showed at tablet width. The browser test
+  checks every route at 820px and 1440px for horizontal page overflow and finds none [R5, SC 1.4.10].
+- **A panel is never sized as if it were empty (1.11.0).** identity-experience#57 found that its
+  `Panel` set `container-type: inline-size` with no container query. Inline-size containment sizes an
+  element "as if the element had no content" in the inline axis (CSS Containment 3 §3.1, as
+  `TDD-identity-experience-003` 1.29.0 §Layout quotes it). A panel that is not stretched, such as one
+  in another panel's start-aligned body, then collapses to its padding, with its text one character
+  per line. This copy had the same rule and the same `Panel.Body`. Nothing here nests a panel yet, so
+  it was latent. The fix is ported as identity-experience made it:
+  - `Panel` has no `container-type`, and has `min-inline-size: 0`;
+  - a panel's text takes `overflow-wrap: anywhere`, so a long identifier breaks inside it;
+  - `Table` sets `overflow-wrap: normal`, so a column narrows to its widest word and a wide table
+    scrolls in its own region;
+  - `e2e/browser/layout.spec.ts` holds it, as identity-experience's `layout.spec.ts` does. Ten pages,
+    with their forms and confirmations open, are laid out at 1440, 1024, 768 and 390 CSS px in both
+    themes. At each width every panel is at least 16rem wide, or its container's width when that is
+    narrower. No text of four characters or more runs three lines or more, each narrower than one and
+    a half of its font size. The page never scrolls sideways [R5, SC 1.4.10].
 - **Motion** is decoration only, and the foundations remove it under `prefers-reduced-motion: reduce`
   [R5, SC 2.3.3].
 
@@ -921,6 +937,7 @@ when its session store does not answer (1.5.0); the operator's steps are identit
 | Governed by | ADR-ORG-007 §5.6 — the acceptance page's sign-in without a Tenant is the entry's (1.11.0) |
 | Follows | Auth0 Organization Picker, Slack, the Azure portal's directory switch, GitHub's dashboard context — the context chosen after the sign-in (1.11.0) |
 | Follows | WCAG 2.2 SC 3.2.5 — one listed Tenant is not entered by itself (1.11.0) |
+| Follows | `TDD-identity-experience-003` 1.29.0 §Layout — a panel without size containment, and the layout check at four widths (1.11.0) |
 
 ### Standalone Operation
 

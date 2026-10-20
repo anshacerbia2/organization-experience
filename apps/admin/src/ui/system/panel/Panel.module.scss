@@ -12,7 +12,21 @@
     background: var(--ds-color-neutral-surface-raised-default);
     box-shadow: var(--ds-shadow-low);
     backdrop-filter: blur(18px) saturate(140%);
-    container-type: inline-size;
+
+    // A panel is sized by its content wherever it is not stretched: a confirmation inside another
+    // panel's body, which aligns its children to the start. It has no size containment, which would
+    // size it as if it had no content, to its padding, with its text one character per line. A long
+    // table inside it scrolls in its own container instead (Table), so it may shrink below its
+    // content in a grid or flex row. Ported from identity-experience#57 (TDD-identity-experience-003
+    // 1.29.0 §Layout; TDD-organization-experience-001 1.11.0 §Visual Language).
+    min-inline-size: 0;
+
+    // A long identifier or address in a panel's text breaks rather than overflowing it, and does not
+    // hold a flex or grid item wider than the room it has. A table keeps its own rule (Table).
+    &,
+    :where(p, h2, h3, h4, dd, li, label) {
+      overflow-wrap: anywhere;
+    }
 
     // A hairline of light along the top edge: the one detail that makes glass read as glass.
     &::before {
