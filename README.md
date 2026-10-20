@@ -109,6 +109,11 @@ from identity-experience's `packages/ui` and its frame, at a pinned commit, unde
 UI Platform's packages. `pnpm test:browser` runs every main route in
 Chromium against the build, with fixtures, and keeps a screenshot of each; it needs `pnpm build` first.
 
+**One client per developer device.** A laptop-run BFF on two devices has two registrations, each with
+its own key: `scripts/dev-register-bff.ps1 -ClientKey organization-experience-bff-<device>`, and that
+device's `ORGANIZATION_EXPERIENCE_CLIENT_ID` (`STD-GLB-009` rule 15; `deploy/dev/README.md` §Several
+devices).
+
 **The API client is contract-tested.** The browser and the BFF call the Organization Control API
 through hand-written clients. `ADR-GLB-010 §5.1` admits that only when they are "contract-tested in CI
 against the published specification", so `contracts/` vendors organization-control's `api/openapi.yaml`

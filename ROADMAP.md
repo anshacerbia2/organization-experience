@@ -211,7 +211,12 @@ from the console stayed `requested` ("Awaiting provisioning") and could never be
   - ⏳ **Works on a server once organization-control serves acceptance as a self command** and
     identity-control serves the address match (`ADR-ORG-007 §5.8`). Until then the API refuses the
     no-Tenant caller. A stack-proof journey for it waits on the same.
-  - ⏳ **A person without an account** waits on `ADR-IAM-011`, proposed. The page offers no such path.
+  - ⏳ **A person without an account: planned.** `ADR-IAM-011` was accepted on 2026-10-20. Its §5.6
+    gives this repository one change: the acceptance page offers **I do not have an account** and hands
+    the token, in the fragment, to identity-experience's enrolment page. Not built: it waits on
+    identity-control's `POST /v1/enrolments`, organization-control's `POST /v1/invitations/resolve` and
+    identity-experience's enrolment page, whose address is not decided yet
+    (TDD-organization-experience-002 1.10.0).
   - ⏳ **Production gate:** the Notification Platform delivers the link to the invited address, and the
     shown-once panel goes (`ADR-ORG-007 §5.5`).
 - ✅ **Sign in without knowing a Tenant's identifier (TDD-organization-experience-001 1.11.0,
@@ -230,42 +235,8 @@ from the console stayed `requested` ("Awaiting provisioning") and could never be
   - Unit tests, the fixture-backed browser tests with screenshots and axe-core for the entry, the
     picker with one, several and no contexts, and the provider mode page; the stack proof signs in
     with no Tenant and chooses it from the list.
-- ✅ **The owner's decisions of 2026-10-20, served by organization-control #75 (`6a36b8d`)
-  (TDD-organization-experience-002 1.10.0, TDD-organization-experience-001 1.12.0,
-  TDD-organization-experience-003 1.6.0).**
-  - **Reporters** (`ADR-ORG-001 §5.11`): `/reporters` in provider mode lists, registers and retires the
-    workloads that report provisioning and each domain's obligations. Register takes the workload, what it
-    reports and its purpose with a required reason, and says a workload is registered once when the API
-    answers `409`. Retire reads the reporter again and sends the version it read. The Reporter machine has
-    its transition table and test.
-  - **The reconciliation interval** (`ADR-ORG-001 §5.7`): projection health shows each consumer's
-    `reconciliation_interval_seconds`, marks it overdue past one interval and critically past two, and
-    shows `reconciliation_requested_at` when a restore set it. Registration stays the deployment
-    procedure's, which sends the interval.
-  - **A provider withdraws one Membership** (`ADR-ORG-003 §5.6`): Withdraw a Membership on an `active`,
-    `suspended` or `offboarding` Tenant's row; Suspend membership or Revoke membership, confirmed in the
-    row with a reason, the version and an `Idempotency-Key`, then followed by its enforcement. Never grant
-    or restore. The Membership machine has its transition table and test.
-  - **The refused invitation is known by its type** (`ADR-ORG-007 §5.4`, RFC 9457 §3.1.1):
-    `invitation-not-acceptable`, not every `404`.
-  - **An issue without its token is a replay** (`ADR-ORG-007 §5.5`, `STD-GLB-001` 1.7.0), shown as already
-    issued with no link. Every command takes a new `Idempotency-Key` once answered, and keeps it only while
-    its outcome is unknown. This fixes an identical second issue reusing the first one's key.
-  - ⏳ **The withdrawal's version is typed.** Organization Control serves no provider read of a Tenant's
-    Memberships, so the console cannot show the record before acting. A provider read of one Membership
-    would let it; that is organization-control's to decide.
-- ✅ **One sticky scope line on a small viewport (TDD-organization-experience-001 1.12.0, `SAD-012` 1.4.0
-  §8.4, `STD-GLB-FE-005` 2.2.0 §3.10).** Below 60rem wide or 30rem tall only the scope line is sticky; the
-  bar and the full banner scroll with the page. The root's `scroll-padding-top` follows the sticky region.
-  `layout.spec.ts` checks it at 320×256, 320×844 and 1440×256, and tabs backwards from the end of the page
-  with nothing focused hidden under it.
-- ✅ **The Organization Control client is contract-tested (`ADR-GLB-010 §5.1`, TDD-organization-experience-001
-  1.12.0).** Contract-tested rather than generated, the smaller change: no call site moves.
-  `contracts/organization-control/openapi.yaml` is organization-control's at `6a36b8d`, proved byte for byte by
-  `pnpm check:api-contract` in CI. The tests hold every `/api/v1/` request the application's unit tests
-  send, every path the source and `bff/src/scope/control.ts` write, `control.ts`'s calls against
-  spec-valid answers, and every browser fixture, unknown fields included. They found the fixtures short of
-  required fields and holding invented identifiers; both are fixed.
+- ✅ **The owner's decisions of 2026-10-20:** see §Owner Decisions of 2026-10-20, below, one dated item
+  each.
 - ✅ **A panel is never sized as if it were empty (TDD-organization-experience-001 1.11.0 §Visual
   Language).** Ported from identity-experience#57: `Panel` loses `container-type: inline-size`, which
   sized an unstretched panel to its padding, and gains `min-inline-size: 0` and
@@ -324,6 +295,27 @@ and `administration.test.tsx` (a revocation shown by its evidence).
   - Cancellation is offered in the freeze and obligations stages. It restores the Tenant's prior
     status and the Memberships the freeze suspended.
   - A cancellation that stopped partway says how many remain and finishes when sent again.
+
+## Owner Decisions of 2026-10-20
+
+Dated 2026-10-21, in this repository's pull request for them. organization-control #75 (`6a36b8d`) serves
+what O1, O2 and O4 call. Each line names its status and the decision it comes from.
+
+| #   | Item                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     | Status                              | Source                                             |
+| :-- | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :---------------------------------- | :------------------------------------------------- |
+| O1  | **Reporters.** `/reporters` in provider mode lists, registers and retires the workloads that report provisioning and each domain's obligations. Register takes the workload, what it reports and its purpose with a required reason, and says a workload is registered once on a `409`. Retire reads the reporter again and sends that version. Reporter transition table and test (TDD-organization-experience-002 1.10.0)                                                                              | ✅ 2026-10-21                       | `ADR-ORG-001 §5.11`                                |
+| O2  | **The reconciliation interval.** Projection health shows `reconciliation_interval_seconds`, marks a consumer overdue past one interval and critically past two, and shows `reconciliation_requested_at` when a restore set it. Registration stays the deployment procedure's, which sends the interval                                                                                                                                                                                                   | ✅ 2026-10-21                       | `ADR-ORG-001 §5.7`                                 |
+| O4  | **A provider withdraws one Membership.** Withdraw a Membership on an `active`, `suspended` or `offboarding` Tenant's row: Suspend membership or Revoke membership, confirmed in the row with a reason, the version and an `Idempotency-Key`, then its enforcement. Never grant or restore. Membership transition table and test                                                                                                                                                                          | ✅ 2026-10-21                       | `ADR-ORG-003 §5.6`                                 |
+| O4a | **The version is typed.** Organization Control serves no provider read of a Tenant's Memberships, so the console cannot show the record first. A provider read of one Membership would let it                                                                                                                                                                                                                                                                                                            | ⏳ organization-control's to decide | `ADR-ORG-003 §5.6`                                 |
+| O6  | **Replay and keys.** An issue answered `201` without `token` shows "already issued, revoke and issue again", never a link. Every command takes a new `Idempotency-Key` once answered, and keeps it only while the outcome is unknown. Fixes the live defect where a second identical issue reused the first key, was replayed, and rendered `…#undefined`                                                                                                                                                | ✅ 2026-10-21                       | `ADR-ORG-007 §5.5`, `STD-GLB-001` 1.7.0            |
+| O7  | **The refused invitation is known by its type**, `invitation-not-acceptable`, not by `404`; a `404` of another type keeps the token                                                                                                                                                                                                                                                                                                                                                                      | ✅ 2026-10-21                       | `ADR-ORG-007 §5.4`, RFC 9457 §3.1.1                |
+| I4  | **One client per developer device.** `dev-register-bff.ps1 -ClientKey` registers a device's own client, `.env.example` names the device's client id, and `deploy/dev/README.md` §Several devices is the procedure (TDD-organization-experience-001 1.12.0 §Configuration)                                                                                                                                                                                                                                | ✅ 2026-10-21                       | `STD-GLB-009` rule 15, `ADR-IAM-001 §5.12`         |
+| I6  | **One sticky scope line on a small viewport.** Below 60rem wide or 30rem tall only the scope line is sticky, never wrapping; the bar and the full banner scroll with the page; `scroll-padding-top` follows the sticky region. `layout.spec.ts` checks 320×256, 320×844 and 1440×256, and tabs backwards with nothing hidden under the line                                                                                                                                                              | ✅ 2026-10-21                       | `STD-GLB-FE-005` 2.2.0 §3.10, `SAD-012` 1.4.0 §8.4 |
+| P2  | **The UI Platform exception** is `ADR-ORG-008`, expiring 2027-04-20, cited in the README, here and in `apps/admin/src/ui/index.ts`                                                                                                                                                                                                                                                                                                                                                                       | ✅ 2026-10-21                       | `ADR-ORG-008`                                      |
+| P5  | **The Organization Control client is contract-tested**, not generated: the smaller change, no call site moves. `contracts/organization-control/openapi.yaml` is organization-control's at `6a36b8d`, proved byte for byte by `pnpm check:api-contract`. The tests hold every request the unit tests send, every path the source and `bff/src/scope/control.ts` write, `control.ts`'s calls, and every browser fixture. They found fixtures short of required fields and with invented identifiers; fixed | ✅ 2026-10-21                       | `ADR-GLB-010 §5.1`                                 |
+| P6  | **Backups.** `deploy/dev/README.md` §Backups states why rule 9 asks nothing of this application: it owns no database on the server, and the laptop's session store is disposable                                                                                                                                                                                                                                                                                                                         | ✅ 2026-10-21                       | `STD-GLB-009` rule 9                               |
+| —   | **ADR-IAM-011**, a person without an account: the acceptance page offers **I do not have an account**                                                                                                                                                                                                                                                                                                                                                                                                    | ⏳ planned (Week 3 Built block)     | `ADR-IAM-011 §5.1`, §5.6                           |
+| —   | **Stack proof witness.** identity-control's ceremony runs with a witness distinct from the operator (#21), recorded in TDD-organization-experience-001 1.12.0 §End to End                                                                                                                                                                                                                                                                                                                                | ✅ 2026-10-20                       | `STD-IAM-001 §3.10`                                |
 
 ## Visual language (TDD-organization-experience-001 1.9.0)
 

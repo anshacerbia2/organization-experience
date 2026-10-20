@@ -163,6 +163,26 @@ profiles.
 stays on this machine and is gitignored, and `keys/organization-experience-bff.jwk.json`, its public
 half, which the operator registers. The client has no secret.
 
+### Several devices
+
+One registration per developer device (`STD-GLB-009` rule 15, `ADR-IAM-001 §5.12`). A second laptop
+does not add its key to this client: a registration holds one active key, and a second only while a
+rotation overlaps. Each device has its own client, its own key and its own sessions in the kernel, so a
+lost laptop is suspended without touching the other:
+
+```sh
+node scripts/new-client-key.mjs organization-experience-bff-desk   # on the second device
+```
+
+```sh
+pwsh ./scripts/dev-register-bff.ps1 -IdentityRepo /path/to/identity-control \
+  -ClientKey organization-experience-bff-desk -JwkFile ./organization-experience-bff-desk.jwk.json
+```
+
+That device's `.env` sets `ORGANIZATION_EXPERIENCE_CLIENT_ID=organization-experience-bff-desk` and
+`ORGANIZATION_EXPERIENCE_CLIENT_KEY_FILE=../keys/organization-experience-bff-desk.pem`. Record each
+device's client on the server's environment page.
+
 ### Rotating the key
 
 A new key is a rotation, never an overwrite. Make it under a new name and send its public half:
@@ -179,7 +199,8 @@ POST /v1/registrations/{registration_id}/keys
 
 ## Backups
 
-Nothing here needs a backup. The client lives in the kernel's database and its registration in
+`STD-GLB-009` rule 9 asks a stack that owns a database for a daily `pg_dump` backup and a restore
+script. This application owns none on the server, so nothing here needs a backup. The client lives in the kernel's database and its registration in
 identity-control's, and each stack backs up its own. The laptop's session store, in the database
 `ORGANIZATION_EXPERIENCE_DATABASE_URL` names, is disposable: drop its schema and `dev-local.ps1` makes it again,
 and you sign in again. A lost private key is replaced by a new one, registered as a rotation.

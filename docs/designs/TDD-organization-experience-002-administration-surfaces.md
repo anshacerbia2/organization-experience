@@ -467,9 +467,13 @@ POST  /api/v1/invitations/accept   {"token"}                                    
     and a test holds it on this page.
   - **The account application is named in words.** This application holds no link to
     identity-experience's account application, so the `404` sentence names it and links nothing.
-  - **Not yet: a person without an account.** `ADR-IAM-011`, proposed, would let an invitee with no
-    account enrol from the invitation. Until it is accepted and built the page offers no such path,
-    and a provider creates the person first (`ADR-ORG-007 §5.7`).
+  - **Planned, not built: a person without an account.** `ADR-IAM-011` was accepted on 2026-10-20
+    (1.10.0). Its §5.6 gives this page one change: offer a person who is not signed in **I do not have
+    an account**, which hands the token, in the fragment, to identity-experience's enrolment page. The
+    enrolment itself is identity-control's (`POST /v1/enrolments`, `:verify`) through Organization
+    Control's `POST /v1/invitations/resolve`, and the page is identity-experience's. None is served yet,
+    and the enrolment page's address is not decided, so the page offers no such path and a provider
+    creates the person first (`ADR-ORG-007 §5.7`). It is built once those three are.
 - **The invitation states.** `identity_verified` is gone (`ADR-ORG-007 §5.4`). An invitation is
   `pending`, `accepted`, `expired` or `revoked`. The filter and the labels lose it, and a pending
   invitation reads "nothing is granted until the invited person accepts, signed in as themselves".
@@ -1072,4 +1076,5 @@ investigation.
 | Governed by | ADR-ORG-003 §5.6 — a provider suspends or revokes one Membership, never grants or restores (1.10.0) |
 | Depends on | `TDD-organization-control-004` 1.15.0 — the refusal type and the issue answer without its token (1.10.0) |
 | Conforms to | RFC 9457 §3.1.1 — a client branches on the problem type (1.10.0) |
+| Governed by | ADR-IAM-011 §5.1, §5.6 — the acceptance page's **I do not have an account**, accepted 2026-10-20, planned (1.10.0) |
 | Conforms to | draft-ietf-httpapi-idempotency-key-header-07 §2, §2.2; STD-GLB-001 1.7.0 — a key per request, new after an answer (1.10.0) |

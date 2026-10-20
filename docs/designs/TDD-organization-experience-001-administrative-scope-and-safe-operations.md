@@ -315,7 +315,9 @@ narrow breakpoint, `60rem` here, and at a short viewport height, only what a SAD
 sticky, on one line, and everything else becomes static.
 
 - **What sticks.** Below `60rem` wide, or below `30rem` tall, the bar and the full banner become static
-  and scroll away with the page. A scope line takes their place at the top of the viewport: the
+  and scroll away with the page. A scope line takes their place at the top of the viewport. It is the
+  frame's first row, above the rail, so it is in view from the top of the page as well as after any
+  scroll, and the rail's contents stop sticking there so nothing slides under it. It holds the
   scope's glyph and kind, the Tenant for a Tenant scope or the number of Tenants a window reaches, and
   the time left. It is one line, in the banner's scheme. The kind and the Tenant end in an ellipsis
   when they do not fit; the time left never shrinks. Nothing wraps in it.
@@ -333,7 +335,7 @@ sticky, on one line, and everything else becomes static.
   obscured by a fixed-position component can still be accessed by users" [R15], and SC 2.4.11 asks that
   a focused component "is not entirely hidden due to author-created content" [R13].
 - `e2e/browser/layout.spec.ts` checks it at 320 by 256 CSS px and at 1440 by 900: the sticky region is
-  one line on the small one, and tabbing backwards from the end of the page never leaves the focused
+  one line on the small one, in view at the top of the page and at its end, and tabbing backwards from the end of the page never leaves the focused
   element entirely under it (§Testing Strategy).
 
 ### Visual Language (1.9.0)
@@ -345,7 +347,8 @@ product. Until 1.9.0 this application had one stylesheet of four rules, the scop
 browser's own form controls everywhere else.
 
 **Source, by copy.** The UI Platform is deferred (SAD-012 1.1.0 §7.3), and this repository keeps its
-own components. It takes Identity Experience's by copying, not by depending on that repository. The
+own components, under the approved exception `ADR-ORG-008`, which expires on 2027-04-20 (1.12.0; until
+then SAD-012 §7.3's allowance had no end date). It takes Identity Experience's by copying, not by depending on that repository. The
 source is identity-experience at commit `c723e417c0eee97db6b1d5b6dab608fe6a406ac2`, the merge of its
 pull request #54, which fixed the light theme's contrast (`TDD-identity-experience-003` 1.26.0
 §Contrast and Focus). Everything copied lives under `apps/admin/src/ui/`, and `src/ui/index.ts` is the
@@ -382,7 +385,11 @@ and the shield for provider mode, warning and a key for a session without a Tena
 mode (1.11.0, §The Sign-In Entry) and for a scope that could not be read. It sits under the frame's bar and sticks with it, so it stays in view whatever
 the page scrolls to; the browser test scrolls a long page and asserts the banner fully in the viewport.
 Below `60rem` wide or `30rem` tall, the scope line sticks instead and the banner stays in the flow
-(1.12.0, §Scope Visibility).
+(1.12.0, §Scope Visibility): one line that never wraps, ending in an ellipsis, with the root's
+`scroll-padding-top` at its height, laid out at 320 CSS px wide and 256 tall and tabbed backwards by
+`layout.spec.ts` (`STD-GLB-FE-005` 2.2.0 §3.10). The banner's words wrap only where it is in the page
+flow, or on a viewport neither narrow nor short, where 1.11.1 let a long Tenant list wrap rather than
+push the page sideways; the sticky line never wraps.
 The time left is set apart at the end of the banner in tabular figures. The banner reads the same
 sentence it always has, word for word: the parts are styled, not reworded. The one sentence 1.11.0
 rewords is the session without a Tenant's.
@@ -755,6 +762,15 @@ presented as a single irreversible button, because it is neither single nor imme
 Session, cookie, refresh, and client credential settings are inherited unchanged from
 `TDD-identity-experience-001`.
 
+**One client per developer device (1.12.0).** `ORGANIZATION_EXPERIENCE_CLIENT_ID` names the client of
+the device the BFF runs on. A laptop-run BFF that two devices use has one registration per device, each
+with its own single active key, such as `organization-experience-bff-<device>`; a second key on one
+registration is only for a rotation overlap (`STD-GLB-009` rule 15, `ADR-IAM-001 §5.12`). OAuth treats
+each deployed instance as its own client, whose `client_id` "SHOULD vary between instances" (as rule 15
+quotes it). `scripts/dev-register-bff.ps1 -ClientKey` registers a device's client and
+`scripts/new-client-key.mjs <name>` makes its key; `deploy/dev/README.md` §Several devices is the
+procedure.
+
 ## Testing Strategy
 
 ### Scope
@@ -893,7 +909,10 @@ every stack the journeys need. The proof brings up:
 - identity-kernel, identity-control and organization-control, each with its own `deploy/dev` and
   scripts, wired by organization-control's `scripts/dev-wire.ps1`, at `kernel_ref`, `identity_ref`
   and `organization_ref`. The steps and their glue are organization-control's `deploy-dev`, kept the
-  same;
+  same. identity-control's bootstrap ceremony runs as its `bootstrap.sh <operator> <witness> <reason>`
+  takes it, with a witness distinct from the operator (`ci@scnehaux.local` and
+  `ci-witness@scnehaux.local`), the two-person ceremony of `STD-IAM-001 §3.10` (identity-control #114;
+  this repository's #21, recorded in 1.12.0). An older `bootstrap.sh` ignores the extra argument;
 - this BFF, with its client registered by `scripts/dev-register-bff.ps1`, the operator's script;
 - identity-experience's BFF and applications at `identity_experience_ref`;
 - the people, grants and Tenant of `e2e/seed.ps1`: a second provider with an eligible grant, a Tenant
