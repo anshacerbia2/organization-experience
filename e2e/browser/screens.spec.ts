@@ -15,6 +15,7 @@ import {
   betaTenant,
   invitationToken,
   me,
+  tenantId,
   offboardingId,
   releasedOffboardingId,
   type Persona,
@@ -34,6 +35,8 @@ interface Screen {
   // commands, when set, are what the page's commands are answered with. The stand-in takes no command
   // (serve.ts), so a screen that shows a command's outcome answers it here, in the browser.
   readonly commands?: readonly Command[];
+  // reads, when set, answer the page's reads in place of the stand-in's fixtures, in the browser.
+  readonly reads?: readonly Command[];
 }
 
 interface Command {
@@ -74,6 +77,29 @@ const acceptance = (name: string, status: number, body: unknown, shows: string):
   },
   tablet: status === 200,
 });
+
+// The person's own contexts, as the self read answers them (ADR-ORG-005 §5.2), for the picker after a
+// sign-in without a Tenant (TDD-organization-experience-002 1.9.0) with one entry and with none. The
+// fixtures' two entries are the picker with several.
+const contextsPath = `/api/v1/principals/${me}/contexts`;
+const oneContext: Command = {
+  path: contextsPath,
+  status: 200,
+  body: {
+    contexts: [
+      {
+        membership_id: 'm-1',
+        tenant_id: tenantId,
+        tenant_display_name: 'Acme Retail',
+        tenant_status: 'active',
+        workspace_id: null,
+        administers: true,
+      },
+    ],
+    next: null,
+  },
+};
+const noContexts: Command = { path: contextsPath, status: 200, body: { contexts: [], next: null } };
 
 const screens: readonly Screen[] = [
   {
@@ -188,10 +214,42 @@ const screens: readonly Screen[] = [
     path: '/provider-access',
     ready: (page) => page.getByText('Incident 4471', { exact: false }),
   },
+  // TDD-organization-experience-001 1.11.0: signed in without a Tenant, the person's Tenants first, then
+  // provider administration; with several, one and no contexts.
   {
     name: 'provider-overview',
     persona: 'provider',
     path: '/',
+    ready: (page) => page.getByRole('link', { name: 'Beta Logistics' }),
+    tablet: true,
+  },
+  {
+    name: 'picker-one-tenant',
+    persona: 'provider',
+    path: '/',
+    reads: [oneContext],
+    ready: (page) => page.getByRole('link', { name: 'Acme Retail' }),
+  },
+  {
+    name: 'picker-no-tenant',
+    persona: 'provider',
+    path: '/',
+    reads: [noContexts],
+    ready: (page) => page.getByText('You hold no active membership in an active Tenant.', { exact: false }),
+    tablet: true,
+  },
+  // A Tenant surface reached without a Tenant: the notice, and the Tenants each returning to it.
+  {
+    name: 'picker-deep-link',
+    persona: 'provider',
+    path: '/memberships',
+    ready: (page) => page.getByRole('link', { name: 'Beta Logistics' }),
+  },
+  // Where the provider sign-in returns: the provider mode form.
+  {
+    name: 'provider-mode-entry',
+    persona: 'provider',
+    path: '/provider-mode',
     ready: (page) => page.getByRole('form', { name: 'Enter provider mode' }),
     tablet: true,
   },
@@ -364,6 +422,7 @@ const viewports = {
   desktop: { width: 1440, height: 960 },
   tablet: { width: 820, height: 1180 },
 } as const;
+const overflowWidths = [1440, 1024, 820, 768, 390, 320] as const;
 
 // The theme is the viewer's stored choice, and without one the system's (apps/admin/src/ui/theme.ts).
 // Both are set, so the page opens in the theme under test whichever it reads.
@@ -380,6 +439,22 @@ async function open(
       JSON.stringify({ theme }),
     )}); } catch {}`,
   });
+  for (const read of screen.reads ?? []) {
+    await page.route(
+      (url) => url.pathname === read.path,
+      async (route) => {
+        if (route.request().method() !== 'GET') {
+          await route.fallback();
+          return;
+        }
+        await route.fulfill({
+          status: read.status,
+          contentType: 'application/json',
+          body: JSON.stringify(read.body),
+        });
+      },
+    );
+  }
   for (const command of screen.commands ?? []) {
     await page.route(
       (url) => url.pathname === command.path,
@@ -422,11 +497,22 @@ for (const theme of themes) {
           fullPage: true,
           animations: 'disabled',
         });
-        // The page never scrolls sideways: a wide table scrolls inside its own region.
-        const overflow = Number(
-          await page.evaluate('document.documentElement.scrollWidth - document.documentElement.clientWidth'),
-        );
-        expect.soft(overflow, 'horizontal page overflow in px').toBeLessThanOrEqual(0);
+        // The page never scrolls sideways: a wide table scrolls inside its own region. Checked at every
+        // width layout.spec.ts lays pages out at, 320 CSS px included (STD-GLB-FE-005 2.1.0 §3.10, WCAG
+        // 2.2 SC 1.4.10), then back at the screenshot's width for axe.
+        for (const width of overflowWidths) {
+          await page.setViewportSize({ width, height: viewports[viewport].height });
+          await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(resolve)));
+          const overflow = Number(
+            await page.evaluate(
+              'document.documentElement.scrollWidth - document.documentElement.clientWidth',
+            ),
+          );
+          expect
+            .soft(overflow, `horizontal page overflow in px at ${String(width)}px`)
+            .toBeLessThanOrEqual(0);
+        }
+        await page.setViewportSize(viewports[viewport]);
 
         const results = await new AxeBuilder({ page }).withTags(wcagTags).analyze();
         const violations = results.violations.map((violation) => ({

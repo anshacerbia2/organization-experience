@@ -66,7 +66,11 @@ test('a kernel session removed ends the identity BFF session within the remainin
     const other = await second.newPage();
     await other.goto(account);
     await signIn(other, bff, { person, codes: null });
-    const rows = other.getByRole('row').filter({ has: other.getByRole('button', { name: 'End' }) });
+    // Exactly "End": a role name matches as a substring otherwise, and identity-experience#56's
+    // "Send a code" on an address row matches it too.
+    const rows = other
+      .getByRole('row')
+      .filter({ has: other.getByRole('button', { name: 'End', exact: true }) });
     await expect(rows).toHaveCount(1);
     const user = await kernelUserOf(person.principalId);
     const listed = async (): Promise<boolean> =>
@@ -77,7 +81,7 @@ test('a kernel session removed ends the identity BFF session within the remainin
       (r) => r.url().endsWith(':terminate') && r.request().method() === 'POST',
     );
     const clickedAt = Date.now();
-    await rows.getByRole('button', { name: 'End' }).click();
+    await rows.getByRole('button', { name: 'End', exact: true }).click();
     const response = await ended;
     const respondedAt = Date.now();
     expect([200, 202]).toContain(response.status());

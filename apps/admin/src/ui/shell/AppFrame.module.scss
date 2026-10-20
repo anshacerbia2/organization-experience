@@ -2,12 +2,17 @@
 // (TDD-organization-experience-001 §Visual Language).
 @layer components {
   // Mobile first: the rail sits above the page, and becomes a fixed column once there is room.
+  // This repository's change (TDD-organization-experience-001 1.11.0): under 60rem the rail's bar keeps
+  // its own height and the page takes the rest, so a page shorter than the viewport does not stretch
+  // the bar.
   .root {
     display: grid;
+    grid-template-rows: auto 1fr;
     grid-template-columns: 1fr;
     min-block-size: 100dvh;
 
     @media (width >= 60rem) {
+      grid-template-rows: none;
       grid-template-columns: var(--ds-layout-sidebar-width) 1fr;
     }
   }

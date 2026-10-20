@@ -1,10 +1,9 @@
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { axe } from 'vitest-axe';
 
 import { App } from './App';
-import { navigation } from './session';
 
 const tenantA = '0199a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b';
 const tenantB = '0199a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5c';
@@ -64,26 +63,23 @@ afterEach(() => {
 });
 
 describe('App', () => {
-  it('offers a Tenant sign-in and a provider sign-in, each returning to the current page', async () => {
+  // TDD-organization-experience-001 1.11.0 §The Sign-In Entry: one neutral sign-in, the provider's
+  // apart, and no Tenant identifier to type.
+  it('offers one sign-in without a Tenant, returning to the current page, and the provider sign-in apart', async () => {
     window.history.replaceState(null, '', '/tenants?page=2');
     stubBff({ '/auth/session': () => respond({ authenticated: false }) });
     const { container } = render(<App />);
-    const tenantForm = await screen.findByRole('form', { name: 'Sign in to a Tenant' });
-    // No form submission: the BFF's form-action 'self' would refuse the redirect to the kernel in
-    // Chrome, so the form navigates by script (STD-GLB-FE-003 §3.5).
-    expect(tenantForm).not.toHaveAttribute('action');
-    const assign = vi.spyOn(navigation, 'assign').mockImplementation(() => undefined);
-    const tenant = '01a11d40-640b-7000-9268-e828ba458639';
-    fireEvent.change(within(tenantForm).getByLabelText('Tenant identifier'), { target: { value: tenant } });
-    fireEvent.submit(tenantForm);
-    expect(assign).toHaveBeenCalledWith(
-      `/auth/login?tenant=${tenant}&return_to=${encodeURIComponent('/tenants?page=2')}`,
-    );
-    assign.mockRestore();
+    // Both are links, never a form submitted to the BFF: its form-action 'self' would refuse the
+    // redirect to the kernel in Chrome (STD-GLB-FE-003 §3.5).
+    const signIn = await screen.findByRole('link', { name: 'Sign in' });
+    expect(signIn).toHaveAttribute('href', `/auth/login?return_to=${encodeURIComponent('/tenants?page=2')}`);
     expect(screen.getByRole('link', { name: 'Sign in as a provider' })).toHaveAttribute(
       'href',
-      `/auth/login?acr_values=aal2&max_age=0&return_to=${encodeURIComponent('/tenants?page=2')}`,
+      `/auth/login?acr_values=aal2&max_age=0&return_to=${encodeURIComponent('/provider-mode')}`,
     );
+    expect(screen.queryByRole('form')).not.toBeInTheDocument();
+    expect(screen.queryByRole('textbox')).not.toBeInTheDocument();
+    expect(screen.queryByText('Tenant identifier')).not.toBeInTheDocument();
     expect(await axe(container)).toHaveNoViolations();
   });
 
@@ -142,8 +138,12 @@ describe('scope banner', () => {
       expect(banner).toHaveTextContent(`Tenant scope: ${tenantA}`);
     });
     expect(within(banner).queryByRole('button')).not.toBeInTheDocument();
-    expect(screen.getByRole('form', { name: 'Switch to another Tenant' })).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Switch to provider administration' })).toBeInTheDocument();
+    expect(screen.getByRole('region', { name: 'Your Tenants' })).toBeInTheDocument();
+    expect(screen.queryByRole('textbox')).not.toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Switch to provider administration' })).toHaveAttribute(
+      'href',
+      `/auth/login?acr_values=aal2&max_age=0&return_to=${encodeURIComponent('/provider-mode')}`,
+    );
     expect(await axe(container)).toHaveNoViolations();
   });
 
@@ -157,7 +157,7 @@ describe('scope banner', () => {
     await waitFor(() => {
       expect(banner).toHaveTextContent('disagree about the Tenant');
     });
-    expect(screen.queryByRole('form', { name: 'Switch to another Tenant' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('region', { name: 'Your Tenants' })).not.toBeInTheDocument();
     expect(screen.queryByRole('form', { name: 'Enter provider mode' })).not.toBeInTheDocument();
   });
 
@@ -173,11 +173,17 @@ describe('scope banner', () => {
     });
     expect(screen.getByRole('button', { name: 'Leave provider mode' })).toBeInTheDocument();
     // A window open in provider mode is left before switching to a Tenant.
-    expect(screen.queryByRole('form', { name: 'Sign in to a Tenant' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('region', { name: 'Your Tenants' })).not.toBeInTheDocument();
   });
 });
 
+// Provider mode's ceremony is on its own page, where the provider sign-in returns
+// (TDD-organization-experience-001 1.11.0).
 describe('provider mode', () => {
+  beforeEach(() => {
+    window.history.replaceState(null, '', '/provider-mode');
+  });
+
   it('cannot be requested without a reason', async () => {
     const fetchMock = stubBff({
       '/auth/session': () => respond(signedIn(null)),
@@ -273,7 +279,7 @@ describe('provider mode', () => {
     const alert = await within(form).findByRole('alert');
     expect(within(alert).getByRole('link', { name: 'Sign in again' })).toHaveAttribute(
       'href',
-      `/auth/login?acr_values=aal2&max_age=0&return_to=${encodeURIComponent('/')}`,
+      `/auth/login?acr_values=aal2&max_age=0&return_to=${encodeURIComponent('/provider-mode')}`,
     );
   });
 
@@ -318,7 +324,8 @@ describe('provider mode', () => {
     expect(await screen.findByRole('form', { name: 'Enter provider mode' })).toBeInTheDocument();
   });
 
-  it('says once why a window closed without being left', async () => {
+  it('says once why a window closed without being left, on the overview too', async () => {
+    window.history.replaceState(null, '', '/');
     stubBff({
       '/auth/session': () => respond(signedIn(null)),
       '/auth/scope': () => respond(providerScope(null, { closed: 'denied' })),

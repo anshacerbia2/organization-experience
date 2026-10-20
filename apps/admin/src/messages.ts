@@ -41,7 +41,9 @@ export const messages = {
     'The session and the active scope disagree about the Tenant. Sign out and sign in again before acting.',
   scopeRetry: 'Read the scope again',
   tenantScope: 'Tenant scope',
-  providerSignedIn: 'Provider sign-in: provider mode is not active',
+  // A session without a Tenant: the neutral sign-in and the provider sign-in make the same form, which
+  // grants nothing (TDD-organization-experience-001 1.11.0 §The Sign-In Entry).
+  providerSignedIn: 'Signed in without a Tenant: provider mode is not active',
   providerPending: 'Provider mode requested: awaiting approval by another provider',
   providerActive: 'Provider mode',
   providerTargets: 'Tenants',
@@ -54,14 +56,21 @@ export const messages = {
     ended: 'Provider mode has ended.',
   },
 
-  // Moving between scopes. Each is a sign-in, which replaces the session.
-  signInTenant: 'Sign in to a Tenant',
-  switchTenant: 'Switch to another Tenant',
-  tenantIdentifier: 'Tenant identifier',
-  tenantIdentifierHint: 'The Tenant’s identifier, as Organization Control issued it.',
-  continueToTenant: 'Continue to this Tenant',
+  // Moving between scopes. Each is a sign-in, which replaces the session. The entry signs in without a
+  // Tenant, and the person then chooses one of their own (TDD-organization-experience-001 1.11.0).
+  signInLead: 'Sign in as yourself. You then choose one of your Tenants.',
   signInProvider: 'Sign in as a provider',
+  signInProviderLead: 'For provider administration across Tenants. It asks for a fresh sign-in.',
   switchToProvider: 'Switch to provider administration',
+  tenantIdentifier: 'Tenant identifier',
+  chooseTenant: 'Choose the Tenant to work in. Choosing one signs you in for it.',
+  noContextsSignedIn:
+    'You hold no active membership in an active Tenant. To join one, ask its administrator to invite you, then open the link they send you.',
+  providerAdministration: 'Provider administration',
+  providerAdministrationLead:
+    'Provider mode reaches across Tenants, for providers only. It needs a fresh sign-in, a reason and another provider’s approval.',
+  goToProviderMode: 'Go to provider mode',
+  providerModePage: 'Provider mode',
 
   // Provider mode entry.
   enterProviderMode: 'Enter provider mode',
@@ -115,9 +124,10 @@ export const messages = {
   versionConflict:
     'Not done: the record changed since it was shown. Its current state is shown now; decide again on what it is.',
   refusedBy: (detail: string): string => `Not done. Organization Control said: ${detail}`,
-  needsTenantScope: 'This section belongs to a Tenant scope. Sign in to a Tenant to use it.',
+  needsTenantScope: 'This section belongs to a Tenant scope. Choose one of your Tenants to use it.',
   needsProvider: 'This section belongs to a provider sign-in.',
-  needsProviderMode: 'This section opens in provider mode. Enter it, with a reason, from the overview.',
+  needsProviderMode:
+    'This section opens in provider mode. Enter it, with a reason, on the provider mode page.',
 
   workspaces: 'Workspaces',
   createWorkspace: 'Create workspace',

@@ -1,4 +1,4 @@
-import { type ReactElement } from 'react';
+import { useId, type ReactElement } from 'react';
 
 import { messages } from '../messages';
 import { tenantSignInHref } from '../session';
@@ -6,9 +6,11 @@ import { useSignedIn } from '../SessionContext';
 import { Facts, Panel, Row, RowMain, Rows, RowTitle } from '../ui';
 import { ListState, LoadMore, usePagedList } from './common';
 
-// The context switcher (ADR-ORG-005, TDD-organization-experience-002 1.3.0): the operator's own
-// contexts, read for themselves in any scope. An entry is a selector; choosing it is the Tenant
-// sign-in, and the API checks the choice again at use.
+// The person's own Tenants (ADR-ORG-005, TDD-organization-experience-002 1.3.0 and 1.9.0): their
+// contexts, read for themselves in any scope. After a sign-in without a Tenant it is the picker; in a
+// Tenant scope it is the switch, with the current Tenant marked. An entry is a selector: choosing it
+// is the Tenant sign-in, and the API checks the choice again at use. Nothing here starts a sign-in by
+// itself, even for a single entry (WCAG 2.2 SC 3.2.5, TDD-organization-experience-001 1.11.0).
 
 interface Context {
   readonly membership_id: string;
@@ -24,9 +26,11 @@ export function ContextSwitcher({
   current,
 }: {
   readonly returnTo: string;
+  // current is the session's Tenant, or null for a session without one.
   readonly current: string | null;
 }): ReactElement | null {
   const session = useSignedIn();
+  const headingId = useId();
   const principal = session.principalId;
   const { query, items } = usePagedList<Context>(
     'contexts',
@@ -39,11 +43,16 @@ export function ContextSwitcher({
     return null;
   }
   return (
-    <Panel.Root aria-labelledby="contexts-heading">
+    <Panel.Root aria-labelledby={headingId}>
       <Panel.Header>
-        <Panel.Title id="contexts-heading">{messages.yourTenants}</Panel.Title>
+        <Panel.Title id={headingId}>{messages.yourTenants}</Panel.Title>
+        {current === null ? <Panel.Description>{messages.chooseTenant}</Panel.Description> : null}
       </Panel.Header>
-      <ListState query={query} empty={messages.noContexts} count={items.length} />
+      <ListState
+        query={query}
+        empty={current === null ? messages.noContextsSignedIn : messages.noContexts}
+        count={items.length}
+      />
       <Rows>
         {items.map((context) => (
           <Row key={context.membership_id}>

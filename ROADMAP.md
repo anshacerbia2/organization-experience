@@ -214,6 +214,30 @@ from the console stayed `requested` ("Awaiting provisioning") and could never be
   - ⏳ **A person without an account** waits on `ADR-IAM-011`, proposed. The page offers no such path.
   - ⏳ **Production gate:** the Notification Platform delivers the link to the invited address, and the
     shown-once panel goes (`ADR-ORG-007 §5.5`).
+- ✅ **Sign in without knowing a Tenant's identifier (TDD-organization-experience-001 1.11.0,
+  TDD-organization-experience-002 1.9.0).** Reported from the development server: signing in for a
+  Tenant needed its UUID, and the provider sign-in sat beside it.
+  - **Sign in** is the entry's one primary action: a sign-in with no Tenant, the provider form, which
+    grants nothing (`ADR-IAM-008 §5.5`). The BFF is unchanged.
+  - **Your Tenants** then lists the person's own contexts (`ADR-ORG-005`). Choosing one is the Tenant
+    sign-in, answered by the same kernel session (`ADR-IAM-008 §5.6`). One Tenant is listed, not
+    entered by itself; none says what to do.
+  - **Sign in as a provider** is the secondary action, and returns to the new `/provider-mode` page.
+    The overview offers that page under Provider administration.
+  - **The Tenant identifier field is gone.** The list holds every Tenant a Tenant sign-in can serve,
+    so typing one gains nothing (`TDD-organization-experience-001` 1.11.0 §The Sign-In Entry). A Tenant
+    surface reached without a Tenant lists the person's Tenants, so a deep link still ends there.
+  - Unit tests, the fixture-backed browser tests with screenshots and axe-core for the entry, the
+    picker with one, several and no contexts, and the provider mode page; the stack proof signs in
+    with no Tenant and chooses it from the list.
+- ✅ **A panel is never sized as if it were empty (TDD-organization-experience-001 1.11.0 §Visual
+  Language).** Ported from identity-experience#57: `Panel` loses `container-type: inline-size`, which
+  sized an unstretched panel to its padding, and gains `min-inline-size: 0` and
+  `overflow-wrap: anywhere`; `Table` keeps `overflow-wrap: normal`. Latent here. `e2e/browser/layout.spec.ts` checks
+  panel width, one-character lines and sideways scroll at 1440, 1024, 768, 390 and 320 px, and every
+  main route's sideways overflow is checked at the same widths and 820 (`STD-GLB-FE-005` 2.1.0 §3.10).
+  320 found two pages that scrolled sideways: a `Button` and a `StatusPill` now wrap a label longer
+  than their room.
 
 ## Week 4 · Bulk, freshness, and offboarding
 

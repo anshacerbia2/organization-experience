@@ -1,14 +1,16 @@
 // Organization Experience in a real browser against the stack (TDD-organization-experience-001 §End to
 // End, 1.8.0), and the measured Membership revocation of TDD-identity-experience-001 §Revocation:
 //
-//   1. a Tenant administrator signs in through the kernel's hosted login, enrolling a TOTP, and a
-//      second session of theirs is left idle;
+//   1. a Tenant administrator signs in through the kernel's hosted login with no Tenant, enrolling a
+//      TOTP, then chooses the Tenant from their own Tenants on the same kernel session, typing no
+//      identifier (TDD-organization-experience-001 1.11.0); a second session of theirs, made the same
+//      way, is left idle;
 //   2. a second provider signs in for the provider form, at aal2 with a fresh authentication, is
 //      refused provider mode without a reason, and requests it with one, for one Tenant and one minute;
 //   3. the bootstrap operator, another provider, approves it, and the window opens in the first
 //      provider's browser;
-//   4. the operator moves to the Tenant on the same kernel session, grants a Membership there and
-//      revokes the administrator's;
+//   4. the operator moves to the Tenant on the same kernel session, chosen from their own Tenants,
+//      grants a Membership there and revokes the administrator's;
 //   5. the window ends on its own at ends_at, in the browser that held it;
 //   6. the revocation reaches the administrator's open tab within the remaining L0 lifetime, by the
 //      refresh path, and their idle tab's first request after it is refused.
@@ -75,6 +77,8 @@ let revocation: {
 } | null = null;
 
 const banner = (page: Page) => page.getByRole('region', { name: 'Active scope' });
+const withoutTenant = 'Signed in without a Tenant: provider mode is not active';
+let signInEntry: Record<string, unknown> = {};
 
 test.beforeAll(async ({ browser }) => {
   s = seed();
@@ -97,22 +101,56 @@ test.afterAll(async () => {
   }
 });
 
-// signInToTenant starts a Tenant sign-in from the page the application shows, as an operator does.
-async function signInToTenant(actor: Actor): Promise<string[]> {
-  const form = actor.page.getByRole('form', { name: /Sign in to a Tenant|Switch to another Tenant/ }).first();
-  await form.getByLabel('Tenant identifier').fill(s.tenantId);
-  await submits(actor.page, () => form.getByRole('button', { name: 'Continue to this Tenant' }).click());
+// signInWithoutTenant is the entry's one primary action: a sign-in that names no Tenant
+// (TDD-organization-experience-001 1.11.0 §The Sign-In Entry). Nothing asks for an identifier.
+async function signInWithoutTenant(actor: Actor): Promise<string[]> {
+  await expect(actor.page.getByText('Not signed in')).toBeVisible();
+  await expect(actor.page.getByRole('textbox'), 'no Tenant identifier to type').toHaveCount(0);
+  await submits(actor.page, () => actor.page.getByRole('link', { name: 'Sign in', exact: true }).click());
+  const shown = await signIn(actor.page, bff, actor.credentials);
+  await expect(banner(actor.page)).toContainText(withoutTenant);
+  return shown;
+}
+
+// chooseTenant picks the Tenant by its name from the person's own Tenants, as a person does
+// (ADR-ORG-005): the Tenant sign-in the entry links to, answered by the kernel session.
+async function chooseTenant(actor: Actor): Promise<string[]> {
+  const list = actor.page.getByRole('region', { name: 'Your Tenants' });
+  const entry = list.getByRole('link', { name: s.tenantName, exact: true });
+  await expect(entry).toBeVisible();
+  await submits(actor.page, () => entry.click());
   return signIn(actor.page, bff, actor.credentials);
 }
 
-test('a Tenant administrator signs in through the kernel’s hosted login', async () => {
+test('a Tenant administrator signs in with no Tenant, then chooses it from their own', async () => {
   const { page, context } = administrator;
   await page.goto(`${bff}/`);
-  await expect(page.getByText('Not signed in')).toBeVisible();
-  const shown = await signInToTenant(administrator);
+  const shown = await signInWithoutTenant(administrator);
   // Every sign-in here asks for aal2, and this person has no second factor yet: the kernel enrolls one.
   expect(shown).toEqual(expect.arrayContaining(['password', 'configure-totp']));
+  const neutral = await sessionRow(schema, await sessionCookieOf(context, bff));
+  expect(neutral?.keycloakSessionId, 'the sign-in without a Tenant’s kernel session').toBeTruthy();
+  const neutralScope = JSON.parse((await fetchIn(page, '/auth/scope')).body) as {
+    scope: string;
+    tenantId?: string;
+  };
+  expect(neutralScope.tenantId, 'the sign-in without a Tenant names none').toBeUndefined();
+
+  // The Tenant, chosen by its name: the kernel answers from its session, with no page (ADR-IAM-008 §5.6).
+  const picked = await chooseTenant(administrator);
+  expect(picked, 'kernel pages shown for the Tenant chosen').toEqual([]);
   await expect(banner(page)).toContainText(`Tenant scope: ${s.tenantId}`);
+  const tenant = await sessionRow(schema, await sessionCookieOf(context, bff));
+  expect(tenant?.keycloakSessionId, 'the Tenant sign-in’s kernel session').toBe(neutral?.keycloakSessionId);
+  signInEntry = {
+    signed_in_without_tenant: { kernel_pages_shown: shown, scope: neutralScope.scope },
+    tenant_chosen_from_own_contexts: {
+      by: 'its name in Your Tenants',
+      identifier_typed: false,
+      kernel_pages_shown: picked,
+      kernel_session_kept: tenant?.keycloakSessionId === neutral?.keycloakSessionId,
+    },
+  };
 
   // The cookie the pattern sets (TDD-identity-experience-001 §Session Cookie), as the browser holds it.
   const cookie = (await context.cookies()).find((c) => c.name === sessionCookie);
@@ -137,8 +175,10 @@ test('a Tenant administrator signs in through the kernel’s hosted login', asyn
   // A second session of the same person, left idle: no request until step 6.
   idleAdministrator.credentials.codes = administrator.credentials.codes;
   await idleAdministrator.page.goto(`${bff}/`);
-  await signInToTenant(idleAdministrator);
+  await signInWithoutTenant(idleAdministrator);
+  await chooseTenant(idleAdministrator);
   await expect(banner(idleAdministrator.page)).toContainText(`Tenant scope: ${s.tenantId}`);
+  writeEvidence('sign-in-entry', signInEntry);
 });
 
 test('provider mode is entered with a step-up and a reason', async () => {
@@ -147,7 +187,9 @@ test('provider mode is entered with a step-up and a reason', async () => {
   await submits(page, () => page.getByRole('link', { name: 'Sign in as a provider' }).click());
   const shown = await signIn(page, bff, provider.credentials);
   expect(shown).toEqual(expect.arrayContaining(['password', 'configure-totp']));
-  await expect(banner(page)).toContainText('Provider sign-in: provider mode is not active');
+  // The provider sign-in returns to the provider mode page (TDD-organization-experience-001 1.11.0).
+  expect(new URL(page.url()).pathname).toBe('/provider-mode');
+  await expect(banner(page)).toContainText(withoutTenant);
 
   // The session is a fresh aal2 provider sign-in: no Tenant, and an auth_time of just now.
   const scope = JSON.parse((await fetchIn(page, '/auth/scope')).body) as {
@@ -225,7 +267,7 @@ test('a Membership action: the operator grants one and revokes the administrator
   const providerSession = await sessionRow(schema, await sessionCookieOf(context, bff));
   expect(providerSession?.keycloakSessionId, 'the provider sign-in’s kernel session').toBeTruthy();
   await page.getByRole('link', { name: 'Overview' }).click();
-  const shown = await signInToTenant(operator);
+  const shown = await chooseTenant(operator);
   await expect(banner(page)).toContainText(`Tenant scope: ${s.tenantId}`);
   const tenantSession = await sessionRow(schema, await sessionCookieOf(context, bff));
   expect(tenantSession?.keycloakSessionId, 'the Tenant sign-in’s kernel session').toBe(
@@ -306,7 +348,7 @@ test('a Membership action: the operator grants one and revokes the administrator
 
 test('provider mode ends on its own at ends_at, in the browser that held it', async () => {
   const held = provider.page;
-  await expect(banner(held)).toContainText('Provider sign-in: provider mode is not active', {
+  await expect(banner(held)).toContainText(withoutTenant, {
     timeout: Math.max(0, windowEndsAt - Date.now()) + 30_000,
   });
   const closedSeenAt = Date.now();

@@ -3,12 +3,12 @@ doc_meta:
   id: TDD-organization-experience-001
   title: Administrative Scope, Provider Mode, and Safe Bulk Operations
   owner: Core Platform Team
-  version: 1.10.0
+  version: 1.11.0
   status: approved
   classification: restricted
   review_cycle_days: 90
   created_date: 2026-08-11
-  last_reviewed: 2026-10-19
+  last_reviewed: 2026-10-20
   parent_sad: SAD-012
 ---
 
@@ -122,13 +122,115 @@ is registered for the `per-sign-in` privileged form, so every sign-in names one:
 - **Moving between scopes is a sign-in**, which replaces the session. Entering provider scope always
   re-authenticates at `aal2` (`max_age=0`), as Entra PIM can require "reauthentication on every role
   activation" [R1].
-- **"Default on sign-in" is the Tenant scope** when the operator names a Tenant. The Tenant is chosen
-  on the entry page, or arrives on a deep link, because the kernel's own chooser is not yet asserted
-  (`ADR-IAM-008` Alternative D).
+- **"Default on sign-in" is the Tenant scope** when the operator names a Tenant. Until 1.11.0 the
+  Tenant was typed on the entry page, or arrived on a deep link, because the kernel's own chooser is
+  not yet asserted (`ADR-IAM-008` Alternative D). From 1.11.0 the person signs in without a Tenant and
+  chooses one of their own (§The Sign-In Entry).
 - **A provider session is not yet provider mode.** Its holder is eligible: the Organization Control
   API admits it to `/v1/provider-activations` alone. Provider mode is a window: an activation the
   operator requests with a reason and a duration, and another provider approves (§Provider Mode
   Entry).
+
+### The Sign-In Entry (1.11.0)
+
+Reported from the development server: to sign in for a Tenant a person had to know its identifier, a
+UUID, and the provider sign-in sat beside that field. 1.11.0 signs the person in first and lets them
+choose.
+
+```mermaid
+sequenceDiagram
+    participant P as Person
+    participant U as UI
+    participant F as BFF
+    participant K as Keycloak
+    participant C as Organization Control API
+
+    P->>U: Sign in
+    U->>F: GET /auth/login?return_to=/
+    F->>K: scnehaux-provider, acr_values=aal2
+    K-->>F: Authenticated, no tenant_id
+    U->>F: GET /api/v1/principals/{own id}/contexts
+    F->>C: The self read (ADR-ORG-005 §5.1)
+    C-->>U: Your Tenants
+    P->>U: Choose a Tenant
+    U->>F: GET /auth/login?tenant=<tenant_id>
+    F->>K: scnehaux-privileged organization:<tenant_id>
+    K-->>F: Answered by the session, tenant_id (ADR-IAM-008 §5.6)
+    F-->>U: Tenant scope
+```
+
+**One neutral sign-in.** The signed-out entry's primary action is **Sign in**, `/auth/login` with no
+Tenant, returning to the page the person was on.
+- **It is the request the BFF already sends.** A token must carry one form, and a request that names
+  neither "gets a token without `principal_id`, and every resource refuses it" (`ADR-IAM-008 §5.1`).
+  So the sign-in that names no Tenant asks for the provider-scope form, at the application's `aal2`
+  and without `max_age=0`.
+- **That form confers nothing.** It "grants nothing" (`ADR-IAM-008 §5.5`). Without an activation the
+  Organization Control API admits the person to two self routes alone: their own contexts
+  (`ADR-ORG-005 §5.1`) and an invitation's acceptance (`ADR-ORG-007 §5.1`).
+- **It is the acceptance page's sign-in.** `ADR-ORG-007 §5.6`: "The BFF signs the person in without a
+  Tenant, as it does to list their contexts". An invited person and an administrator now enter the
+  same way.
+- **The BFF does not change.** `/auth/login`, its callback check (`ADR-IAM-008 §5.3`) and the scope
+  guard's two self routes (§The Scope Guard) are as they were. No file of `bff/conformance.json`'s
+  identical set is touched.
+
+**Then "Your Tenants".** The overview of a session without a Tenant lists the person's own contexts
+first (`TDD-organization-experience-002` 1.9.0 §The Picker After Sign-In).
+- **Choosing an entry is the Tenant sign-in**, `/auth/login?tenant=<tenant_id>` (`ADR-ORG-005 §5.3`,
+  `ADR-IAM-008 §5.2`). On the kernel session the neutral sign-in made, the kernel's Organization
+  Identity-First step answers it with no page and no credential (`ADR-IAM-008 §5.6`). The BFF session
+  is replaced; the kernel session it names is the same one.
+- **Several Tenants: a list to pick from after the sign-in**, as the platforms do:
+  - Auth0: "Users in multiple Organizations are directed to the Organization Picker after the login
+    flow, which displays the first 20 organizations they joined" [R8];
+  - Slack: "If you are a member of multiple workspaces, you can choose which one you want to open after
+    you sign in." [R9];
+  - the Azure portal: "To switch to a different directory, find the directory that you want to work in,
+    and then select the **Switch** button in its row." [R10];
+  - GitHub's "Switch dashboard context" menu "lists organizations linked to the personal account" [R11].
+- **One Tenant: listed, not entered by itself.** WCAG's Change on Request: "Changes of context are
+  initiated only by user request or a mechanism is available to turn off such changes" [R12]. Two
+  more reasons:
+  - the person may have signed in for something else: an invitation, or provider work;
+  - a Tenant sign-in the kernel refused lands back on the overview, which would start it again.
+- **No Tenant:** the list says so, and what to do: a Tenant administrator invites the person, who
+  opens the link they are sent (`ADR-ORG-007`).
+- **The list cannot be read:** it says why, as every list here does: the API's refusal with its
+  reference, or that Organization Control could not be reached.
+
+**Sign in as a provider** is the secondary action, set apart under a rule.
+- It is the provider form's step-up, `acr_values=aal2&max_age=0` (`ADR-IAM-008 §5.4`), unchanged.
+- It returns to **`/provider-mode`**, the page that holds the entry ceremony (§Provider Mode Entry).
+  The overview of a session without a Tenant offers that page under **Provider administration**, below
+  the person's Tenants.
+- A provider window open in the session puts the window first on the overview, as before.
+
+**No Tenant identifier field.** It goes from the entry page and from the overview's switch, decided
+from the ADRs:
+- **The list holds every Tenant a Tenant sign-in can serve.** It has "One entry per active Membership
+  in an active Tenant" (`ADR-ORG-005 §5.2`). Tenant administration needs an active Membership and an
+  active Tenant (`ADR-ORG-003`), and the kernel issues `organization:<tenant_id>` "only for a member"
+  (`ADR-ORG-005 §5.3`).
+- **A person with no listed context gains nothing by typing one.** The kernel rejects a non-member's
+  request (`ADR-IAM-008 §5.6`), and the API refuses a Membership that is not active.
+- **A list that cannot be read is Organization Control not answering.** Every Tenant-scope read goes
+  to the same API, so a Tenant entered by its identifier would not answer either.
+- **`ADR-ORG-005 §6` expects it:** "A Tenant administrator chooses a Tenant from a list instead of
+  typing an identifier."
+- **A deep link still works.** The sign-in returns to the page it started on. A Tenant surface reached
+  without a Tenant lists the person's Tenants under its notice, and each entry's sign-in returns to
+  that surface. `/auth/login?tenant=` itself is unchanged, for a link that names its Tenant.
+- **Provider mode still takes identifiers.** Its targets are Tenants the provider is usually not a
+  member of, so they are not in the provider's contexts.
+
+**The banner for a session without a Tenant** reads "Signed in without a Tenant: provider mode is not
+active". Until 1.11.0 it read "Provider sign-in: provider mode is not active".
+- The neutral sign-in and the provider sign-in make the same form, and the BFF cannot tell them apart.
+  The page does not try to, because the form grants nothing.
+- Entering provider mode is checked where it always was: `POST /auth/scope/provider` requires `aal2`
+  and an `auth_time` within `ORGANIZATION_EXPERIENCE_PROVIDER_STEP_UP_AGE`, then a provider grant, then
+  another provider's approval.
 
 ### Provider Mode Entry
 
@@ -247,11 +349,12 @@ pairs, at their worst, light / dark:
 
 **The scope banner (§Scope Visibility).** It is drawn in the scheme of the scope it names, with its
 own glyph and its words as well as its colour [R5, SC 1.4.1]: info and a building for a Tenant, danger
-and the shield for provider mode, warning and a key for a provider sign-in without it and for a scope
-that could not be read. It sits under the frame's bar and sticks with it, so it stays in view whatever
+and the shield for provider mode, warning and a key for a session without a Tenant and without provider
+mode (1.11.0, §The Sign-In Entry) and for a scope that could not be read. It sits under the frame's bar and sticks with it, so it stays in view whatever
 the page scrolls to; the browser test scrolls a long page and asserts the banner fully in the viewport.
 The time left is set apart at the end of the banner in tabular figures. The banner reads the same
-sentence it always has, word for word: the parts are styled, not reworded.
+sentence it always has, word for word: the parts are styled, not reworded. The one sentence 1.11.0
+rewords is the session without a Tenant's.
 
 **Information design.** The surfaces share one shape: the page's `h2`, a panel per create form with its
 fields in a grid, the filters in a toolbar, then the records.
@@ -275,8 +378,35 @@ fields in a grid, the filters in a toolbar, then the records.
 - **Tables are real tables** where the data is a grid: the obligation board and the bulk preview, with
   a caption, scoped headers, a keyboard-reachable scroll region and statuses as pills.
 - **Responsive to tablet width.** Under 60rem the rail becomes a bar above the page with its links in
-  a row. The browser test checks every route at 820px and 1440px for horizontal page overflow and
-  finds none [R5, SC 1.4.10].
+  a row. The bar keeps its own height on a page shorter than the viewport (1.11.0): until then the
+  frame's grid stretched it, which the picker with no Tenant showed at tablet width. Every main route is
+  checked for horizontal page overflow at 1440, 1024, 820, 768, 390 and 320 CSS px, and none is found
+  [R5, SC 1.4.10]. Until 1.11.0 it was checked at 820 and 1440 alone. `STD-GLB-FE-005` 2.1.0 §3.10
+  requires 320, the width SC 1.4.10 names: "No page scrolls sideways at 320 CSS px".
+- **A panel is never sized as if it were empty (1.11.0).** identity-experience#57 found that its
+  `Panel` set `container-type: inline-size` with no container query. Inline-size containment sizes an
+  element "as if the element had no content" in the inline axis (CSS Containment 3 §3.1, as
+  `TDD-identity-experience-003` 1.29.0 §Layout quotes it). A panel that is not stretched, such as one
+  in another panel's start-aligned body, then collapses to its padding, with its text one character
+  per line. This copy had the same rule and the same `Panel.Body`. Nothing here nests a panel yet, so
+  it was latent. The fix is ported as identity-experience made it:
+  - `Panel` has no `container-type`, and has `min-inline-size: 0`;
+  - a panel's text takes `overflow-wrap: anywhere`, so a long identifier breaks inside it;
+  - `Table` sets `overflow-wrap: normal`, so a column narrows to its widest word and a wide table
+    scrolls in its own region;
+  - `e2e/browser/layout.spec.ts` holds it, as identity-experience's `layout.spec.ts` does
+    (`TDD-identity-experience-003` 1.29.0 §Layout) and as `STD-GLB-FE-005` 2.1.0 §3.10 and §5 require.
+    Ten pages, with their forms and confirmations open, are laid out at 1440, 1024, 768, 390 and 320
+    CSS px in both themes. At each width every panel is at least 16rem wide, or its container's width when that is
+    narrower. No text of four characters or more runs three lines or more, each narrower than one and
+    a half of its font size. The page never scrolls sideways [R5, SC 1.4.10].
+  - **What 320 found.** At 390 and 320 CSS px two pages scrolled sideways. A Tenant's overview held
+    "Switch to provider administration" on one line, 296px wide in a 240px panel. The invitations
+    list held a pending invitation's status, a sentence, on one line in its pill. A `Button` and a
+    `StatusPill` now take at most their container's width and wrap a label longer than it, a button
+    with `overflow-wrap: anywhere`, a pill at word breaks only, so a pill in a table keeps whole words.
+    A label that fits stays on one line. These are departures from identity-experience's copies
+    (below).
 - **Motion** is decoration only, and the foundations remove it under `prefers-reduced-motion: reduce`
   [R5, SC 2.3.3].
 
@@ -290,6 +420,7 @@ fields in a grid, the filters in a toolbar, then the records.
 | The rail is the page's full height, and what it holds sticks in view at the viewport's height | The rail itself is sticky at `100dvh`, so a full-page rendering of a long page shows its surface and edge ending at the first screen | The column reads as one surface beside the longest page; `behaviour.spec.ts` asserts the rail spans the page and its navigation stays in view after a scroll, on Tenants, an offboarding and Memberships |
 | `Notice`, `Facts`, `Rows`, `Page` and the field classes | `TextField`, `SelectField`, `TextAreaField` own their ids and errors | This application's forms already own the ids, hints and errors their tests read, so they take Identity Experience's field styles as classes rather than its components |
 | No modal dialog | Has none to port | A confirmation stays in the row it acts on, beside the record it names |
+| A `Button` or `StatusPill` label longer than its room wraps inside it (1.11.0) | One line, `white-space: nowrap` | `STD-GLB-FE-005` 2.1.0 §3.10: "No page scrolls sideways at 320 CSS px"; a one-line label wider than a phone's panel pushed the page sideways (§Visual Language, What 320 found) |
 
 **Before and after.** The CI artifact `browser-screens` holds a screenshot of every main route, signed
 in, with data, in Tenant scope and in provider mode, light and dark, at desktop and tablet width. The
@@ -571,6 +702,17 @@ Session, cookie, refresh, and client credential settings are inherited unchanged
     its `Idempotency-Key`, and a refusal is answered once, never sent again;
   - `/v1/invitations/expire-lapsed` stays refused in a Tenant scope, and `verify-identity` is no
     longer listed.
+- 1.11.0, the sign-in entry:
+  - signed out, the page offers **Sign in**, `/auth/login` with no Tenant, as its primary action and
+    **Sign in as a provider** as a secondary one, each returning where it should, and no Tenant
+    identifier field;
+  - signed in without a Tenant, the overview lists the person's Tenants first, each a link to
+    `/auth/login?tenant=`, with one entry, several, none, and a list that could not be read; it never
+    starts a sign-in by itself;
+  - a Tenant surface reached without a Tenant lists the person's Tenants, each returning to it;
+  - the banner reads "Signed in without a Tenant: provider mode is not active";
+  - in the stack, a person signs in with no Tenant, chooses the Tenant from the list, and is in its
+    scope on the same kernel session, with no identifier typed (§End to End).
 
 ### Bulk Operations
 
@@ -628,7 +770,9 @@ command. The stand-in proves no BFF behaviour: `bff/test` and the stack-proof wo
 - `screens.spec.ts`: every main route, 19 views (an open revoke confirmation and the bulk action among
   them), light and dark, desktop and five at tablet width, 48 in all. Each is kept as a screenshot and
   checked for horizontal overflow, and axe-core's WCAG 2.0, 2.1 and 2.2 A and AA rules run with layout
-  and computed style. It fails on any violation.
+  and computed style. It fails on any violation. At 1.11.0 it holds 37 views, nine of them also at
+  tablet width, 92 in all: the signed-out entry, the picker with several, one and no Tenants, a Tenant
+  surface reached without a Tenant, and the provider mode page among them.
 - What axe cannot decide is recorded as "needs review" on the test and in `needs-review.txt` beside
   the screenshots, never passed. At 1.9.0 that is colour contrast alone, on every view, 8 to 92 nodes:
   the canvas is gradients and the surfaces are translucent over it, so axe resolves no single
@@ -673,23 +817,26 @@ every stack the journeys need. The proof brings up:
 
 `e2e/` drives Chromium with Playwright, one worker, no retry (STD-GLB-FE-008 §3.4), through the
 kernel's own pages:
-1. **Sign-in.** A Tenant administrator signs in to the Tenant from the entry page, typing the password
-   and enrolling a TOTP the kernel asks for at `aal2`. The session cookie is `__Host-`, `HttpOnly`,
-   `Secure`, `SameSite=Lax`, path `/`, and the page holds nothing in browser storage.
-2. **Provider mode entry.** A second provider signs in to the provider form, a fresh `aal2`
-   authentication. The session reads as provider scope at `aal2` with a recent `auth_time`. A request
+1. **Sign-in, then a Tenant chosen (1.11.0).** A Tenant administrator chooses **Sign in** on the entry
+   page, types the password and enrolls a TOTP the kernel asks for at `aal2`. The session names no
+   Tenant, and the banner says so. **Your Tenants** lists the Tenant by its name, and choosing it signs
+   in for it with no kernel page, on the same kernel session; the banner names the Tenant. No
+   identifier is typed. The session cookie is `__Host-`, `HttpOnly`, `Secure`, `SameSite=Lax`, path `/`,
+   and the page holds nothing in browser storage. A second session of theirs enters the same way.
+2. **Provider mode entry.** A second provider chooses **Sign in as a provider**, a fresh `aal2`
+   authentication, and lands on the provider mode page (1.11.0). The session reads as provider scope at `aal2` with a recent `auth_time`. A request
    without a reason is refused in the browser, and nothing reaches the BFF. With a reason, one minute
    and one Tenant, it is pending, and the banner says so.
 3. **Second-provider approval.** The bootstrap operator, another provider, reviews the requests with a
    reason of their own and approves this one with a reason. The window opens in the first provider's
    browser, which polls a pending window, and the Tenant is listed on the provider surface.
 4. **A Membership action.** The operator moves from the provider sign-in to the Tenant in the same
-   browser, and the BFF session the Tenant sign-in makes names the provider sign-in's kernel session
-   (1.8.0). There they grant a Membership and revoke the Tenant administrator's. The revocation is shown by its evidence until it is `enforced`, never as
+   browser, by choosing it from **Your Tenants** (1.11.0), and the BFF session the Tenant sign-in makes
+   names the provider sign-in's kernel session (1.8.0). There they grant a Membership and revoke the Tenant administrator's. The revocation is shown by its evidence until it is `enforced`, never as
    enforced on acceptance. The kernel still lists the administrator's sessions afterwards: a
    revocation removes none (`ADR-IAM-006 §5.5`).
 5. **Scope expiry reaching the browser.** The window ends at `ends_at` with no action: the banner
-   returns to the provider sign-in, the provider surfaces close, and a provider read after `ends_at`
+   returns to the session without a Tenant, the provider surfaces close, and a provider read after `ends_at`
    is refused.
 6. **Revocation reaching the browser.** The Tenant administrator's tab, in use throughout, ends when the
    BFF's refresh is refused, within the bound `TDD-identity-experience-001` §Revocation states. No
@@ -796,6 +943,13 @@ when its session store does not answer (1.5.0); the operator's steps are identit
 | Conforms to | STD-GLB-FE-008 §3.4 — Playwright in Chromium, one worker, no retry, the stack's certificate authority trusted (1.7.0) |
 | Conforms to | STD-GLB-FE-003 §3.5 — a sign-in is a navigation, never a form submitted to the BFF (1.7.0) |
 | Governed by | ADR-ORG-007 §5.1, §5.8 — invitation acceptance is a self command, and the guard's provider-only list loses `verify-identity` (1.10.0) |
+| Governed by | ADR-ORG-005 §5.1–§5.3, §6 — the person signs in without a Tenant and chooses one of their own contexts (1.11.0) |
+| Governed by | ADR-IAM-008 §5.1, §5.5, §5.6 — the sign-in without a Tenant is the provider form, which grants nothing, and the Tenant chosen is answered by the kernel session (1.11.0) |
+| Governed by | ADR-ORG-007 §5.6 — the acceptance page's sign-in without a Tenant is the entry's (1.11.0) |
+| Follows | Auth0 Organization Picker, Slack, the Azure portal's directory switch, GitHub's dashboard context — the context chosen after the sign-in (1.11.0) |
+| Follows | WCAG 2.2 SC 3.2.5 — one listed Tenant is not entered by itself (1.11.0) |
+| Follows | `TDD-identity-experience-003` 1.29.0 §Layout — a panel without size containment, and the layout check at four widths (1.11.0) |
+| Conforms to | `STD-GLB-FE-005` 2.1.0 §3.10 — intrinsic sizing and reflow, the layout test at 320 CSS px included (proposed in scnehaux-architecture #100) (1.11.0) |
 
 ### Standalone Operation
 
@@ -815,3 +969,8 @@ UI Platform ships its primitives (SAD-012 1.1.0 §7.3).
 | R5 | W3C, *Web Content Accessibility Guidelines (WCAG) 2.2*, W3C Recommendation 12 December 2024, <https://www.w3.org/TR/WCAG22/>, accessed 2026-10-18. SC 1.3.2: "When the sequence in which content is presented affects its meaning, a correct reading sequence can be programmatically determined." SC 1.4.1: "Color is not used as the only visual means of conveying information, indicating an action, prompting a response, or distinguishing a visual element." SC 1.4.3: "The visual presentation of text and images of text has a contrast ratio of at least 4.5:1, except for the following". SC 1.4.10: "Content can be presented without loss of information or functionality, and without requiring scrolling in two dimensions". SC 1.4.11: "The visual presentation of the following have a contrast ratio of at least 3:1 against adjacent color(s): User Interface Components: Visual information required to identify user interface components and states, except for inactive components". SC 2.3.3 (AAA): "Motion animation triggered by interaction can be disabled, unless the animation is essential". SC 2.4.7: "Any keyboard operable user interface has a mode of operation where the keyboard focus indicator is visible." SC 2.5.8: "The size of the target for pointer inputs is at least 24 by 24 CSS pixels, except when:" (1.9.0) |
 | R6 | MDN, *prefers-color-scheme*, <https://developer.mozilla.org/en-US/docs/Web/CSS/@media/prefers-color-scheme>, accessed 2026-10-18: "The prefers-color-scheme CSS media feature is used to detect if a user has requested light or dark color themes." (1.9.0) |
 | R7 | Playwright, *Accessibility testing*, <https://playwright.dev/docs/accessibility-testing>, accessed 2026-10-18: "Note that automated testing cannot detect all types of WCAG violations."; "But many accessibility problems can only be discovered through manual testing." (1.9.0) |
+| R8 | Auth0, *Login Flows for Organizations*, <https://auth0.com/docs/manage-users/organizations/login-flows-for-organizations>, accessed 2026-10-20: "Users in multiple Organizations are directed to the Organization Picker after the login flow, which displays the first 20 organizations they joined." (1.11.0) |
+| R9 | Slack Help Center, *Sign in to Slack*, <https://slack.com/help/articles/212681477-Sign-in-to-Slack>, accessed 2026-10-20: "If you are a member of multiple workspaces, you can choose which one you want to open after you sign in." (1.11.0) |
+| R10 | Microsoft, *Manage Azure portal settings and preferences*, §Switch and manage directories, <https://learn.microsoft.com/en-us/azure/azure-portal/set-preferences>, accessed 2026-10-20: "In the **Directories** section, you see your **Current directory** (the directory, or Azure tenant, that you're currently signed in to)."; "To see a full list of directories you can access, select **All Directories**."; "To switch to a different directory, find the directory that you want to work in, and then select the **Switch** button in its row." (1.11.0) |
+| R11 | GitHub Docs, *About your organization dashboard*, <https://docs.github.com/en/organizations/collaborating-with-groups-in-organizations/about-your-organization-dashboard>, accessed 2026-10-20: "To switch to your organization dashboard, in the upper-left corner of the page, select your username"; the menu's caption: "Screenshot of the "Switch dashboard context" menu for a personal account. The menu lists organizations linked to the personal account." (1.11.0) |
+| R12 | W3C, *Understanding Success Criterion 3.2.5: Change on Request* (WCAG 2.2, level AAA), <https://www.w3.org/WAI/WCAG22/Understanding/change-on-request.html>, accessed 2026-10-20: "Changes of context are initiated only by user request or a mechanism is available to turn off such changes."; "This success criterion aims to eliminate potential confusion that may be caused by unexpected changes of context". (1.11.0) |

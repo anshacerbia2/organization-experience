@@ -63,9 +63,26 @@
     gap: var(--ds-spacing-lg);
   }
 
-  // The provider sign-in, set apart from the Tenant's by a rule: the two are different scopes.
+  // The neutral sign-in: its sentence, then the one primary action (TDD-organization-experience-001
+  // 1.11.0 §The Sign-In Entry).
+  .gateEntry {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--ds-spacing-sm);
+  }
+
+  .gateLead {
+    font-size: var(--ds-font-size-sm);
+    color: var(--ds-color-neutral-text-default-default);
+  }
+
+  // The provider sign-in, set apart from the neutral one by a rule: it is a different form of work.
   .gateProvider {
     display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--ds-spacing-sm);
     padding-block-start: var(--ds-spacing-lg);
     border-block-start: var(--ds-stroke-thin) solid var(--ds-color-neutral-border-subtle-default);
   }

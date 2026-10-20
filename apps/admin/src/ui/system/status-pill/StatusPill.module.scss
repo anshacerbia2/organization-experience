@@ -17,7 +17,11 @@
     font-weight: var(--ds-font-weight-medium);
     color: var(--pill-text);
     background: var(--pill-surface);
-    white-space: nowrap;
+
+    // This repository's change (STD-GLB-FE-005 2.1.0 §3.10, TDD-organization-experience-001 1.11.0): a
+    // status longer than the room it has wraps inside the pill rather than pushing the page sideways.
+    max-inline-size: 100%;
+    padding-block: var(--ds-spacing-3xs);
   }
 
   .root[data-tone='info'] {

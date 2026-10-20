@@ -3,12 +3,12 @@ doc_meta:
   id: TDD-organization-experience-002
   title: Organization, Tenant, Workspace, and Membership Administration Surfaces
   owner: Core Platform Team
-  version: 1.8.0
+  version: 1.9.0
   status: approved
   classification: restricted
   review_cycle_days: 90
   created_date: 2026-08-11
-  last_reviewed: 2026-10-19
+  last_reviewed: 2026-10-20
   parent_sad: SAD-012
 ---
 
@@ -71,7 +71,7 @@ Each is rendered as its own state here, with the consequence stated.
 | `WorkspaceManager` | Workspace list and lifecycle within one Tenant |
 | `MembershipAdmin` | Grant, suspend, revoke, restore, and the invitation path, with the acceptance link shown once (1.8.0) |
 | `InvitationAcceptance` | The page where an invited person, signed in as themselves, accepts (1.8.0) |
-| `ContextSwitcher` | Operator's eligible contexts and the switch |
+| `ContextSwitcher` | The person's own contexts: the picker after a sign-in without a Tenant, and the switch (1.9.0) |
 | `ProjectionHealth` | Consumer registry, freshness, reconciliation status; a consumer's dead letters and their resolution, its retirement, and the Tenant-administration pause (1.7.0) |
 | `AccessReview` | Provider access no one has reviewed, one provider's access over a period, and the review recorded (1.5.0); the provider grants, granted and revoked (1.7.0) |
 | `TenantProviderAccess` | A Tenant administrator's read of the provider access that named its Tenant (1.5.0) |
@@ -183,7 +183,8 @@ sentence.
   - Each entry names the Tenant and the Workspace, and whether the operator administers the
     Tenant.
   - Choosing an entry is the Tenant sign-in. An entry is a selector, and the API checks the choice
-    again at use. The identifier field remains for a deep link.
+    again at use. The identifier field remained for a deep link until 1.9.0, which removes it
+    (§The Picker After Sign-In).
 - **Projection health** lists the consumers from `GET /v1/projections/consumers`, in provider mode.
   - Each consumer shows its declared budget and stale behaviour, and its last reported mark and
     time.
@@ -647,6 +648,40 @@ is the property that keeps token size independent of how many client relationshi
 operator holds, and the interface must not defeat it by asking for a token that carries
 them all.
 
+### The Picker After Sign-In (1.9.0)
+
+A person signs in without a Tenant and then chooses one (`TDD-organization-experience-001` 1.11.0
+§The Sign-In Entry, which holds the decision and its sources). This is the surface.
+
+**The overview of a session without a Tenant** has, in order:
+1. **Your Tenants**, the person's own contexts, read for themselves (`ADR-ORG-005 §5.1`).
+   - Each entry is the Tenant's display name as a link, then whether the person administers it or is
+     a member, and the Workspace of a Workspace-scoped Membership (`ADR-ORG-005 §5.2`).
+   - The link is `/auth/login?tenant=<tenant_id>&return_to=/`. Following it is the Tenant sign-in.
+2. **Provider administration:** a sentence on what provider mode is, and a link to `/provider-mode`.
+   - That page holds the provider mode form, or the open window with its one action.
+   - A window open in the session comes first on the overview instead, as before 1.9.0.
+
+**What the list says in each case:**
+
+| Contexts | The overview shows |
+| :-- | :-- |
+| Several | Every one, paged with Show more. None is chosen for the person |
+| One | That one, as a link. It is not entered by itself |
+| None | "You hold no active membership in an active Tenant", and that a Tenant administrator invites a person, who opens the link they are sent |
+| Not readable | Why, as every list says it: the API's refusal with its reference, or that Organization Control could not be reached |
+
+**A Tenant surface reached without a Tenant** says it belongs to a Tenant scope and lists the person's
+Tenants under that sentence. Each link returns to the surface, so a bookmark or a link to
+`/memberships` ends in that Tenant's Memberships after one choice.
+
+**In a Tenant scope** the overview lists the same Tenants with the current one marked, as 1.3.0 built
+it, and offers Switch to provider administration. The identifier field goes from there too.
+
+**Sign-in failure.** A Tenant sign-in the kernel or the callback refused lands on the overview with
+`?sign-in=failed`, and the BFF keeps the session it had. The person sees the refusal notice above the
+same list and chooses again.
+
 ### Projection Health
 
 Renders the consumer registry: who is registered, their declared freshness budget,
@@ -752,6 +787,14 @@ An `extra` reconciliation finding renders as a security finding, matching how
   token.
 - A switch to a Tenant without active Membership is refused and surfaced.
 - After a switch, the view reloads in the new context and shows it in the scope banner.
+- Signed in without a Tenant, the overview lists the person's contexts before anything else, with
+  one, several and none, and with a list that could not be read; each entry links to
+  `/auth/login?tenant=` returning to the page, and nothing navigates without the person (1.9.0).
+- No surface has a Tenant identifier field for a sign-in (1.9.0).
+- A Tenant surface reached without a Tenant lists the person's contexts, each returning to it (1.9.0).
+- The fixture-backed browser tests show the signed-out entry, the picker with one, several and no
+  contexts, and the provider mode page, in both themes, with a screenshot and axe-core's WCAG 2.2 A
+  and AA rules (1.9.0).
 
 ### Projection Health
 
@@ -820,6 +863,8 @@ investigation.
 | Governed by | ADR-ORG-007 §5.5, §5.6 — the link shown once on issue, and the acceptance page for a person with no Tenant (1.8.0) |
 | Governed by | ADR-ORG-005 — the person's own contexts, which name the Tenant joined (1.8.0) |
 | Governed by | ADR-IAM-006 §5.2 — opening the Tenant joined is a sign-in for it (1.8.0) |
+| Governed by | ADR-ORG-005 §5.1–§5.3 — the picker after a sign-in without a Tenant, and no identifier field (1.9.0) |
+| Conforms to | `TDD-organization-experience-001` 1.11.0 §The Sign-In Entry — the neutral sign-in, the provider sign-in apart, and why the identifier field goes (1.9.0) |
 | Depends on | `TDD-organization-control-002` — Membership, revocation, projection health |
 | Depends on | `TDD-organization-control-002` 1.13.0 §The Consumer List — the consumer's last reconciliation and its age (1.4.0) |
 | Conforms to | STD-GLB-001 §Pagination — keyset paging, no offsets (1.2.0) |

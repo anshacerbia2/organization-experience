@@ -8,7 +8,8 @@ import { OrganizationsPage, TenantsPage } from './features/provider';
 import { AccessReviewPage, TenantProviderAccessPage } from './features/review';
 import { InvitationsPage, MembershipsPage, WorkspacesPage } from './features/tenant';
 import { acceptancePath } from './invitationLink';
-import { Home, RequireScope, Root } from './Shell';
+import { providerModePath } from './session';
+import { Home, ProviderModePage, RequireScope, Root } from './Shell';
 
 // The application's routes. Each surface states the scope it belongs to; the BFF's scope guard
 // refuses the requests of any other. Each route is declared with its literal path, so links and
@@ -91,6 +92,14 @@ const providerAccess = createRoute({
   component: () => <RequireScope scope="tenant">{() => <TenantProviderAccessPage />}</RequireScope>,
 });
 
+// The provider mode ceremony, where the provider sign-in returns (TDD-organization-experience-001
+// 1.11.0): any session without a Tenant reaches it, and the BFF decides whether a window opens.
+const providerMode = createRoute({
+  getParentRoute: () => root,
+  path: providerModePath,
+  component: () => <RequireScope scope="provider">{() => <ProviderModePage />}</RequireScope>,
+});
+
 const approvals = createRoute({
   getParentRoute: () => root,
   path: '/approvals',
@@ -110,6 +119,7 @@ const routeTree = root.addChildren([
   projections,
   accessReview,
   providerAccess,
+  providerMode,
   approvals,
 ]);
 
