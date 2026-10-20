@@ -27,7 +27,14 @@
       border-color var(--ds-duration-fast) var(--ds-easing-standard),
       box-shadow var(--ds-duration-normal) var(--ds-easing-standard),
       transform var(--ds-duration-fast) var(--ds-easing-standard);
-    white-space: nowrap;
+
+    // This repository's change (STD-GLB-FE-005 2.1.0 §3.10, TDD-organization-experience-001 1.11.0):
+    // a label wider than the room it has wraps inside the button rather than pushing the page
+    // sideways at 320 CSS px. A label that fits stays on one line.
+    max-inline-size: 100%;
+    padding-block: var(--ds-spacing-2xs);
+    text-align: center;
+    overflow-wrap: anywhere;
     cursor: pointer;
     user-select: none;
 

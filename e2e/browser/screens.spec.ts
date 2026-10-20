@@ -422,6 +422,7 @@ const viewports = {
   desktop: { width: 1440, height: 960 },
   tablet: { width: 820, height: 1180 },
 } as const;
+const overflowWidths = [1440, 1024, 820, 768, 390, 320] as const;
 
 // The theme is the viewer's stored choice, and without one the system's (apps/admin/src/ui/theme.ts).
 // Both are set, so the page opens in the theme under test whichever it reads.
@@ -496,11 +497,22 @@ for (const theme of themes) {
           fullPage: true,
           animations: 'disabled',
         });
-        // The page never scrolls sideways: a wide table scrolls inside its own region.
-        const overflow = Number(
-          await page.evaluate('document.documentElement.scrollWidth - document.documentElement.clientWidth'),
-        );
-        expect.soft(overflow, 'horizontal page overflow in px').toBeLessThanOrEqual(0);
+        // The page never scrolls sideways: a wide table scrolls inside its own region. Checked at every
+        // width layout.spec.ts lays pages out at, 320 CSS px included (STD-GLB-FE-005 2.1.0 §3.10, WCAG
+        // 2.2 SC 1.4.10), then back at the screenshot's width for axe.
+        for (const width of overflowWidths) {
+          await page.setViewportSize({ width, height: viewports[viewport].height });
+          await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(resolve)));
+          const overflow = Number(
+            await page.evaluate(
+              'document.documentElement.scrollWidth - document.documentElement.clientWidth',
+            ),
+          );
+          expect
+            .soft(overflow, `horizontal page overflow in px at ${String(width)}px`)
+            .toBeLessThanOrEqual(0);
+        }
+        await page.setViewportSize(viewports[viewport]);
 
         const results = await new AxeBuilder({ page }).withTags(wcagTags).analyze();
         const violations = results.violations.map((violation) => ({

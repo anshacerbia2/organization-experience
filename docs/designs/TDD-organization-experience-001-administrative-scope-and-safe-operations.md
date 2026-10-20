@@ -379,8 +379,10 @@ fields in a grid, the filters in a toolbar, then the records.
   a caption, scoped headers, a keyboard-reachable scroll region and statuses as pills.
 - **Responsive to tablet width.** Under 60rem the rail becomes a bar above the page with its links in
   a row. The bar keeps its own height on a page shorter than the viewport (1.11.0): until then the
-  frame's grid stretched it, which the picker with no Tenant showed at tablet width. The browser test
-  checks every route at 820px and 1440px for horizontal page overflow and finds none [R5, SC 1.4.10].
+  frame's grid stretched it, which the picker with no Tenant showed at tablet width. Every main route is
+  checked for horizontal page overflow at 1440, 1024, 820, 768, 390 and 320 CSS px, and none is found
+  [R5, SC 1.4.10]. Until 1.11.0 it was checked at 820 and 1440 alone. `STD-GLB-FE-005` 2.1.0 §3.10
+  requires 320, the width SC 1.4.10 names: "No page scrolls sideways at 320 CSS px".
 - **A panel is never sized as if it were empty (1.11.0).** identity-experience#57 found that its
   `Panel` set `container-type: inline-size` with no container query. Inline-size containment sizes an
   element "as if the element had no content" in the inline axis (CSS Containment 3 §3.1, as
@@ -392,11 +394,19 @@ fields in a grid, the filters in a toolbar, then the records.
   - a panel's text takes `overflow-wrap: anywhere`, so a long identifier breaks inside it;
   - `Table` sets `overflow-wrap: normal`, so a column narrows to its widest word and a wide table
     scrolls in its own region;
-  - `e2e/browser/layout.spec.ts` holds it, as identity-experience's `layout.spec.ts` does. Ten pages,
-    with their forms and confirmations open, are laid out at 1440, 1024, 768 and 390 CSS px in both
-    themes. At each width every panel is at least 16rem wide, or its container's width when that is
+  - `e2e/browser/layout.spec.ts` holds it, as identity-experience's `layout.spec.ts` does
+    (`TDD-identity-experience-003` 1.29.0 §Layout) and as `STD-GLB-FE-005` 2.1.0 §3.10 and §5 require.
+    Ten pages, with their forms and confirmations open, are laid out at 1440, 1024, 768, 390 and 320
+    CSS px in both themes. At each width every panel is at least 16rem wide, or its container's width when that is
     narrower. No text of four characters or more runs three lines or more, each narrower than one and
     a half of its font size. The page never scrolls sideways [R5, SC 1.4.10].
+  - **What 320 found.** At 390 and 320 CSS px two pages scrolled sideways. A Tenant's overview held
+    "Switch to provider administration" on one line, 296px wide in a 240px panel. The invitations
+    list held a pending invitation's status, a sentence, on one line in its pill. A `Button` and a
+    `StatusPill` now take at most their container's width and wrap a label longer than it, a button
+    with `overflow-wrap: anywhere`, a pill at word breaks only, so a pill in a table keeps whole words.
+    A label that fits stays on one line. These are departures from identity-experience's copies
+    (below).
 - **Motion** is decoration only, and the foundations remove it under `prefers-reduced-motion: reduce`
   [R5, SC 2.3.3].
 
@@ -410,6 +420,7 @@ fields in a grid, the filters in a toolbar, then the records.
 | The rail is the page's full height, and what it holds sticks in view at the viewport's height | The rail itself is sticky at `100dvh`, so a full-page rendering of a long page shows its surface and edge ending at the first screen | The column reads as one surface beside the longest page; `behaviour.spec.ts` asserts the rail spans the page and its navigation stays in view after a scroll, on Tenants, an offboarding and Memberships |
 | `Notice`, `Facts`, `Rows`, `Page` and the field classes | `TextField`, `SelectField`, `TextAreaField` own their ids and errors | This application's forms already own the ids, hints and errors their tests read, so they take Identity Experience's field styles as classes rather than its components |
 | No modal dialog | Has none to port | A confirmation stays in the row it acts on, beside the record it names |
+| A `Button` or `StatusPill` label longer than its room wraps inside it (1.11.0) | One line, `white-space: nowrap` | `STD-GLB-FE-005` 2.1.0 §3.10: "No page scrolls sideways at 320 CSS px"; a one-line label wider than a phone's panel pushed the page sideways (§Visual Language, What 320 found) |
 
 **Before and after.** The CI artifact `browser-screens` holds a screenshot of every main route, signed
 in, with data, in Tenant scope and in provider mode, light and dark, at desktop and tablet width. The
@@ -938,6 +949,7 @@ when its session store does not answer (1.5.0); the operator's steps are identit
 | Follows | Auth0 Organization Picker, Slack, the Azure portal's directory switch, GitHub's dashboard context — the context chosen after the sign-in (1.11.0) |
 | Follows | WCAG 2.2 SC 3.2.5 — one listed Tenant is not entered by itself (1.11.0) |
 | Follows | `TDD-identity-experience-003` 1.29.0 §Layout — a panel without size containment, and the layout check at four widths (1.11.0) |
+| Conforms to | `STD-GLB-FE-005` 2.1.0 §3.10 — intrinsic sizing and reflow, the layout test at 320 CSS px included (proposed in scnehaux-architecture #100) (1.11.0) |
 
 ### Standalone Operation
 

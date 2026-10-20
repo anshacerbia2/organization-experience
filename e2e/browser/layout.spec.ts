@@ -9,7 +9,8 @@ import { expect, test, type Page } from '@playwright/test';
 
 import { invitationToken, type Persona } from './fixtures.ts';
 
-const widths = [1440, 1024, 768, 390] as const;
+// STD-GLB-FE-005 2.1.0 §3.10: 320 CSS px included, the width WCAG 2.2 SC 1.4.10 names.
+const widths = [1440, 1024, 768, 390, 320] as const;
 const themes = ['light', 'dark'] as const;
 
 // 16rem, at the 16px root size: a panel narrower than this, with room for more, is collapsed.

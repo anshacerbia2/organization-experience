@@ -234,7 +234,10 @@ from the console stayed `requested` ("Awaiting provisioning") and could never be
   Language).** Ported from identity-experience#57: `Panel` loses `container-type: inline-size`, which
   sized an unstretched panel to its padding, and gains `min-inline-size: 0` and
   `overflow-wrap: anywhere`; `Table` keeps `overflow-wrap: normal`. Latent here. `e2e/browser/layout.spec.ts` checks
-  panel width, one-character lines and sideways scroll at 1440, 1024, 768 and 390 px.
+  panel width, one-character lines and sideways scroll at 1440, 1024, 768, 390 and 320 px, and every
+  main route's sideways overflow is checked at the same widths and 820 (`STD-GLB-FE-005` 2.1.0 §3.10).
+  320 found two pages that scrolled sideways: a `Button` and a `StatusPill` now wrap a label longer
+  than their room.
 
 ## Week 4 · Bulk, freshness, and offboarding
 
