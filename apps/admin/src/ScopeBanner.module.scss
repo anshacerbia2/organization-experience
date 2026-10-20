@@ -9,6 +9,7 @@
     --banner-icon: var(--ds-color-warning-icon-default-default);
 
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
     gap: var(--ds-spacing-sm);
     min-block-size: var(--ds-size-control-lg);
@@ -42,8 +43,10 @@
     color: var(--banner-icon);
   }
 
+  // The sentence takes the room left, and at 12rem or less the time left moves under it, on one line
+  // of its own (STD-GLB-FE-005 §3.10, TDD-organization-experience-001 1.11.0).
   .text {
-    flex: 1;
+    flex: 1 1 12rem;
     min-inline-size: 0;
     margin: 0;
     overflow-wrap: anywhere;

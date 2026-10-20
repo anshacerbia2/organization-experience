@@ -24,7 +24,37 @@ interface Main {
   readonly open?: (page: Page) => Promise<void>;
 }
 
+// Every route, in the scope that serves it, as it loads; then the pages whose forms and confirmations
+// open inside a panel, with them open (below).
+const route = (persona: Persona, path: string, ready: string): Main => ({
+  name: `${persona}${path.replace(/[^a-z0-9]+/gi, '-')}`,
+  persona,
+  path,
+  ready: (page) => page.getByText(ready, { exact: false }),
+});
+
+const routes: readonly Main[] = [
+  route('signed-out', `/invitations/accept#${invitationToken}`, 'You have been invited to join a Tenant.'),
+  route('tenant', '/workspaces', 'Legacy ERP'),
+  route('tenant', '/invitations', '0192f0e0-eeee-7000-8000-00000000e004'),
+  route('tenant', '/provider-access', 'Incident 4471'),
+  route('tenant', '/provider-mode', 'This section belongs to a provider sign-in.'),
+  route('provider', '/memberships', 'Beta Logistics'),
+  route('provider', '/approvals', 'Review requests'),
+  route('provider-pending', '/', 'Withdraw the request'),
+  route('provider-mode', '/', 'Leave provider mode'),
+  route('provider-mode', '/organizations', 'Contoso Publishing'),
+  route('provider-mode', '/offboardings', '0192f0e0-aaaa-7000-8000-00000000a002'),
+  route(
+    'provider-mode',
+    '/access-review?actor_id=0199a1b2-c3d4-7e5f-8a9b-0c1d2e3f4bbb',
+    'Each access matched',
+  ),
+  route('provider-mode', '/approvals', 'Restore the memberships'),
+];
+
 const pages: readonly Main[] = [
+  ...routes,
   { name: 'signed-out', persona: 'signed-out', path: '/', ready: (page) => page.getByText('Not signed in') },
   {
     name: 'picker',
@@ -171,9 +201,52 @@ async function measure(page: Page): Promise<Finding[]> {
       }
     }
     // The page does not scroll sideways; a wide table scrolls in its own region (WCAG 2.2 SC 1.4.10).
+    // Each element that reaches past the viewport is named, innermost first, so the failure says what
+    // to fix: an element counts when its right edge is past the viewport and no child of it is, and
+    // no box between it and the page scrolls or clips it (as identity-experience#58 measures it).
     const overflow = document.documentElement.scrollWidth - window.innerWidth;
     if (overflow > 1) {
+      const past = new Set<Element>();
+      for (const element of document.body.querySelectorAll('*')) {
+        const box = element.getBoundingClientRect();
+        if (box.width === 0 || box.right <= window.innerWidth + 1) {
+          continue;
+        }
+        let clipped = false;
+        for (let up = element.parentElement; up !== null && up !== document.body; up = up.parentElement) {
+          if (
+            getComputedStyle(up).overflowX !== 'visible' &&
+            up.getBoundingClientRect().right <= window.innerWidth + 1
+          ) {
+            clipped = true;
+            break;
+          }
+        }
+        if (!clipped) {
+          past.add(element);
+        }
+      }
+      const name = (element: Element): string => {
+        const classes = [...element.classList]
+          .slice(0, 2)
+          .map((value) => `.${value}`)
+          .join('');
+        const text = element.textContent.trim().replace(/\s+/g, ' ').slice(0, 40);
+        return `${element.tagName.toLowerCase()}${classes}${text === '' ? '' : ` "${text}"`}`;
+      };
+      const innermost = [...past]
+        .filter((element) => ![...element.children].some((child) => past.has(child)))
+        .sort((a, b) => b.getBoundingClientRect().right - a.getBoundingClientRect().right)
+        .slice(0, 3);
       findings.push({ what: 'page scrolls sideways', where: 'document', detail: `${String(overflow)}px` });
+      for (const element of innermost) {
+        const box = element.getBoundingClientRect();
+        findings.push({
+          what: 'element reaches past the viewport',
+          where: name(element),
+          detail: `${box.width.toFixed(1)}px wide, right edge at ${box.right.toFixed(1)}px of ${String(window.innerWidth)}px`,
+        });
+      }
     }
     return findings;
   }, panelFloor);
