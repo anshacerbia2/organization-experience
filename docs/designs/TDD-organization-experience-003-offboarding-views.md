@@ -3,12 +3,12 @@ doc_meta:
   id: TDD-organization-experience-003
   title: Offboarding Workflow and Obligation Tracking Views
   owner: Core Platform Team
-  version: 1.5.0
+  version: 1.6.0
   status: approved
   classification: restricted
   review_cycle_days: 90
   created_date: 2026-08-11
-  last_reviewed: 2026-10-19
+  last_reviewed: 2026-10-21
   parent_sad: SAD-012
 ---
 
@@ -313,7 +313,7 @@ The latest deprovisioning request of an offboarding, the one retirement is gated
 | From | To | Driven by | Route | Console action |
 | :-- | :-- | :-- | :-- | :-- |
 | `new` | `requested` | operator | `POST /v1/offboardings/{id}/release` | Release |
-| `requested` | `realized` | provisioning system | `POST /v1/offboardings/{id}/deprovisioning` | None: the provisioning system reports it, and the console reports no outcome. On a development server, organization-control's `scripts/dev-deprovisioning.ps1` |
+| `requested` | `realized` | provisioning system | `POST /v1/offboardings/{id}/deprovisioning` | None: the provisioning system reports it, as its registered reporter workload (1.6.0), and the console reports no outcome. On a development server, organization-control's `scripts/dev-deprovisioning.ps1`, as the development reporter |
 | `requested` | `failed` | provisioning system | `POST /v1/offboardings/{id}/deprovisioning` | None: as realized |
 | `requested` | `unresolved` | service | the scheduled sweep, after `ORGANIZATION_PROVISIONING_TIMEOUT` | None: the sweep ages a request with no outcome |
 | `unresolved` | `realized` | provisioning system | `POST /v1/offboardings/{id}/deprovisioning` | None: reported with the provisioning system's answer, never sent again. On a development server, `scripts/dev-deprovisioning.ps1` |
@@ -325,12 +325,23 @@ The latest deprovisioning request of an offboarding, the one retirement is gated
 | From | To | Driven by | Route | Console action |
 | :-- | :-- | :-- | :-- | :-- |
 | `new` | `open` | operator | `POST /v1/offboardings/{id}/obligations` | Raise obligation |
-| `open` | `completed` | owning domain | `POST /v1/obligations/{id}/resolve` | None: the accountable domain resolves its own obligation, stating its domain, and the board offers no control that would let an operator resolve another domain's (§As Served). On a development server, organization-control's `scripts/dev-obligation.ps1` |
+| `open` | `completed` | owning domain | `POST /v1/obligations/{id}/resolve` | None: the accountable domain resolves its own obligation, as the reporter workload registered for `obligation:<domain>`, and no provider can (1.6.0); the board offers no control that would let an operator resolve another domain's (§As Served). On a development server, organization-control's `scripts/dev-obligation.ps1`, as that domain's development reporter |
 | `open` | `waived` | owning domain | `POST /v1/obligations/{id}/resolve` | None: as completed |
 | `open` | `failed` | owning domain | `POST /v1/obligations/{id}/resolve` | None: as completed |
 | `failed` | `completed` | owning domain | `POST /v1/obligations/{id}/resolve` | None: as completed |
 | `failed` | `waived` | owning domain | `POST /v1/obligations/{id}/resolve` | None: as completed |
 | `open` | `cancelled` | operator | `POST /v1/offboardings/{id}/cancel` | Cancel this offboarding |
+
+#### Who Reports, From 1.6.0
+
+`ADR-ORG-001 §5.11` (amended 2026-10-20) makes the provisioning system and each obligation-owning
+domain a reporter workload, registered with Organization Control for what it reports, and admitted on
+its own report routes alone (`TDD-organization-control-001` 1.27.0 §Reporters). Nothing in these
+tables changes: the console still reports no outcome and resolves no obligation, and no provider
+resolves one at the API either. What the console adds is the registry, `/reporters`, where a provider
+registers a reporter and retires it (`TDD-organization-experience-002` 1.10.0). An obligation whose
+domain has no active reporter cannot be resolved; the operations runbook's stuck offboarding steps
+check the registry first.
 
 ## Configuration
 
@@ -448,6 +459,7 @@ release steps are these three.
 | Depends on | `TDD-organization-control-004` 1.11.0 §Sending a Failed Deprovisioning Again — the resend route (1.5.0) |
 | Depends on | `TDD-organization-control-004` 1.13.0 — the development server's stand-ins for the provisioning system's deprovisioning report and for a domain's obligation resolution (1.5.0) |
 | Follows | GOV.UK Design System, Button, "Disabled buttons" — no disabled resend control (1.5.0) |
+| Governed by | ADR-ORG-001 §5.11 — the reporters who resolve obligations and report deprovisioning, registered on `/reporters` (1.6.0) |
 
 | # | Source |
 | :-- | :-- |

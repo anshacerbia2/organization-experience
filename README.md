@@ -104,20 +104,35 @@ gh workflow run stack-proof.yml -R anshacerbia2/organization-experience -f ident
 
 **It looks like identity-experience.** The console's tokens, foundations and components are copied
 from identity-experience's `packages/ui` and its frame, at a pinned commit, under `apps/admin/src/ui/`
-(TDD-organization-experience-001 §Visual Language). `pnpm test:browser` runs every main route in
+(TDD-organization-experience-001 §Visual Language). That local copy is an approved exception,
+`ADR-ORG-008`, which expires on 2027-04-20; its exit is `apps/admin/src/ui/index.ts` re-exporting the
+UI Platform's packages. `pnpm test:browser` runs every main route in
 Chromium against the build, with fixtures, and keeps a screenshot of each; it needs `pnpm build` first.
+
+**One client per developer device.** A laptop-run BFF on two devices has two registrations, each with
+its own key: `scripts/dev-register-bff.ps1 -ClientKey organization-experience-bff-<device>`, and that
+device's `ORGANIZATION_EXPERIENCE_CLIENT_ID` (`STD-GLB-009` rule 15; `deploy/dev/README.md` §Several
+devices).
+
+**The API client is contract-tested.** The browser and the BFF call the Organization Control API
+through hand-written clients. `ADR-GLB-010 §5.1` admits that only when they are "contract-tested in CI
+against the published specification", so `contracts/` vendors organization-control's `api/openapi.yaml`
+at a pinned commit, `pnpm check:api-contract` proves the copy byte for byte, and the contract tests hold
+every request the application's tests send, every path its source writes, the BFF's own calls and the
+browser fixtures against it (TDD-organization-experience-001 1.12.0 §API / Interface).
 
 ## Layout
 
-| Path             | Contents                                                                            |
-| :--------------- | :---------------------------------------------------------------------------------- |
-| `apps/admin/`    | Organization, Tenant, Workspace, Membership administration                          |
-| `bff/`           | Session and API proxy, conforming to the identity pattern; `bff/conformance.json`   |
-| `scripts/`       | `check-bff-conformance.mjs`, `new-client-key.mjs`, `dev-register-bff.ps1`           |
-| `e2e/`           | The stack-level proof's journeys and its seed; `browser/`, the fixture-backed views |
-| `deploy/dev/`    | How this BFF's client is registered on the development server                       |
-| `docs/designs/`  | Technical Design Documents                                                          |
-| `docs/runbooks/` | Provider-access review, bulk partial failure, stuck offboarding                     |
+| Path             | Contents                                                                                            |
+| :--------------- | :-------------------------------------------------------------------------------------------------- |
+| `apps/admin/`    | Organization, Tenant, Workspace, Membership administration                                          |
+| `bff/`           | Session and API proxy, conforming to the identity pattern; `bff/conformance.json`                   |
+| `scripts/`       | `check-bff-conformance.mjs`, `check-api-contract.mjs`, `new-client-key.mjs`, `dev-register-bff.ps1` |
+| `contracts/`     | Organization Control's `openapi.yaml`, pinned, and the client's contract tests                      |
+| `e2e/`           | The stack-level proof's journeys and its seed; `browser/`, the fixture-backed views                 |
+| `deploy/dev/`    | How this BFF's client is registered on the development server                                       |
+| `docs/designs/`  | Technical Design Documents                                                                          |
+| `docs/runbooks/` | Provider-access review, bulk partial failure, stuck offboarding                                     |
 
 ## Designs
 
@@ -133,4 +148,4 @@ This repository requires no Scnehaux platform other than the five it shares this
 foundation with. It has no dependency on Notification, Audit, Software Catalog, or
 Subscription & Entitlement. `scnehaux-ui-platform` becomes its build-time design-system
 dependency once UI Platform ships its primitives (SAD-012 1.1.0 §7.3); until then it uses its
-own components, as identity-experience does.
+own components, as identity-experience does, under the exception `ADR-ORG-008` (expires 2027-04-20).

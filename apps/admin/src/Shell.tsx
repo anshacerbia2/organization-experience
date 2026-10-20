@@ -8,7 +8,7 @@ import { Gate, gateClasses } from './Gate';
 import { acceptancePath, waitingInvitationToken } from './invitationLink';
 import { messages } from './messages';
 import { ProviderClosed, ProviderModeGate } from './ProviderMode';
-import { ScopeBanner } from './ScopeBanner';
+import { ScopeBanner, ScopeLine } from './ScopeBanner';
 import { ScopeProvider, useScope, useWindowInForce } from './ScopeContext';
 import { ProviderSignIn, SignIn } from './ScopeEntry';
 import { providerModePath, signInOutcome, signOut } from './session';
@@ -132,6 +132,7 @@ export function Shell(): ReactElement {
           title={messages.title}
           nav={<Navigation />}
           banner={<ScopeBanner />}
+          line={<ScopeLine />}
           session={
             <>
               <StatusPill tone="success">
@@ -202,6 +203,7 @@ function Navigation(): ReactElement | null {
           { to: '/tenants', label: messages.tenants, icon: 'globe' },
           { to: '/offboardings', label: messages.offboardings, icon: 'archive' },
           { to: '/projections', label: messages.projectionHealth, icon: 'pulse' },
+          { to: '/reporters', label: messages.reporters, icon: 'inbox' },
           { to: '/access-review', label: messages.accessReview, icon: 'review' },
         ],
       });

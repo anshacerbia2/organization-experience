@@ -22,6 +22,42 @@
     background-image: linear-gradient(var(--banner-surface), var(--banner-surface));
   }
 
+  // The one-line scope on a small viewport (TDD-organization-experience-001 1.12.0): the banner's
+  // scheme, one line that never wraps. The frame shows it and makes it sticky below 60rem wide or 30rem
+  // tall, and hides it otherwise (AppFrame.module.scss).
+  .line {
+    --banner-surface: var(--ds-color-warning-surface-default-default);
+    --banner-edge: var(--ds-color-warning-solid-default-default);
+    --banner-lead: var(--ds-color-warning-text-default-default);
+    --banner-icon: var(--ds-color-warning-icon-default-default);
+
+    display: flex;
+    align-items: center;
+    gap: var(--ds-spacing-xs);
+    min-inline-size: 0;
+    padding: var(--ds-spacing-3xs) var(--ds-spacing-md);
+    border-block-end: 3px solid var(--banner-edge);
+    font-size: var(--ds-font-size-sm);
+    line-height: var(--ds-line-height-tight);
+    white-space: nowrap;
+    color: var(--ds-color-neutral-text-strong-default);
+    background-color: var(--ds-color-neutral-canvas-default);
+    background-image: linear-gradient(var(--banner-surface), var(--banner-surface));
+  }
+
+  .lineText {
+    flex: 1 1 auto;
+    min-inline-size: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .line .countdown {
+    flex: none;
+    padding-block: 0;
+  }
+
+  .line[data-scope='tenant'],
   .banner[data-scope='tenant'] {
     --banner-surface: var(--ds-color-info-surface-subtle-default);
     --banner-edge: var(--ds-color-info-solid-default-default);
@@ -29,6 +65,7 @@
     --banner-icon: var(--ds-color-info-icon-default-default);
   }
 
+  .line[data-scope='provider'],
   .banner[data-scope='provider'] {
     --banner-surface: var(--ds-color-danger-surface-default-default);
     --banner-edge: var(--ds-color-danger-solid-default-default);
@@ -78,7 +115,8 @@
   }
 
   @media (forced-colors: active) {
-    .banner {
+    .banner,
+    .line {
       border-block-end-color: CanvasText;
     }
   }

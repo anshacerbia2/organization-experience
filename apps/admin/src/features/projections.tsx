@@ -48,6 +48,10 @@ interface Consumer {
   readonly last_reconciled_mark?: number;
   readonly last_reconciled_findings?: number;
   readonly reconciliation_age_seconds?: number;
+  // From TDD-organization-experience-002 1.10.0: the interval the consumer declared at registration,
+  // and a reconciliation a restore requested that no run has cleared yet.
+  readonly reconciliation_interval_seconds?: number;
+  readonly reconciliation_requested_at?: string | null;
 }
 
 // One incident: one event at one consumer (TDD-organization-control-005 2.5.0 §Listing a consumer's
@@ -88,6 +92,32 @@ const consumersKey = ['consumers'] as const;
 const pauseKey = ['tenant-administration-pause'] as const;
 const deadLettersKey = 'dead-letters';
 
+// How late a consumer's reconciliation is against its own interval: past one interval a warning, past
+// two critical, as organization-control's ReconciliationOverdueWarning and ReconciliationOverdueCritical
+// fire. The age is the service's; a consumer never reconciled has none, and is not judged here.
+function Overdue({ consumer }: { readonly consumer: Consumer }): ReactElement | null {
+  const age = consumer.reconciliation_age_seconds;
+  const interval = consumer.reconciliation_interval_seconds;
+  if (consumer.state === 'retired' || age === undefined || interval === undefined || age <= interval) {
+    return null;
+  }
+  const critical = age > 2 * interval;
+  return (
+    <Notice
+      tone={critical ? 'danger' : 'warning'}
+      icon="clock"
+      role="status"
+      data-overdue={critical ? 'critical' : 'warning'}
+    >
+      <p>
+        {critical
+          ? messages.reconciliationOverdueCritical(age, interval)
+          : messages.reconciliationOverdue(age, interval)}
+      </p>
+    </Notice>
+  );
+}
+
 const lastReconciliation = (consumer: Consumer): string =>
   consumer.last_reconciled_at === undefined
     ? messages.neverReconciled
@@ -121,9 +151,19 @@ export function ProjectionsPage(): ReactElement {
                     : messages.staleBehavior(consumer.stale_behavior),
                   messages.lastReported(formatTime(consumer.last_reported_at)),
                   lastReconciliation(consumer),
+                  consumer.reconciliation_interval_seconds === undefined
+                    ? null
+                    : messages.reconcilesEvery(consumer.reconciliation_interval_seconds),
                 ]}
               />
             </RowMain>
+            <Overdue consumer={consumer} />
+            {consumer.reconciliation_requested_at === undefined ||
+            consumer.reconciliation_requested_at === null ? null : (
+              <Notice tone="warning" icon="pulse" role="status">
+                <p>{messages.reconciliationRequested(formatTime(consumer.reconciliation_requested_at))}</p>
+              </Notice>
+            )}
             {consumer.stale === true ? (
               <Notice tone="warning" icon="clock" role="status">
                 <p>{messages.consumerStale(consumer.stale_behavior ?? '')}</p>

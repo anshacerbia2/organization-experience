@@ -33,10 +33,22 @@ const pollMs = 2_000;
 const settled = (state: Enforcement['state'] | undefined): boolean =>
   state === 'enforced' || state === 'over_budget';
 
-export function EnforcementStatus({ membershipId }: { readonly membershipId: string }): ReactElement {
+// tenantId, when set, reads the evidence as a provider does, through the Tenant the path names
+// (TDD-organization-experience-002 1.10.0); without it, as the Tenant's own administrator.
+export function EnforcementStatus({
+  membershipId,
+  tenantId,
+}: {
+  readonly membershipId: string;
+  readonly tenantId?: string;
+}): ReactElement {
+  const path =
+    tenantId === undefined
+      ? (`/v1/memberships/${membershipId}/enforcement` as const)
+      : (`/v1/tenants/${tenantId}/memberships/${encodeURIComponent(membershipId)}/enforcement` as const);
   const query = useQuery({
-    queryKey: ['enforcement', membershipId],
-    queryFn: ({ signal }) => apiGet<Enforcement>(`/v1/memberships/${membershipId}/enforcement`, { signal }),
+    queryKey: ['enforcement', tenantId ?? null, membershipId],
+    queryFn: ({ signal }) => apiGet<Enforcement>(path, { signal }),
     staleTime: 0,
     refetchInterval: (current) => (settled(current.state.data?.state) ? false : pollMs),
   });

@@ -36,10 +36,20 @@ interface Context {
   readonly tenant_display_name: string;
 }
 
+// The one refusal of an invitation: unknown, expired, revoked, used, or sent to an address the person
+// has not proven (ADR-ORG-007 §5.4). Known by its problem type, not its status: "Consumers MUST use the
+// "type" URI ... as the problem type's primary identifier" (RFC 9457 §3.1.1,
+// TDD-organization-experience-002 1.10.0). A 404 of any other type is not the invitation's answer.
+export const invitationNotAcceptable = 'https://problems.scnehaux.com/invitation-not-acceptable';
+
+const notAcceptable = (error: unknown): boolean =>
+  error instanceof ApiError && error.type === invitationNotAcceptable;
+
 // A refusal the same token gets again, so the token is of no further use in this tab. A 503 or no
-// answer changed nothing and is worth trying again later; a 401 needs a sign-in, then the same token.
+// answer changed nothing and is worth trying again later; a 401 needs a sign-in, then the same token;
+// a 404 of another type never judged the invitation, so the token is kept.
 const final = (error: unknown): boolean =>
-  error instanceof ApiError && [400, 404, 409].includes(error.status);
+  notAcceptable(error) || (error instanceof ApiError && [400, 409].includes(error.status));
 
 // The pages of the person's own contexts read to name the Tenant joined, at most. The Tenant is
 // named by its identifier past them.
@@ -112,7 +122,7 @@ function Refused({
     error instanceof ApiError && error.correlationId !== null
       ? ` ${messages.correlation(error.correlationId)}`
       : '';
-  if (status === 404) {
+  if (notAcceptable(error)) {
     return (
       <Notice tone="danger" role="alert">
         <p>{messages.acceptNotAcceptable}</p>
@@ -166,7 +176,7 @@ export function AcceptInvitationPage(): ReactElement {
   const [token] = useState(takeInvitationToken);
   const session = useSessionQuery();
   const client = useQueryClient();
-  const keyFor = useIdempotencyKey();
+  const keys = useIdempotencyKey();
   const outcome = signInOutcome(window.location.search);
 
   const signedIn = session.data?.authenticated === true ? session.data : null;
@@ -175,16 +185,18 @@ export function AcceptInvitationPage(): ReactElement {
       apiCommand<Accepted>(
         '/v1/invitations/accept',
         { token: sent.token },
-        { csrfToken: sent.csrfToken, idempotencyKey: keyFor({ token: sent.token }) },
+        { csrfToken: sent.csrfToken, idempotencyKey: keys.keyFor({ token: sent.token }) },
       ),
     // Never retried here: a refused acceptance is answered once (ADR-ORG-007 §6), and Try again is the
     // person's own.
     retry: false,
     onSuccess: async () => {
+      keys.settle();
       forgetInvitationToken();
       await client.invalidateQueries({ queryKey: ['contexts'] });
     },
     onError: async (error) => {
+      keys.settle(error);
       if (final(error)) {
         forgetInvitationToken();
       }

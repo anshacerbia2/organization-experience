@@ -17,12 +17,19 @@
 #   $env:IDENTITY_CALLER_PASSWORD      the bootstrap operator's password
 #   $env:IDENTITY_OPERATOR_TOTP_FILE   optional, the operator's TOTP file (dev-token.ps1)
 #
+# One registration per developer device (STD-GLB-009 rule 15, ADR-IAM-001 §5.12): a second device
+# registers its own client with -ClientKey, for example organization-experience-bff-<device>, with the
+# public half of its own key, and sets ORGANIZATION_EXPERIENCE_CLIENT_ID to it.
+#
 # Usage:
 #   pwsh ./scripts/dev-register-bff.ps1 -IdentityRepo /srv/identity-control -JwkFile ./organization-experience-bff.jwk.json
+#   pwsh ./scripts/dev-register-bff.ps1 -IdentityRepo /srv/identity-control -ClientKey organization-experience-bff-desk `
+#       -JwkFile ./organization-experience-bff-desk.jwk.json
 
 param(
     [Parameter(Mandatory = $true)] [string] $IdentityRepo,
     [Parameter(Mandatory = $true)] [string] $JwkFile,
+    [ValidatePattern('^[a-z0-9][a-z0-9-]{0,62}$')] [string] $ClientKey = "organization-experience-bff",
     [string] $RedirectUri = "http://127.0.0.1:8091/auth/callback"
 )
 
@@ -46,7 +53,7 @@ $token = Get-ScnehauxToken -Username "bootstrap-operator" -Password $env:IDENTIT
     -KeyFile $env:IDENTITY_CALLER_KEY_FILE @operatorTotp
 
 $body = @{
-    client_key = "organization-experience-bff"; profile = "confidential"; audience_class = "privileged"
+    client_key = $ClientKey; profile = "confidential"; audience_class = "privileged"
     privileged_form = "per-sign-in"; application_ref = "organization-experience"
     redirect_uris = @($RedirectUri); audience = @("organization-control-api")
     public_key = @{ kty = $jwk.kty; n = $jwk.n; e = $jwk.e }
@@ -55,8 +62,8 @@ $body = @{
 $client = New-Object System.Net.Http.HttpClient
 $request = New-Object System.Net.Http.HttpRequestMessage("POST", "$identityApi/v1/registrations")
 $request.Headers.Authorization = New-Object System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", $token)
-$request.Headers.Add("Idempotency-Key", "register-organization-experience-bff-$([Guid]::NewGuid().ToString('N'))")
-$request.Headers.Add("X-Administrative-Reason", "registering the organization-experience BFF client")
+$request.Headers.Add("Idempotency-Key", "register-$ClientKey-$([Guid]::NewGuid().ToString('N'))")
+$request.Headers.Add("X-Administrative-Reason", "registering the organization-experience BFF client $ClientKey")
 $request.Content = New-Object System.Net.Http.StringContent($body, [System.Text.Encoding]::UTF8, "application/json")
 $response = $client.SendAsync($request).Result
 $text = $response.Content.ReadAsStringAsync().Result
@@ -65,4 +72,4 @@ if ([int]$response.StatusCode -ne 201) {
 }
 $registration = $text | ConvertFrom-Json
 $id = $registration.PSObject.Properties["registration_id"]
-Write-Host "registered organization-experience-bff$(if ($id) { ": registration $($id.Value)" })"
+Write-Host "registered $ClientKey$(if ($id) { ": registration $($id.Value)" })"

@@ -199,7 +199,12 @@ const screens: readonly Screen[] = [
   acceptance(
     'invitation-refused',
     404,
-    { type: 'https://problems.scnehaux.com/not-found', status: 404, detail: 'not found' },
+    {
+      type: 'https://problems.scnehaux.com/invitation-not-acceptable',
+      title: 'The invitation cannot be accepted',
+      status: 404,
+      detail: 'The invitation cannot be accepted',
+    },
     'This invitation cannot be accepted.',
   ),
   acceptance(
@@ -325,6 +330,64 @@ const screens: readonly Screen[] = [
     persona: 'provider-mode',
     path: '/projections',
     ready: (page) => page.getByText('Stale: past its budget', { exact: false }),
+  },
+  // TDD-organization-experience-002 1.10.0: the reporter registry, with Register reporter open; a
+  // Tenant's Withdraw a Membership, with Revoke membership open; and an issue answered as a replay.
+  // Projection health above shows a consumer past one interval, one past two, and a reconciliation a
+  // restore requested.
+  {
+    name: 'provider-mode-reporters',
+    persona: 'provider-mode',
+    path: '/reporters',
+    ready: (page) => page.getByText('The old ticketing integration', { exact: false }),
+    tablet: true,
+  },
+  {
+    name: 'provider-mode-reporters-register',
+    persona: 'provider-mode',
+    path: '/reporters',
+    ready: (page) => page.getByText('The old ticketing integration', { exact: false }),
+    act: async (page) => {
+      const panel = page.getByRole('region', { name: 'Register reporter' });
+      await panel.getByLabel('Workload Principal identifier').fill('0199a1b2-c3d4-7e5f-8a9b-0c1d2e3f4ccc');
+      await panel.getByLabel('Reports').selectOption('obligation');
+      await panel.getByLabel('Domain').fill('hcm');
+      await panel.getByLabel('Purpose').fill('HCM resolves its offboarding obligations');
+      await panel.getByRole('button', { name: 'Register reporter' }).click();
+      await panel.getByRole('form', { name: 'Register reporter' }).waitFor();
+    },
+  },
+  {
+    name: 'provider-mode-tenants-withdraw-membership',
+    persona: 'provider-mode',
+    path: '/tenants',
+    ready: (page) => page.getByText('Zeta Freight'),
+    act: async (page) => {
+      const row = page.getByRole('listitem').filter({ hasText: 'Acme Retail' });
+      await row.getByRole('button', { name: 'Withdraw a Membership' }).click();
+      await row.getByLabel('Membership identifier').fill('0192f0e0-dddd-7000-8000-00000000d001');
+      await row.getByLabel('Version you act on').fill('3');
+      await row.getByRole('button', { name: 'Revoke membership' }).click();
+      await row.getByRole('form', { name: 'Revoke membership' }).waitFor();
+    },
+  },
+  {
+    name: 'tenant-invitations-replayed',
+    persona: 'tenant',
+    path: '/invitations',
+    ready: (page) => page.getByText('0192f0e0-eeee-7000-8000-00000000e004'),
+    commands: [
+      {
+        path: '/api/v1/invitations',
+        status: 201,
+        body: { invitation: { invitation_id: '0192f0e0-eeee-7000-8000-00000000e009', state: 'pending' } },
+      },
+    ],
+    act: async (page) => {
+      await page.getByLabel('Invitee').fill('grace@example.com');
+      await page.getByRole('button', { name: 'Send invitation' }).click();
+      await page.getByText('This invitation was already issued', { exact: false }).waitFor();
+    },
   },
   {
     name: 'provider-mode-access-review',

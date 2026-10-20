@@ -50,6 +50,11 @@ export const messages = {
   everyTenant: 'every Tenant',
   endsIn: 'ends in',
   emergencyGrant: 'on an emergency grant',
+  // The one-line scope on a small viewport (TDD-organization-experience-001 1.12.0, SAD-012 §8.4).
+  lineProviderPending: 'Provider mode, pending',
+  lineNoTenant: 'No Tenant',
+  lineScopeUnknown: 'Scope unknown',
+  lineTenantCount: (count: number): string => (count === 1 ? '1 Tenant' : `${String(count)} Tenants`),
   providerClosed: {
     denied: 'Provider mode was denied by the approver.',
     lapsed: 'The provider mode request lapsed without a decision.',
@@ -555,4 +560,68 @@ export const messages = {
 
   leaveUnconfirmed:
     'Provider mode is closed here, but Organization Control did not confirm the activation ended. It ends at its own time.',
+
+  // An invitation answered again without its token (TDD-organization-experience-002 1.10.0).
+  invitationReplayed: (id: string): string =>
+    `This invitation was already issued, as ${id}. Organization Control answered it again, without its link: the link is shown only when an invitation is first issued.`,
+  invitationReplayedNext:
+    'If its link was not sent, revoke this invitation below and send a new one, which shows a new link.',
+
+  // The consumer's declared reconciliation interval (TDD-organization-experience-002 1.10.0).
+  reconcilesEvery: (seconds: number): string => `reconciles every ${ageOf(seconds)}`,
+  reconciliationOverdue: (age: number, interval: number): string =>
+    `Reconciliation overdue: last run ${ageOf(age)} ago, past its interval of ${ageOf(interval)}.`,
+  reconciliationOverdueCritical: (age: number, interval: number): string =>
+    `Reconciliation critically overdue: last run ${ageOf(age)} ago, more than twice its interval of ${ageOf(interval)}. The consumer may be serving drift nobody has compared.`,
+  reconciliationRequested: (at: string): string =>
+    `Reconciliation requested ${at}, after a restore, and not run since. The consumer's next reconciliation clears it; until consumers schedule their own, the restore runbook runs it.`,
+
+  // The reporter registry (TDD-organization-experience-002 1.10.0, ADR-ORG-001 §5.11).
+  reporters: 'Reporters',
+  reportersLead:
+    'A reporter is a workload registered to report one kind of outcome: provisioning, or one domain’s offboarding obligations. Organization Control admits it on those report routes alone. No person resolves an obligation in its place.',
+  registerReporter: 'Register reporter',
+  reporterPrincipal: 'Workload Principal identifier',
+  reporterPrincipalHint: 'The workload, created with its owner in identity-control first.',
+  reporterReports: 'Reports',
+  reportsProvisioning: 'provisioning',
+  reportsObligation: 'obligations of one domain',
+  reporterDomain: 'Domain',
+  reporterDomainHint: 'Lowercase letters, digits and hyphens, as the obligations name it.',
+  reporterDomainInvalid: 'A domain is 1 to 63 lowercase letters, digits and hyphens.',
+  reporterPurpose: 'Purpose',
+  reporterPurposeHint: 'What the workload is and who owns it. At most 500 characters.',
+  reporterPurposeInvalid: 'A purpose is 1 to 500 characters.',
+  reporterPrincipalInvalid: 'Enter the workload’s Principal identifier, a UUID.',
+  registerReporterWill: (principal: string, reports: string): string =>
+    `This admits workload ${principal} to report ${reports} from its next request.`,
+  reporterRegisteredOnce:
+    'A workload is registered once. A retired reporter is not registered again: create a new workload in identity-control and register that.',
+  reporterAlreadyRegistered:
+    'This workload is already registered, active or retired, and is not registered twice.',
+  noReporters: 'No reporters match.',
+  reporterRegisteredBy: (who: string, at: string): string => `registered by ${who}, ${at}`,
+  reporterRetiredBy: (who: string, at: string): string => `retired by ${who}, ${at}`,
+  retireReporter: 'Retire reporter',
+  retireReporterWill: (principal: string, reports: string): string =>
+    `This stops workload ${principal} reporting ${reports}: its reports are refused from its next request, and it is never registered again.`,
+  reporterRegistered: (reports: string): string => `Registered: it reports ${reports}.`,
+
+  // A provider withdraws one Membership in a Tenant (TDD-organization-experience-002 1.10.0, ADR-ORG-003 §5.6).
+  withdrawMembership: 'Withdraw a Membership',
+  hideWithdrawMembership: 'Close Withdraw a Membership',
+  withdrawMembershipOf: (tenant: string): string => `Withdraw a Membership in ${tenant}`,
+  withdrawLead:
+    'Suspend or revoke one Membership in this Tenant, to contain an incident. Organization Control serves providers no read of a Tenant’s Memberships, so enter the identifier and the version from the incident record, the reconciliation finding or the Tenant administrator. A provider never grants or restores a Membership.',
+  membershipIdentifier: 'Membership identifier',
+  membershipVersion: 'Version you act on',
+  withdrawEnter: 'Enter the Membership’s identifier and version to withdraw it.',
+  suspendMembership: 'Suspend membership',
+  revokeMembership: 'Revoke membership',
+  withdrawSuspendWill: (membership: string, tenant: string): string =>
+    `Suspends Membership ${membership} in Tenant ${tenant}. The Tenant administrator restores it, once the incident allows.`,
+  withdrawRevokeWill: (membership: string, tenant: string): string =>
+    `Revokes Membership ${membership} in Tenant ${tenant}. This cannot be undone: the Tenant administrator grants a new one if access is due again.`,
+  withdrawn: (status: string, version: number): string =>
+    `Organization Control accepted it: the Membership is ${status}, version ${String(version)}. Its enforcement follows.`,
 } as const;

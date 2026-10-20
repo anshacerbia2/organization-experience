@@ -82,12 +82,13 @@ export function scopeOf(persona: Persona): unknown {
 }
 
 const workspaces = [
-  ['ws-01', 'Storefront', 'retail', 'active', 4],
-  ['ws-02', 'Warehouse operations', 'logistics', 'active', 12],
-  ['ws-03', 'Spring campaign 2026', 'marketing', 'archived', 7],
-  ['ws-04', 'Legacy ERP', 'finance', 'retired', 21],
+  ['0192f0e0-5555-7000-8000-000000005001', 'Storefront', 'retail', 'active', 4],
+  ['0192f0e0-5555-7000-8000-000000005002', 'Warehouse operations', 'logistics', 'active', 12],
+  ['0192f0e0-5555-7000-8000-000000005003', 'Spring campaign 2026', 'marketing', 'archived', 7],
+  ['0192f0e0-5555-7000-8000-000000005004', 'Legacy ERP', 'finance', 'retired', 21],
 ].map(([id, name, type, status, version]) => ({
   workspace_id: String(id),
+  tenant_id: tenantId,
   display_name: name,
   type,
   status,
@@ -96,19 +97,20 @@ const workspaces = [
 }));
 
 const memberships = [
-  ['0199a1b2-1111-7e5f-8a9b-000000000001', 'human', 'active', 3, 'ws-01'],
-  ['0199a1b2-1111-7e5f-8a9b-000000000002', 'workload', 'active', 1, null],
-  ['0199a1b2-1111-7e5f-8a9b-000000000003', 'human', 'suspended', 5, 'ws-02'],
-  ['0199a1b2-1111-7e5f-8a9b-000000000004', 'human', 'revoked', 8, null],
+  ['0199a1b2-1111-7e5f-8a9b-000000000001', 'human', 'active', 3, 0],
+  ['0199a1b2-1111-7e5f-8a9b-000000000002', 'workload', 'active', 1, 1],
+  ['0199a1b2-1111-7e5f-8a9b-000000000003', 'human', 'suspended', 5, 1],
+  ['0199a1b2-1111-7e5f-8a9b-000000000004', 'human', 'revoked', 8, 0],
 ].map(([principal, subject, status, version, workspace], index) => ({
   membership_id: `0192f0e0-dddd-7000-8000-00000000d00${String(index + 1)}`,
   principal_id: principal,
-  workspace_id: workspace,
+  tenant_id: tenantId,
+  workspace_id: workspaces[Number(workspace)]?.workspace_id,
   subject_type: subject,
   status,
   version,
   valid_from: days(-30),
-  valid_until: null,
+  valid_until: days(335),
   provenance: 'HR-1042',
 }));
 
@@ -119,12 +121,15 @@ const invitations = [
   ['expired', -5],
 ].map(([state, expires], index) => ({
   invitation_id: `0192f0e0-eeee-7000-8000-00000000e00${String(index + 1)}`,
-  workspace_id: null,
+  tenant_id: tenantId,
   subject_type: 'human',
+  invited_by: me,
   state,
+  correlation_id: `0192f0e0-eeee-7000-8000-00000000ec0${String(index + 1)}`,
   expires_at: days(Number(expires)),
   created_at: days(-6),
-  accepted_at: state === 'accepted' ? days(-3) : null,
+  ...(state === 'accepted' ? { accepted_at: days(-3), principal_id: other } : {}),
+  ...(state === 'revoked' ? { revoked_at: days(-2) } : {}),
 }));
 
 const accesses = [
@@ -153,7 +158,7 @@ const organizations = [
   classification,
   status,
   version,
-  parent_id: null,
+  created_at: days(-400 + index),
 }));
 
 const tenants = [
@@ -174,6 +179,8 @@ const tenants = [
   status,
   isolation_profile: profile,
   version: index + 2,
+  security_version: index + 1,
+  created_at: days(-50 + index),
 }));
 
 const provisioning: Readonly<Record<string, string>> = {
@@ -198,7 +205,7 @@ const tenantDetail = (tenant: (typeof tenants)[number]) => ({
     requestState(tenant) === undefined
       ? null
       : {
-          request_id: `${tenant.tenant_id}-p`,
+          request_id: String(tenant.tenant_id).replace('aaaa', 'a0a0'),
           correlation_id: correlation,
           state: requestState(tenant),
           detail:
@@ -207,6 +214,8 @@ const tenantDetail = (tenant: (typeof tenants)[number]) => ({
               : requestState(tenant) === 'unresolved'
                 ? 'no outcome within 30m0s'
                 : null,
+          requested_at: days(-1),
+          resolved_at: requestState(tenant) === 'requested' ? null : minutes(-30),
         },
 });
 
@@ -214,15 +223,22 @@ const offboarding = {
   offboarding_id: offboardingId,
   tenant_id: betaTenant,
   stage: 'obligations',
+  initiated_by: me,
   reason: 'Contract ended 2026-09-30',
   legal_hold: true,
+  correlation_id: '0192f0e0-bbbb-7000-8000-00000000bc01',
   started_at: days(-12),
   frozen_at: days(-11),
   obligations_at: days(-9),
   released_at: null,
-  retired_at: null,
   deprovisioning: null,
   active_memberships: 0,
+  prior_status: 'active',
+  cancelled_by: null,
+  cancel_reason: null,
+  cancelled_at: null,
+  frozen_memberships: 14,
+  restore_pending: 0,
 };
 
 const releasedOffboarding = {
@@ -241,6 +257,11 @@ const releasedOffboarding = {
   },
 };
 
+// The reporter workload of each obligation-owning domain, and of the provisioning system
+// (TDD-organization-experience-002 1.10.0).
+const reporterOf = (domain: string): string =>
+  `0192f0e0-7e70-7000-8000-${domain.length.toString(16).padStart(4, '0')}${domain.charCodeAt(0).toString(16).padStart(8, '0')}`;
+
 const obligations = [
   ['billing', 'final-invoice', 'completed', -3],
   ['audit', 'export-retention', 'open', -1],
@@ -249,24 +270,34 @@ const obligations = [
   ['support', 'close-tickets', 'failed', 4],
 ].map(([domain, type, state, due], index) => ({
   obligation_id: `0192f0e0-abab-7000-8000-00000000ab0${String(index + 1)}`,
+  offboarding_id: offboardingId,
+  tenant_id: betaTenant,
   domain,
   type,
   state,
   due_at: days(Number(due)),
-  completed_at: state === 'completed' ? days(-4) : null,
+  ...(state === 'completed' ? { completed_at: days(-4) } : {}),
   detail:
     state === 'waived' ? 'no warehouse was provisioned' : state === 'failed' ? 'ticket system refused' : '',
-  resolved_by: state === 'open' ? null : `${String(domain)}-service`,
-  resolved_at: state === 'open' ? null : days(-2),
+  // The domain's reporter workload resolved it (ADR-ORG-001 §5.11).
+  ...(state === 'open' ? {} : { resolved_by: reporterOf(String(domain)), resolved_at: days(-2) }),
 }));
 
+// Each consumer's declared reconciliation interval (TDD-organization-experience-002 1.10.0): identity-control
+// is past one interval, billing past two, and audit has a reconciliation a restore requested.
 const consumers = [
-  ['identity-control', 'active', 10, 'fail_closed', false, 0],
-  ['billing', 'active', 60, 'use_with_marker', true, 2],
-  ['audit', 'active', 300, 'revalidate', false, undefined],
-  ['legacy-search', 'retired', 120, 'fail_closed', false, undefined],
-].map(([id, state, budget, behavior, stale, findings]) => ({
+  ['identity-control', 'active', 10, 'fail_closed', false, 0, 600],
+  ['billing', 'active', 60, 'use_with_marker', true, 2, 300],
+  ['audit', 'active', 300, 'revalidate', false, undefined, 86_400],
+  ['legacy-search', 'retired', 120, 'fail_closed', false, undefined, 86_400],
+].map(([id, state, budget, behavior, stale, findings, interval], index) => ({
   consumer_id: id,
+  principal_id: `0192f0e0-c0c0-7000-8000-00000000c0${String(index + 10)}`,
+  projection_version: '1',
+  registered_at: days(-40),
+  reconciliation_interval_seconds: interval,
+  reconciliation_requested_at: id === 'audit' ? minutes(-50) : null,
+  ...(state === 'retired' ? { retired_at: days(-3) } : {}),
   state,
   max_accepted_age_seconds: budget,
   stale_behavior: behavior,
@@ -341,11 +372,34 @@ const providerGrants = [
   ...(active === true ? {} : { revoke_reason: 'Contract ended' }),
 }));
 
+// The reporter registry (TDD-organization-experience-002 1.10.0): the provisioning system's workload, a
+// domain's, and a retired one.
+const reporters = [
+  ['provisioning', 'The provisioning system reports Tenant and deprovisioning outcomes', null],
+  ['obligation:billing', 'Billing resolves its offboarding obligations', null],
+  ['obligation:support', 'The old ticketing integration', 'retired'],
+].map(([reports, purpose, retired], index) => ({
+  reporter_id: `0192f0e0-7e7e-7000-8000-00000000e70${String(index + 1)}`,
+  principal_id:
+    reports === 'provisioning' ? reporterOf('provisioning') : reporterOf(String(reports).split(':')[1] ?? ''),
+  reports,
+  purpose,
+  state: retired === null ? 'active' : 'retired',
+  version: retired === null ? 1 : 2,
+  registered_at: days(-30 + index),
+  registered_by: me,
+  retired_at: retired === null ? null : days(-4),
+  retired_by: retired === null ? null : other,
+}));
+
+export const reporterIds = reporters.map((reporter) => reporter.reporter_id);
+
 const answers: Readonly<Record<string, () => unknown>> = {
+  '/v1/reporters': () => ({ reporters, next: null }),
   [`/v1/principals/${me}/contexts`]: () => ({
     contexts: [
       {
-        membership_id: 'm-1',
+        membership_id: memberships[0]?.membership_id,
         tenant_id: tenantId,
         tenant_display_name: 'Acme Retail',
         tenant_status: 'active',
@@ -353,7 +407,7 @@ const answers: Readonly<Record<string, () => unknown>> = {
         administers: true,
       },
       {
-        membership_id: 'm-2',
+        membership_id: '0192f0e0-dddd-7000-8000-00000000d0b2',
         tenant_id: betaTenant,
         tenant_display_name: 'Beta Logistics',
         tenant_status: 'active',
@@ -364,7 +418,7 @@ const answers: Readonly<Record<string, () => unknown>> = {
     next: null,
   }),
   '/v1/workspaces': () => ({ workspaces, next: null }),
-  '/v1/memberships': () => ({ memberships, next: 'cursor-2' }),
+  '/v1/memberships': () => ({ memberships, next: memberships[3]?.membership_id ?? null }),
   '/v1/invitations': () => ({ invitations, next: null }),
   '/v1/provider-access': () => ({ accesses, next: null }),
   '/v1/organizations': () => ({ organizations, next: null }),
@@ -374,7 +428,7 @@ const answers: Readonly<Record<string, () => unknown>> = {
       offboarding,
       {
         ...offboarding,
-        offboarding_id: `${offboardingId}-2`,
+        offboarding_id: '0192f0e0-bbbb-7000-8000-00000000b002',
         tenant_id: tenants[5]?.tenant_id,
         stage: 'freeze',
         legal_hold: false,
@@ -416,7 +470,11 @@ const answers: Readonly<Record<string, () => unknown>> = {
   [`/v1/offboardings/${releasedOffboardingId}/obligations`]: () => ({
     obligations: obligations
       .filter((obligation) => obligation.state === 'completed' || obligation.state === 'waived')
-      .map((obligation) => ({ ...obligation, offboarding_id: releasedOffboardingId })),
+      .map((obligation) => ({
+        ...obligation,
+        offboarding_id: releasedOffboardingId,
+        tenant_id: thetaTenant,
+      })),
     outstanding: [],
   }),
   '/v1/privileged-access:unreviewed': () => ({
@@ -430,7 +488,7 @@ const answers: Readonly<Record<string, () => unknown>> = {
   '/v1/privileged-access/reviews': () => ({
     reviews: [
       {
-        review_id: 'r-1',
+        review_id: '0192f0e0-9e9e-7000-8000-000000009e01',
         actor_id: other,
         from: days(-21),
         to: days(-14),
@@ -447,24 +505,44 @@ const answers: Readonly<Record<string, () => unknown>> = {
   '/v1/provider-activations': () => ({
     activations: [
       {
-        activation_id: 'a-other',
+        activation_id: '0192f0e0-acac-7000-8000-00000000ac01',
+        grant_id: '0192f0e0-baba-7000-8000-00000000ba02',
         principal_id: other,
         scope: 'provider:organization-control',
         reason: 'Restore the memberships a mistaken freeze suspended',
         duration_seconds: 1_800,
         requested_at: minutes(-4),
+        approval_required: true,
+        decided_by: null,
+        decided_at: null,
+        ends_at: null,
+        in_force: false,
+        ended_by: null,
+        ended_at: null,
       },
       {
-        activation_id: 'a-mine',
+        activation_id: '0192f0e0-acac-7000-8000-00000000ac02',
+        grant_id: '0192f0e0-baba-7000-8000-00000000ba01',
         principal_id: me,
         scope: 'provider:organization-control',
         reason: 'Investigating a stuck offboarding for Beta Logistics',
         duration_seconds: 2_700,
         requested_at: minutes(-3),
+        approval_required: true,
+        decided_by: null,
+        decided_at: null,
+        ends_at: null,
+        in_force: false,
+        ended_by: null,
+        ended_at: null,
       },
     ],
   }),
 };
+
+for (const reporter of reporters) {
+  (answers as Record<string, () => unknown>)[`/v1/reporters/${reporter.reporter_id}`] = () => reporter;
+}
 
 for (const tenant of tenants) {
   (answers as Record<string, () => unknown>)[`/v1/tenants/${tenant.tenant_id}`] = () => tenantDetail(tenant);
@@ -475,3 +553,7 @@ for (const tenant of tenants) {
 export function answer(path: string): unknown {
   return answers[path]?.();
 }
+
+// answeredPaths are the API paths the stand-in answers, which contracts/test/fixtures.test.ts checks
+// against Organization Control's specification (TDD-organization-experience-001 1.12.0).
+export const answeredPaths = (): string[] => Object.keys(answers);

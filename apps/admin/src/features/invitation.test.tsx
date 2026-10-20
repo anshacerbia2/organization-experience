@@ -125,6 +125,71 @@ describe('the link shown once on issue', () => {
     expect(JSON.stringify(window.localStorage)).not.toContain(token);
   });
 
+  // TDD-organization-experience-002 1.10.0 (ADR-ORG-007 §5.5, STD-GLB-001 1.7.0): a 201 without its
+  // token is a replay, and each answered issue takes a new Idempotency-Key.
+  it('shows a replay as already issued, with no link, and takes a new key after each answer', async () => {
+    visit('/invitations');
+    let replay = false;
+    const fetchMock = stub(signedInto(tenantA, { scope: 'tenant', tenantId: tenantA }), (url, init) =>
+      url === '/api/v1/invitations' && init?.method === 'POST'
+        ? json(
+            replay
+              ? { invitation: { invitation_id: 'inv-9', state: 'pending' } }
+              : { invitation: { invitation_id: 'inv-9', state: 'pending' }, token },
+            201,
+          )
+        : url.startsWith('/api/v1/invitations')
+          ? json({ invitations: [], next: null })
+          : undefined,
+    );
+    const user = userEvent.setup();
+    const { container } = render(<App />);
+    await user.type(await screen.findByLabelText(/Invitee/), 'person@example.com');
+    await user.click(screen.getByRole('button', { name: 'Send invitation' }));
+    await screen.findByRole('region', { name: 'The acceptance link, shown this once' });
+    await user.click(screen.getByRole('button', { name: 'Done, I have sent it' }));
+
+    // The same values again, after an answer: a new request, with a new key.
+    replay = true;
+    await user.click(screen.getByRole('button', { name: 'Send invitation' }));
+    expect(await screen.findByText(/This invitation was already issued, as inv-9/)).toBeInTheDocument();
+    expect(screen.getByText(/revoke this invitation below and send a new one/)).toBeInTheDocument();
+    expect(
+      screen.queryByRole('region', { name: 'The acceptance link, shown this once' }),
+    ).not.toBeInTheDocument();
+    expect(document.body).not.toHaveTextContent(token);
+    // The live defect this fixes: a replayed issue rendered the link as …/invitations/accept#undefined.
+    expect(document.body).not.toHaveTextContent('#undefined');
+    const [first, second] = sent(fetchMock, '/api/v1/invitations').filter((init) => init?.method === 'POST');
+    expect(bodyOf(second)).toBe(bodyOf(first));
+    expect(headersOf(second)['idempotency-key']).not.toBe(headersOf(first)['idempotency-key']);
+    expect(await checkWcag(container)).toHaveNoViolations();
+  });
+
+  it('resends the same key after an answer that left the outcome unknown', async () => {
+    visit('/invitations');
+    let unavailable = true;
+    const fetchMock = stub(signedInto(tenantA, { scope: 'tenant', tenantId: tenantA }), (url, init) =>
+      url === '/api/v1/invitations' && init?.method === 'POST'
+        ? unavailable
+          ? json({ type: 'https://problems.scnehaux.com/dependency-unavailable', status: 503 }, 503)
+          : json({ invitation: { invitation_id: 'inv-9', state: 'pending' }, token }, 201)
+        : url.startsWith('/api/v1/invitations')
+          ? json({ invitations: [], next: null })
+          : undefined,
+    );
+    const user = userEvent.setup();
+    render(<App />);
+    await user.type(await screen.findByLabelText(/Invitee/), 'person@example.com');
+    await user.click(screen.getByRole('button', { name: 'Send invitation' }));
+    await screen.findByRole('alert');
+    unavailable = false;
+    await user.click(screen.getByRole('button', { name: 'Send invitation' }));
+    await screen.findByRole('region', { name: 'The acceptance link, shown this once' });
+    const [first, second] = sent(fetchMock, '/api/v1/invitations').filter((init) => init?.method === 'POST');
+    expect(headersOf(second)['idempotency-key']).toBe(headersOf(first)['idempotency-key']);
+  });
+
   it('says so when the browser does not allow copying, and the link stays on the page', async () => {
     visit('/invitations');
     stub(signedInto(tenantA, { scope: 'tenant', tenantId: tenantA }), issued);
@@ -207,9 +272,13 @@ describe('the acceptance page', () => {
     expect(JSON.parse(bodyOf(sent(after, '/api/v1/invitations/accept')[0]))).toEqual({ token });
   });
 
-  it('answers every 404 with one sentence, forgets the token, and sends nothing again', async () => {
+  // TDD-organization-experience-002 1.10.0: the refusal is known by its problem type (RFC 9457 §3.1.1).
+  it('answers the invitation-not-acceptable type with one sentence, forgets the token, and sends nothing again', async () => {
     visit(`/invitations/accept#${token}`);
-    const fetchMock = stub(noTenant, problem(404, 'not-found', 'not found'));
+    const fetchMock = stub(
+      noTenant,
+      problem(404, 'invitation-not-acceptable', 'The invitation cannot be accepted'),
+    );
     const user = userEvent.setup();
     const { container } = render(<App />);
     await user.click(await screen.findByRole('button', { name: 'Accept invitation' }));
@@ -221,6 +290,18 @@ describe('the acceptance page', () => {
     expect(window.sessionStorage.getItem(storageKey)).toBeNull();
     expect(sent(fetchMock, '/api/v1/invitations/accept')).toHaveLength(1);
     expect(await checkWcag(container)).toHaveNoViolations();
+  });
+
+  it('does not read a 404 of another type as the invitation’s refusal, and keeps the token', async () => {
+    visit(`/invitations/accept#${token}`);
+    stub(noTenant, problem(404, 'not-found', 'no route'));
+    const user = userEvent.setup();
+    render(<App />);
+    await user.click(await screen.findByRole('button', { name: 'Accept invitation' }));
+    const alert = await screen.findByRole('alert');
+    expect(alert).not.toHaveTextContent('This invitation cannot be accepted.');
+    expect(alert).toHaveTextContent('no route');
+    expect(window.sessionStorage.getItem(storageKey)).toBe(token);
   });
 
   it('says why a 409 could not join, with the API’s sentence', async () => {

@@ -3,12 +3,12 @@ doc_meta:
   id: TDD-organization-experience-001
   title: Administrative Scope, Provider Mode, and Safe Bulk Operations
   owner: Core Platform Team
-  version: 1.11.1
+  version: 1.12.0
   status: approved
   classification: restricted
   review_cycle_days: 90
   created_date: 2026-08-11
-  last_reviewed: 2026-10-20
+  last_reviewed: 2026-10-21
   parent_sad: SAD-012
 ---
 
@@ -307,6 +307,37 @@ This is deliberate redundancy. The single most likely error in cross-tenant
 administration is an operator acting correctly on the wrong Tenant, and that error is
 invisible at the moment it is made.
 
+**On a small viewport, one sticky line (1.12.0).** `SAD-012` 1.4.0 §8.4: "The scope is always in view
+(1.4.0). Its kind, the Tenant when there is one, and the time left stay in view at every width,
+compacted to one sticky line on a small viewport. The full scope banner, with any long text, is in the
+page flow." `STD-GLB-FE-005` 2.2.0 §3.10 sets the rule for every sticky region: below the application's
+narrow breakpoint, `60rem` here, and at a short viewport height, only what a SAD requires in view stays
+sticky, on one line, and everything else becomes static.
+
+- **What sticks.** Below `60rem` wide, or below `30rem` tall, the bar and the full banner become static
+  and scroll away with the page. A scope line takes their place at the top of the viewport. It is the
+  frame's first row, above the rail, so it is in view from the top of the page as well as after any
+  scroll, and the rail's contents stop sticking there so nothing slides under it. It holds the
+  scope's glyph and kind, the Tenant for a Tenant scope or the number of Tenants a window reaches, and
+  the time left. It is one line, in the banner's scheme. The kind and the Tenant end in an ellipsis
+  when they do not fit; the time left never shrinks. Nothing wraps in it.
+- **Why those thresholds.** `60rem` is the breakpoint at which the rail already becomes a bar
+  (§Visual Language). `30rem` (480 CSS px) is under a laptop screen at 150% zoom and above WCAG's
+  256 CSS px case, "a starting viewport height of 1024 CSS pixels at 400% zoom" [R13]: a sticky bar and
+  banner of about 100 px there would take two fifths of the screen. Technique C34 un-fixes sticky
+  regions by media query because "sticky regions may block a big portion of the screen" [R14].
+- **The full banner stays in the page,** above the content, so every word of it, a long Tenant list
+  included, is still read in the flow. The scope line is a visual summary of it and is hidden from
+  assistive technology, so a screen reader reads the scope once, from the banner's region.
+- **Focus is never hidden under the sticky region.** The frame sets the root's `scroll-padding-top`
+  to the height of whatever is sticky, the bar and banner above `60rem`, the scope line below, measured
+  as it changes. Technique C43 uses scroll padding so that components "that are initially completely
+  obscured by a fixed-position component can still be accessed by users" [R15], and SC 2.4.11 asks that
+  a focused component "is not entirely hidden due to author-created content" [R13].
+- `e2e/browser/layout.spec.ts` checks it at 320 by 256 CSS px and at 1440 by 900: the sticky region is
+  one line on the small one, in view at the top of the page and at its end, and tabbing backwards from the end of the page never leaves the focused
+  element entirely under it (§Testing Strategy).
+
 ### Visual Language (1.9.0)
 
 **The administration console looks like Identity Experience's applications.** An operator signs in on
@@ -316,7 +347,8 @@ product. Until 1.9.0 this application had one stylesheet of four rules, the scop
 browser's own form controls everywhere else.
 
 **Source, by copy.** The UI Platform is deferred (SAD-012 1.1.0 §7.3), and this repository keeps its
-own components. It takes Identity Experience's by copying, not by depending on that repository. The
+own components, under the approved exception `ADR-ORG-008`, which expires on 2027-04-20 (1.12.0; until
+then SAD-012 §7.3's allowance had no end date). It takes Identity Experience's by copying, not by depending on that repository. The
 source is identity-experience at commit `c723e417c0eee97db6b1d5b6dab608fe6a406ac2`, the merge of its
 pull request #54, which fixed the light theme's contrast (`TDD-identity-experience-003` 1.26.0
 §Contrast and Focus). Everything copied lives under `apps/admin/src/ui/`, and `src/ui/index.ts` is the
@@ -352,6 +384,12 @@ own glyph and its words as well as its colour [R5, SC 1.4.1]: info and a buildin
 and the shield for provider mode, warning and a key for a session without a Tenant and without provider
 mode (1.11.0, §The Sign-In Entry) and for a scope that could not be read. It sits under the frame's bar and sticks with it, so it stays in view whatever
 the page scrolls to; the browser test scrolls a long page and asserts the banner fully in the viewport.
+Below `60rem` wide or `30rem` tall, the scope line sticks instead and the banner stays in the flow
+(1.12.0, §Scope Visibility): one line that never wraps, ending in an ellipsis, with the root's
+`scroll-padding-top` at its height, laid out at 320 CSS px wide and 256 tall and tabbed backwards by
+`layout.spec.ts` (`STD-GLB-FE-005` 2.2.0 §3.10). The banner's words wrap only where it is in the page
+flow, or on a viewport neither narrow nor short, where 1.11.1 let a long Tenant list wrap rather than
+push the page sideways; the sticky line never wraps.
 The time left is set apart at the end of the banner in tabular figures. The banner reads the same
 sentence it always has, word for word: the parts are styled, not reworded. The one sentence 1.11.0
 rewords is the session without a Tenant's.
@@ -425,6 +463,7 @@ fields in a grid, the filters in a toolbar, then the records.
 | :-- | :-- | :-- |
 | The theme follows the system's `prefers-color-scheme` until the viewer chooses one, and only a choice is stored, in this origin's `localStorage` | Opens dark, and stores the preference | MDN: the feature "is used to detect if a user has requested light or dark color themes" [R6]. Following it needs no storage, so the page still "holds nothing in browser storage" after a sign-in (§End to End). The hosted login follows the system too (`TDD-identity-kernel-004` §Visual Language) |
 | The bar holds the application's `h1` and the session; the scope banner sticks under it | The bar holds the environment, the session, the language and the theme | §Scope Visibility. This application has no environment setting and one locale, so there is no environment pill and no language switch |
+| Below `60rem` wide or `30rem` tall only the one-line scope line is sticky; the bar and the banner scroll with the page (1.12.0) | The bar is sticky at every size | `SAD-012` 1.4.0 §8.4 and `STD-GLB-FE-005` 2.2.0 §3.10; identity-experience applies the same standard on its own change |
 | Under 60rem the rail is a bar with its links in a row | The rail is a column above the page | A tablet reaches the page without scrolling past a column of links |
 | The rail is the page's full height, and what it holds sticks in view at the viewport's height | The rail itself is sticky at `100dvh`, so a full-page rendering of a long page shows its surface and edge ending at the first screen | The column reads as one surface beside the longest page; `behaviour.spec.ts` asserts the rail spans the page and its navigation stays in view after a scroll, on Tenants, an offboarding and Memberships |
 | `Notice`, `Facts`, `Rows`, `Page` and the field classes | `TextField`, `SelectField`, `TextAreaField` own their ids and errors | This application's forms already own the ids, hints and errors their tests read, so they take Identity Experience's field styles as classes rather than its components |
@@ -548,6 +587,46 @@ the scope, and neither carries anything of a provider window, because neither is
 `/v1/invitations/verify-identity` has left the provider-only list: `ADR-ORG-007 §5.4` removes the
 route. Under a Tenant session it would now reach the API, which serves no such route and answers
 `404`.
+
+**The routes of 2026-10-20 need no change to the guard (1.12.0).** `/v1/reporters…` and
+`/v1/tenants/{tenant_id}/memberships/{membership_id}/suspend|revoke|enforcement` are provider routes
+(`TDD-organization-experience-002` 1.10.0). They are reached with a window in force like every provider
+route, and the withdrawal's path names its Tenant, so an in-force window refuses one outside its
+targets, as it refuses any path naming a Tenant. `bff/test/guard.test.ts` holds both.
+
+**The client is contract-tested against Organization Control's specification (1.12.0).**
+`ADR-GLB-010 §5.1`, amended 2026-10-20: "Language bindings SHALL be generated from the contract, or,
+where they are hand-written, contract-tested in CI against the published specification". organization-control
+publishes `api/openapi.yaml`, OpenAPI 3.1, as a versioned artifact a consumer pins by commit (its
+README §API specification), and leaves this test to this repository.
+
+- **Contract-tested, not generated.** The hand-written client is several dozen call sites in the
+  application and four calls in `bff/src/scope/control.ts`, each already typed by hand where it is
+  read. A generated client would rewrite every one of them, and the BFF's `control.ts` sits next to
+  the conformance set. A contract test adds one package and changes no call site, and it holds the
+  one property `§5.1` asks for: what the client sends and reads is what the specification says. It
+  is the smaller change.
+- **The specification is vendored and pinned.** `contracts/organization-control/openapi.yaml` is the
+  file at the commit `contracts/organization-control/pin.json` names, organization-control `6a36b8d`,
+  its `info.version` 1.0.0. `pnpm check:api-contract` fetches the file at that commit from the public
+  repository and fails on one differing byte, as `check:bff-conformance` does for the BFF. Moving the
+  pin is a reviewed change to both files.
+- **What the test holds** (`contracts/test`, run by `pnpm test` in CI). The OpenAPI 3.1 Schema Object
+  "is a superset of JSON Schema Specification Draft 2020-12" [R16], so the schemas are checked with
+  Ajv's draft 2020-12 validator, formats included:
+  - every request the application's unit tests send through `/api/v1/` names an operation of the
+    specification by method and path, carries only the query parameters it declares, carries an
+    `Idempotency-Key` exactly when the operation declares one, and has a body its request schema
+    accepts, unknown fields included, which Organization Control refuses with `400`;
+  - every path the application's source and `control.ts` write under `/v1/` resolves to a path of the
+    specification;
+  - each call `control.ts` makes, against a stand-in that answers with bodies the specification's
+    response schemas accept, sends what the operation declares and reads what it answers;
+  - every answer `e2e/browser/fixtures.ts` gives, which every browser test renders, is accepted by the
+    response schema of the read it stands in for.
+- **What it does not hold.** That Organization Control's handlers answer what its specification says is
+  organization-control's own later item (its README §API specification); the stack proof covers the
+  path through the real service.
 
 **The provider access to a Tenant is a Tenant route (1.6.0).** `GET /v1/provider-access` is a Tenant
 administrator's read of the provider access that named its Tenant (`ADR-ORG-002 §5.6`,
@@ -683,6 +762,15 @@ presented as a single irreversible button, because it is neither single nor imme
 Session, cookie, refresh, and client credential settings are inherited unchanged from
 `TDD-identity-experience-001`.
 
+**One client per developer device (1.12.0).** `ORGANIZATION_EXPERIENCE_CLIENT_ID` names the client of
+the device the BFF runs on. A laptop-run BFF that two devices use has one registration per device, each
+with its own single active key, such as `organization-experience-bff-<device>`; a second key on one
+registration is only for a rotation overlap (`STD-GLB-009` rule 15, `ADR-IAM-001 §5.12`). OAuth treats
+each deployed instance as its own client, whose `client_id` "SHOULD vary between instances" (as rule 15
+quotes it). `scripts/dev-register-bff.ps1 -ClientKey` registers a device's client and
+`scripts/new-client-key.mjs <name>` makes its key; `deploy/dev/README.md` §Several devices is the
+procedure.
+
 ## Testing Strategy
 
 ### Scope
@@ -791,6 +879,12 @@ command. The stand-in proves no BFF behaviour: `bff/test` and the stack-proof wo
   button reached by Tab show a 2px solid outline 2px off them, with and without forced colours; a link
   is underlined at rest; a destructive action takes the danger variant and its confirmation names the
   scope.
+- `layout.spec.ts`, the sticky region (1.12.0): at 320 by 256 CSS px, on a long page in each scope, the
+  sticky region is one line, the bar and the banner are static, the full banner is in the page, and
+  the root's `scroll-padding-top` is the line's height; tabbing backwards from the last control to
+  the first, no focused element is entirely under the sticky region. At 1440 by 900 the bar and
+  banner stick as before and the scope line is not shown. The same holds at 320 by 844 and 1440 by
+  256.
 - Playwright's guide: "Note that automated testing cannot detect all types of WCAG violations", and
   "many accessibility problems can only be discovered through manual testing" [R7]. The manual WCAG
   2.2 AA audit above is not replaced by any of it.
@@ -815,7 +909,10 @@ every stack the journeys need. The proof brings up:
 - identity-kernel, identity-control and organization-control, each with its own `deploy/dev` and
   scripts, wired by organization-control's `scripts/dev-wire.ps1`, at `kernel_ref`, `identity_ref`
   and `organization_ref`. The steps and their glue are organization-control's `deploy-dev`, kept the
-  same;
+  same. identity-control's bootstrap ceremony runs as its `bootstrap.sh <operator> <witness> <reason>`
+  takes it, with a witness distinct from the operator (`ci@scnehaux.local` and
+  `ci-witness@scnehaux.local`), the two-person ceremony of `STD-IAM-001 §3.10` (identity-control #114;
+  this repository's #21, recorded in 1.12.0). An older `bootstrap.sh` ignores the extra argument;
 - this BFF, with its client registered by `scripts/dev-register-bff.ps1`, the operator's script;
 - identity-experience's BFF and applications at `identity_experience_ref`;
 - the people, grants and Tenant of `e2e/seed.ps1`: a second provider with an eligible grant, a Tenant
@@ -880,6 +977,9 @@ Tenant: the figures show the mechanism, not its behaviour under load.
 - Every mutation carries an idempotency key, an optimistic version, a reason, and a
   correlation identifier.
 - A version conflict is surfaced rather than retried.
+- Every request the client sends, and every fixture it is tested against, conforms to Organization
+  Control's specification at the pinned commit, and the vendored specification is that commit's
+  (1.12.0, §API / Interface).
 
 ## Security Notes
 
@@ -959,6 +1059,9 @@ when its session store does not answer (1.5.0); the operator's steps are identit
 | Follows | WCAG 2.2 SC 3.2.5 — one listed Tenant is not entered by itself (1.11.0) |
 | Follows | `TDD-identity-experience-003` 1.29.0 and 1.30.0 §Layout — a panel without size containment, a button label that wraps, and the layout check down to 320 CSS px (1.11.0) |
 | Conforms to | `STD-GLB-FE-005` 2.1.0 §3.10 — intrinsic sizing and reflow, the layout test at 320 CSS px included (proposed in scnehaux-architecture #100) (1.11.0) |
+| Conforms to | `STD-GLB-FE-005` 2.2.0 §3.10 and `SAD-012` 1.4.0 §8.4 — one sticky scope line on a small viewport, `scroll-padding-top`, and the layout test at 320 by 256 with backward tabbing (1.12.0) |
+| Conforms to | `ADR-GLB-010` §5.1 (amended 2026-10-20) — the hand-written client contract-tested in CI against organization-control's `api/openapi.yaml` at a pinned commit (1.12.0) |
+| Governed by | `ADR-ORG-008` — the local components under `apps/admin/src/ui/`, an exception that expires 2027-04-20 (1.12.0) |
 
 ### Standalone Operation
 
@@ -983,3 +1086,7 @@ UI Platform ships its primitives (SAD-012 1.1.0 §7.3).
 | R10 | Microsoft, *Manage Azure portal settings and preferences*, §Switch and manage directories, <https://learn.microsoft.com/en-us/azure/azure-portal/set-preferences>, accessed 2026-10-20: "In the **Directories** section, you see your **Current directory** (the directory, or Azure tenant, that you're currently signed in to)."; "To see a full list of directories you can access, select **All Directories**."; "To switch to a different directory, find the directory that you want to work in, and then select the **Switch** button in its row." (1.11.0) |
 | R11 | GitHub Docs, *About your organization dashboard*, <https://docs.github.com/en/organizations/collaborating-with-groups-in-organizations/about-your-organization-dashboard>, accessed 2026-10-20: "To switch to your organization dashboard, in the upper-left corner of the page, select your username"; the menu's caption: "Screenshot of the "Switch dashboard context" menu for a personal account. The menu lists organizations linked to the personal account." (1.11.0) |
 | R12 | W3C, *Understanding Success Criterion 3.2.5: Change on Request* (WCAG 2.2, level AAA), <https://www.w3.org/WAI/WCAG22/Understanding/change-on-request.html>, accessed 2026-10-20: "Changes of context are initiated only by user request or a mechanism is available to turn off such changes."; "This success criterion aims to eliminate potential confusion that may be caused by unexpected changes of context". (1.11.0) |
+| R13 | W3C, *Web Content Accessibility Guidelines (WCAG) 2.2*, SC 1.4.10 Note 1 and SC 2.4.11, <https://www.w3.org/TR/WCAG22/>, accessed 2026-10-21: "Horizontal scrolling content at a height equivalent to 256 CSS pixels."; "For web content which is designed to scroll horizontally (e.g., with vertical text), 256 CSS pixels is equivalent to a starting viewport height of 1024 CSS pixels at 400% zoom."; SC 2.4.11: "When a user interface component receives keyboard focus, the component is not entirely hidden due to author-created content" (as `STD-GLB-FE-005` [R7] quotes it). (1.12.0) |
+| R14 | W3C WAI, Technique C34, *Using media queries to un-fixing sticky headers / footers*, <https://www.w3.org/WAI/WCAG22/Techniques/css/C34>, accessed 2026-10-21: "sticky regions may block a big portion of the screen"; "Disabling, or un-fixing sticky regions, is an effective way to allow for enough available space". (1.12.0) |
+| R15 | W3C WAI, Technique C43, *Using CSS scroll-padding to un-obscure content*, <https://www.w3.org/WAI/WCAG22/Techniques/css/C43>, accessed 2026-10-21: "The objective of this technique is to ensure that user interface components (for example: links, buttons, and form fields) that are initially completely obscured by a fixed-position component can still be accessed by users." (1.12.0) |
+| R16 | OpenAPI Initiative, *OpenAPI Specification v3.1.0*, §4.4 Data Types, <https://spec.openapis.org/oas/v3.1.0.html>, accessed 2026-10-21: "Models are defined using the Schema Object, which is a superset of JSON Schema Specification Draft 2020-12."; Ajv, *JSON Schema*, <https://ajv.js.org/json-schema.html>, accessed 2026-10-21: "Ajv supports all keywords of JSON Schema draft-2020-12". (1.12.0) |

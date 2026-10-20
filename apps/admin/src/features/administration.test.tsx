@@ -4,6 +4,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { axe } from 'vitest-axe';
 
 import { App } from '../App';
+import { checkSent } from '../test/contract';
 
 // TDD-organization-experience-002 1.2.0 §Testing Strategy: the administration surfaces against a
 // stubbed BFF, through the application's own router.
@@ -53,6 +54,7 @@ type Handler = (url: string, init: RequestInit | undefined) => Response | undefi
 // stub answers the BFF: each handler may answer a request; the first that does wins.
 function stub(...handlers: Handler[]) {
   const fetchMock = vi.fn((input: string, init?: RequestInit) => {
+    checkSent(input, init);
     for (const handler of handlers) {
       const answer = handler(input, init);
       if (answer !== undefined) {
@@ -126,9 +128,9 @@ describe('workspaces', () => {
     visit('/workspaces');
     const fetchMock = stub(signedInto(tenantA, { scope: 'tenant', tenantId: tenantA }), (url) => {
       if (url === '/api/v1/workspaces') {
-        return json({ workspaces: [workspace(3)], next: 'cursor-1' });
+        return json({ workspaces: [workspace(3)], next: '0192f0e0-5555-7000-8000-000000005003' });
       }
-      if (url === '/api/v1/workspaces?after=cursor-1') {
+      if (url === '/api/v1/workspaces?after=0192f0e0-5555-7000-8000-000000005003') {
         return json({
           workspaces: [{ ...workspace(1), workspace_id: 'w2', display_name: 'Legal' }],
           next: null,
@@ -142,7 +144,10 @@ describe('workspaces', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Show more' }));
     expect(await screen.findByText('Legal')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Show more' })).not.toBeInTheDocument();
-    expect(fetchMock).toHaveBeenCalledWith('/api/v1/workspaces?after=cursor-1', expect.anything());
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/v1/workspaces?after=0192f0e0-5555-7000-8000-000000005003',
+      expect.anything(),
+    );
   });
 
   it('a filter starts again from the first page', async () => {

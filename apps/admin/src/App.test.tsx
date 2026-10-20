@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { axe } from 'vitest-axe';
 
 import { App } from './App';
+import { checkSent } from './test/contract';
 
 const tenantA = '0199a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b';
 const tenantB = '0199a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5c';
@@ -49,7 +50,8 @@ const respond = (body: unknown, status = 200, headers: Record<string, string> = 
 
 // stubBff answers each BFF endpoint from a table the test can change as it goes.
 function stubBff(table: Record<string, () => Response>) {
-  const fetchMock = vi.fn((input: string) => {
+  const fetchMock = vi.fn((input: string, init?: RequestInit) => {
+    checkSent(input, init);
     const answer = table[input];
     return Promise.resolve(answer === undefined ? respond({}, 404) : answer());
   });

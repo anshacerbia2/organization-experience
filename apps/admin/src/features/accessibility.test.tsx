@@ -186,6 +186,31 @@ const cases: readonly {
     },
     shows: 'billing',
   },
+  // TDD-organization-experience-002 1.10.0: the reporter registry.
+  {
+    path: '/reporters',
+    scope: providerInForce,
+    bodies: {
+      '/api/v1/reporters': {
+        reporters: [
+          {
+            reporter_id: '0199a1b2-c3d4-7e5f-8a9b-0c1d2e3f4d11',
+            principal_id: '0199a1b2-c3d4-7e5f-8a9b-0c1d2e3f4d01',
+            reports: 'provisioning',
+            purpose: 'The provisioning system',
+            state: 'active',
+            version: 1,
+            registered_at: '2026-10-20T10:00:00Z',
+            registered_by: '0199a1b2-c3d4-7e5f-8a9b-0c1d2e3f4aaa',
+            retired_at: null,
+            retired_by: null,
+          },
+        ],
+        next: null,
+      },
+    },
+    shows: 'The provisioning system',
+  },
   {
     path: '/approvals',
     scope: providerInForce,

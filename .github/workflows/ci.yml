@@ -60,6 +60,13 @@ jobs:
       - name: bff conformance
         run: pnpm check:bff-conformance
 
+      # The Organization Control API's specification the client is contract-tested against
+      # (contracts/, ADR-GLB-010 §5.1) is organization-control's published api/openapi.yaml at the
+      # commit contracts/organization-control/pin.json names, byte for byte. The contract tests run
+      # with the rest under test.
+      - name: api contract
+        run: pnpm check:api-contract
+
       - name: typecheck
         run: pnpm typecheck
 

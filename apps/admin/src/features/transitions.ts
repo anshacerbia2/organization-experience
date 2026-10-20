@@ -40,11 +40,18 @@ export interface Machine {
   readonly transitions: readonly Transition[];
 }
 
+// From TDD-organization-experience-003 1.6.0 each reports as its registered reporter workload
+// (ADR-ORG-001 §5.11), which a provider registers on the Reporters page.
 const devDeprovisioning =
-  'The provisioning system reports it, and the console reports no outcome; on a development server, organization-control’s scripts/dev-deprovisioning.ps1';
+  'The provisioning system reports it, as its registered reporter workload, and the console reports no outcome; on a development server, organization-control’s scripts/dev-deprovisioning.ps1, as the development reporter';
 const domainResolves =
-  'The accountable domain resolves its own obligation, and the board offers no control to resolve another domain’s; on a development server, organization-control’s scripts/dev-obligation.ps1';
+  'The accountable domain resolves its own obligation, as the reporter workload registered for obligation:<domain>, and no provider can; the board offers no control to resolve another domain’s. On a development server, organization-control’s scripts/dev-obligation.ps1';
 const resolveActions = `${messages.resolveReplayed}; ${messages.resolveSuperseded}`;
+// A Tenant administrator's action on the Memberships page, then a provider's on the Tenants page.
+const suspendActions = `${messages.suspend}; ${messages.suspendMembership}`;
+const revokeActions = `${messages.revoke}; ${messages.revokeMembership}`;
+const tenantRoute = (action: string): string =>
+  `POST /v1/memberships/{id}/${action}; POST /v1/tenants/{tenant_id}/memberships/{id}/${action}`;
 
 export const machines: readonly Machine[] = [
   {
@@ -297,6 +304,62 @@ export const machines: readonly Machine[] = [
         route: 'waived_until passes',
         none: 'A waiver expires on its own, and the incident alerts again',
       },
+    ],
+  },
+  {
+    name: 'reporter',
+    design: 'TDD-organization-experience-002',
+    heading: 'Reporter',
+    transitions: [
+      {
+        from: 'new',
+        to: 'active',
+        driver: 'operator',
+        route: 'POST /v1/reporters',
+        action: messages.registerReporter,
+      },
+      {
+        from: 'active',
+        to: 'retired',
+        driver: 'operator',
+        route: 'POST /v1/reporters/{reporter_id}/retire',
+        action: messages.retireReporter,
+      },
+    ],
+  },
+  {
+    name: 'membership',
+    design: 'TDD-organization-experience-002',
+    heading: 'Membership',
+    transitions: [
+      {
+        from: 'new',
+        to: 'active',
+        driver: 'operator',
+        route: 'POST /v1/memberships',
+        action: messages.grantMembership,
+      },
+      {
+        from: 'active',
+        to: 'suspended',
+        driver: 'operator',
+        route: tenantRoute('suspend'),
+        action: suspendActions,
+      },
+      {
+        from: 'suspended',
+        to: 'active',
+        driver: 'operator',
+        route: 'POST /v1/memberships/{id}/restore',
+        action: messages.restore,
+      },
+      ...(['active', 'suspended'] as const).map((from): Transition => ({
+        from,
+        to: 'revoked',
+        driver: 'operator',
+        route: tenantRoute('revoke'),
+        action: revokeActions,
+      })),
     ],
   },
   {

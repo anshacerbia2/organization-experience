@@ -3,6 +3,9 @@
 // §Visual Language). The UI Platform is deferred, so this application keeps its own copy rather than
 // depending on another repository; the names and the tokens are the same, so that when
 // `@scnx/system` ships, a line here changes to re-export it and no surface changes.
+//
+// The local copy is an approved exception: ADR-ORG-008, which expires on 2027-04-20. Its exit is this
+// file re-exporting `@scnx/system` and `@scnx/core-ui`, and the copies deleted (ADR-ORG-008 §5.1, §5.4).
 export { ButtonBase } from './primitives/button-base/ButtonBase';
 export { Button } from './system/button/Button';
 export type { ButtonVariant } from './system/button/Button';

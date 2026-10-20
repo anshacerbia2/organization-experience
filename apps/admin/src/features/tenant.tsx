@@ -112,15 +112,16 @@ function StatusFilter({
 function useCreate<T>(path: `/v1/${string}`, invalidates: readonly (readonly string[])[]) {
   const session = useSignedIn();
   const client = useQueryClient();
-  const keyFor = useIdempotencyKey();
+  const keys = useIdempotencyKey();
   return useMutation({
     mutationFn: (sent: { body: Record<string, unknown>; reason?: string }) =>
       apiCommand<T>(path, sent.body, {
         csrfToken: session.csrfToken,
-        idempotencyKey: keyFor(sent),
+        idempotencyKey: keys.keyFor(sent),
         ...(sent.reason === undefined ? {} : { reason: sent.reason }),
       }),
-    onSettled: async () => {
+    onSettled: async (_data, error) => {
+      keys.settle(error ?? undefined);
       await Promise.all(invalidates.map((queryKey) => client.invalidateQueries({ queryKey })));
     },
   });
@@ -538,11 +539,15 @@ export function InvitationsPage(): ReactElement {
   const { query, items } = usePagedList<Invitation>('invitations', '/v1/invitations', 'invitations', {
     state,
   });
-  const create = useCreate<{ invitation: Invitation; token: string }>('/v1/invitations', [invitationsKey]);
+  // The live answer carries the token once; a replay of the same Idempotency-Key answers the
+  // invitation without it (ADR-ORG-007 §5.5, STD-GLB-001 1.7.0).
+  const create = useCreate<{ invitation: Invitation; token?: string }>('/v1/invitations', [invitationsKey]);
   const [target, setTarget] = useState('');
   const [subjectType, setSubjectType] = useState('human');
   const [days, setDays] = useState('7');
   const [token, setToken] = useState<string | null>(null);
+  // replayed is an invitation answered again without its token: already issued, its link not shown again.
+  const [replayed, setReplayed] = useState<Invitation | null>(null);
 
   return (
     <Page aria-labelledby="invitations-heading">
@@ -559,6 +564,7 @@ export function InvitationsPage(): ReactElement {
           onSubmit={(event) => {
             event.preventDefault();
             setToken(null);
+            setReplayed(null);
             create.mutate(
               {
                 body: {
@@ -569,7 +575,11 @@ export function InvitationsPage(): ReactElement {
               },
               {
                 onSuccess: (issued) => {
-                  setToken(issued.token);
+                  if (typeof issued.token === 'string' && issued.token !== '') {
+                    setToken(issued.token);
+                  } else {
+                    setReplayed(issued.invitation);
+                  }
                   // The token is the page's to show once, not the mutation cache's to keep.
                   create.reset();
                 },
@@ -634,6 +644,12 @@ export function InvitationsPage(): ReactElement {
           ) : null}
         </form>
       </Panel.Root>
+      {replayed === null ? null : (
+        <Notice tone="warning" icon="alert" role="status">
+          <p>{messages.invitationReplayed(replayed.invitation_id)}</p>
+          <p>{messages.invitationReplayedNext}</p>
+        </Notice>
+      )}
       {token === null ? null : (
         <IssuedLink
           token={token}

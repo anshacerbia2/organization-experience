@@ -3,12 +3,12 @@ doc_meta:
   id: TDD-organization-experience-002
   title: Organization, Tenant, Workspace, and Membership Administration Surfaces
   owner: Core Platform Team
-  version: 1.9.0
+  version: 1.10.0
   status: approved
   classification: restricted
   review_cycle_days: 90
   created_date: 2026-08-11
-  last_reviewed: 2026-10-20
+  last_reviewed: 2026-10-21
   parent_sad: SAD-012
 ---
 
@@ -39,6 +39,9 @@ interface or it will be misread.
 - The provider-access review, and a Tenant's read of the provider access to it (1.5.0).
 - Every operator transition of the machines these surfaces show, each with its action or the reason
   for none (1.6.0 for the Tenant, 1.7.0 for the rest).
+- The reporter registry, a provider's withdrawal of one Membership inside a Tenant, and the
+  consumer's declared reconciliation interval (1.10.0, organization-control's decisions of
+  2026-10-20).
 
 **Out of scope**
 
@@ -67,7 +70,8 @@ Each is rendered as its own state here, with the consequence stated.
 | Component | Responsibility |
 | :-- | :-- |
 | `OrganizationRegistry` | Organization list, detail, external references, relationships |
-| `TenantLifecyclePanel` | State, provisioning correlation, activation gate, and the Tenant's administrators (1.7.0) |
+| `TenantLifecyclePanel` | State, provisioning correlation, activation gate, the Tenant's administrators (1.7.0), and a provider's withdrawal of one Membership (1.10.0) |
+| `ReporterRegistry` | The registered reporter workloads, registered and retired by a provider (1.10.0) |
 | `WorkspaceManager` | Workspace list and lifecycle within one Tenant |
 | `MembershipAdmin` | Grant, suspend, revoke, restore, and the invitation path, with the acceptance link shown once (1.8.0) |
 | `InvitationAcceptance` | The page where an invited person, signed in as themselves, accepts (1.8.0) |
@@ -151,7 +155,7 @@ POST  /api/v1/invitations/{id}/revoke                     Provider scope, any wi
 
 | Part | Where it comes from |
 | :-- | :-- |
-| `Idempotency-Key` | Generated in the browser, one per distinct request. Resubmitting the same values after an outage reuses it, so the API answers with what the first attempt did. A changed value is a new request with a new key. The BFF forwards it, as identity-experience's does |
+| `Idempotency-Key` | Generated in the browser, one per distinct request. Resubmitting the same values after an outage reuses it, so the API answers with what the first attempt did. A changed value is a new request with a new key. From 1.10.0, once the API has answered, success or refusal, the next submission is a new request with a new key, even with the same values; only an attempt whose outcome is unknown keeps its key: no answer, a `5xx`, or `409 request-in-progress` (§The Owner's Decisions of 2026-10-20, Served). The BFF forwards it, as identity-experience's does |
 | `expected_version` | The record as the operator was shown it |
 | `X-Administrative-Reason` | The operator's own, for the action. Required for a Membership revocation, an Organization retirement, and a Tenant or Organization suspension. In provider mode an action without one carries the window's reason (`TDD-organization-experience-001` 1.2.0) |
 | Correlation | In provider mode, the window's, set by the BFF |
@@ -443,15 +447,17 @@ POST  /api/v1/invitations/accept   {"token"}                                    
 | Answer | The page says | The token in the tab |
 | :-- | :-- | :-- |
 | `200` | You joined the Tenant, named, with Open it | Forgotten |
-| `404` | This invitation cannot be accepted. It may have expired, been revoked or been used already, or it was sent to an email address your account has not proven. Ask whoever invited you. If it was sent to your address, prove that address in your account first, then open the link again | Forgotten |
+| `invitation-not-acceptable` (`404`; 1.10.0: by its type) | This invitation cannot be accepted. It may have expired, been revoked or been used already, or it was sent to an email address your account has not proven. Ask whoever invited you. If it was sent to your address, prove that address in your account first, then open the link again | Forgotten |
 | `409` | You could not join: the Tenant is not active, or you already hold this Membership, with the API's sentence | Forgotten |
 | `503`, or no answer | Organization Control could not check the invitation. Nothing changed. Try again later, with Try again | Kept |
 | `400` | The link is incomplete. Open it exactly as you received it, or ask for it again | Forgotten |
 | `401` | The session ended: sign in again, and the page resumes | Kept |
 
-  - **One sentence for every `404`.** The API answers one refusal for an unknown, expired, revoked,
-    used or mismatched token (`ADR-ORG-007 §5.4`), so the page cannot tell them apart and does not
-    try.
+  - **One sentence for every refusal of the invitation.** The API answers one refusal for an unknown,
+    expired, revoked, used or mismatched token (`ADR-ORG-007 §5.4`), so the page cannot tell them apart
+    and does not try. From 1.10.0 the page knows that refusal by its problem type,
+    `https://problems.scnehaux.com/invitation-not-acceptable`, not by its status (§The Owner's
+    Decisions of 2026-10-20, Served).
   - **Nothing is sent again behind the person's back.** Neither the page nor the BFF retries a refused
     acceptance (`ADR-ORG-007 §6`). Try again, after a `503`, is the person's own, and it resends the
     same request with the same `Idempotency-Key`.
@@ -461,12 +467,137 @@ POST  /api/v1/invitations/accept   {"token"}                                    
     and a test holds it on this page.
   - **The account application is named in words.** This application holds no link to
     identity-experience's account application, so the `404` sentence names it and links nothing.
-  - **Not yet: a person without an account.** `ADR-IAM-011`, proposed, would let an invitee with no
-    account enrol from the invitation. Until it is accepted and built the page offers no such path,
-    and a provider creates the person first (`ADR-ORG-007 §5.7`).
+  - **Planned, not built: a person without an account.** `ADR-IAM-011` was accepted on 2026-10-20
+    (1.10.0). Its §5.6 gives this page one change: offer a person who is not signed in **I do not have
+    an account**, which hands the token, in the fragment, to identity-experience's enrolment page. The
+    enrolment itself is identity-control's (`POST /v1/enrolments`, `:verify`) through Organization
+    Control's `POST /v1/invitations/resolve`, and the page is identity-experience's. None is served yet,
+    and the enrolment page's address is not decided, so the page offers no such path and a provider
+    creates the person first (`ADR-ORG-007 §5.7`). It is built once those three are.
 - **The invitation states.** `identity_verified` is gone (`ADR-ORG-007 §5.4`). An invitation is
   `pending`, `accepted`, `expired` or `revoked`. The filter and the labels lose it, and a pending
   invitation reads "nothing is granted until the invited person accepts, signed in as themselves".
+
+### The Owner's Decisions of 2026-10-20, Served (1.10.0)
+
+organization-control #75 (`6a36b8d`) served five decisions this console shows or sends. Each is
+below with what the console does.
+
+```text
+Provider mode, window in force
+GET   /api/v1/reporters                   ?reports&state&after&limit           the registry
+POST  /api/v1/reporters                   {"principal_id", "reports", "purpose"}   Register reporter, 201
+GET   /api/v1/reporters/{reporter_id}                                          read before retiring
+POST  /api/v1/reporters/{reporter_id}/retire   {"expected_version"}            Retire reporter
+POST  /api/v1/tenants/{tenant_id}/memberships/{membership_id}/suspend   {"expected_version"}
+POST  /api/v1/tenants/{tenant_id}/memberships/{membership_id}/revoke    {"expected_version"}
+GET   /api/v1/tenants/{tenant_id}/memberships/{membership_id}/enforcement    its evidence after
+```
+
+**Reporters (`ADR-ORG-001 §5.11`, `TDD-organization-control-001` 1.27.0 §Reporters).** The
+provisioning system and each domain that owns offboarding obligations report as a workload
+Principal registered for what it reports: `provisioning`, or `obligation:<domain>`. Organization
+Control admits a workload on its own report routes alone, from its record, and no provider resolves an
+obligation. Registering and retiring are provider commands, so the registry is a provider-mode surface,
+`/reporters`.
+
+- **The list** shows each reporter: its workload Principal, what it reports, its purpose, its state as
+  a pill, its version, who registered it and when, and, for a retired one, who retired it and when. It
+  filters by state and by what it reports, and pages by keyset.
+- **Register reporter** takes the workload's Principal identifier, what it reports (`provisioning`, or
+  `obligation:` and a domain of lowercase letters, digits and hyphens, the API's pattern), and its
+  purpose, at most 500 characters. The confirmation opens in place, names the workload and what it
+  will report, and takes a required reason: a registration admits a workload to report outcomes no
+  person checks, so it is a named decision. It is the primary action.
+- **A workload is registered once.** Organization Control keeps a retired reporter's row, and answers a
+  second registration of the same Principal, active or retired, with `409 state-transition-refused`.
+  The page says so in its own sentence, with the API's beside it: a retired workload is not registered
+  again, and a new workload is created in identity-control and registered instead.
+- **Retire reporter** is on each active reporter, in the danger variant, with a reason and what it
+  reports typed to confirm. Retiring is final for that Principal, and its reports are refused from its
+  next request. As every irreversible operation does (`TDD-organization-experience-001` §Irreversible
+  Operations), the confirmation reads the reporter again with `GET /api/v1/reporters/{reporter_id}`
+  and sends the version it read. A `409 version-conflict` is shown as one.
+- **The workload itself is identity-control's.** The console registers an existing workload Principal;
+  it creates no workload and no key (`ADR-IAM-003 §5.8`). On a development server organization-control's
+  `scripts/dev-wire.ps1` step 6b registers the development reporters, and the page lists them.
+
+**The reconciliation interval (`ADR-ORG-001 §5.7`, `TDD-organization-control-002` 1.16.0
+§Reconciliation Interval).** Each consumer reconciles itself on an interval it declares at
+registration, `reconciliation_interval_seconds`, from one minute to a week, one day when absent.
+Registration stays the deployment procedure's (§Operator Transitions of the Other Machines), and that
+procedure sends the interval with the rest of the owner's declaration.
+
+- **Projection health shows the interval**, as served in the list, beside the reconciliation age.
+- **A consumer late against its own interval is marked inline:** past one interval, a warning that
+  its reconciliation is overdue; past two, a danger notice. These are the thresholds of
+  organization-control's `ReconciliationOverdueWarning` and `ReconciliationOverdueCritical`. The age is
+  still the service's `reconciliation_age_seconds`, so the page reads no clock of its own. A consumer
+  never reconciled shows "never reconciled", as before, and no lateness: the age is absent until a
+  first run.
+- **`reconciliation_requested_at`**, nullable, is set by a restore bump and cleared by the consumer's
+  next reconciliation (`TDD-organization-control-002` 1.16.0 §After a Restore to an Older Point). When
+  set, the row says, as a warning, that a reconciliation was requested at that time after a restore
+  and has not run since. Until the consumers' schedulers exist the restore runbook runs it as a
+  provider; the console offers no run, as before.
+
+**A provider withdraws one Membership (`ADR-ORG-003 §5.6`, `TDD-organization-control-002` 1.16.0
+§A Provider Withdraws One Membership).** A provider in force may suspend or revoke one Membership
+inside a Tenant, to contain a withdrawal a restore lost or a compromised member.
+
+- **Where.** On the Tenants page, each `active`, `suspended` or `offboarding` Tenant's row offers
+  Withdraw a Membership. It opens in the row a form for the Membership's identifier and the version
+  the operator acts on. The other states hold no Membership a provider could withdraw.
+- **Why the version is typed.** Organization Control serves no provider read of a Tenant's
+  Memberships, so the console cannot show the record first. The identifier and version come from where
+  the incident found them: a reconciliation finding, the Tenant administrator, or the runbook's record.
+  A stale version is answered `409 version-conflict`, shown as one, and nothing is retried.
+- **Suspend membership** and **Revoke membership** are drawn only once both fields hold a Membership
+  identifier and a version, never disabled (§Operator Transitions, [R1]). Each is in the danger
+  variant, confirms in the row, names the Tenant and the Membership, requires a reason, and sends the
+  `Idempotency-Key` and the `expected_version`, with the window's correlation. Revoke says it cannot
+  be undone.
+- **Never grant or restore.** The API offers a provider neither, and the console offers no provider
+  control for either. The confirmation says that the Tenant administrator restores a suspended
+  Membership, once the incident allows.
+- **After the answer** the row shows the Membership's new status and version and follows its
+  enforcement through the provider read of it, accepted, propagating, enforced or over budget, as
+  the Tenant's own surface does (§Revocation Presentation). The withdrawal is recorded as privileged
+  access naming the Tenant, which its administrators read on their Provider access page (1.5.0).
+
+**The acceptance branches on the problem type (`ADR-ORG-007 §5.4`, `TDD-organization-control-004`
+1.15.0).** Until 1.10.0 the page read every `404` as the refused invitation. Organization Control now
+answers that refusal with its own type, `https://problems.scnehaux.com/invitation-not-acceptable`, and
+RFC 9457 makes the type, not the status, the identifier: "Consumers MUST use the "type" URI (after
+resolution, if necessary) as the problem type's primary identifier" [R7].
+
+- **The refusal sentence and forgetting the token follow the type.** An answer of that type, whatever
+  its status, is the refused invitation: its sentence, and the token forgotten.
+- **Any other `404` is not the invitation's answer.** A `404` of another type, such as a route the BFF
+  or the API does not serve, is shown as the refusal it is, with its reference, and the token is kept,
+  because the invitation was never judged.
+- `409`, `400`, `401` and `503` are unchanged.
+
+**An issued invitation without its token is a replay (`ADR-ORG-007 §5.5`, `STD-GLB-001` 1.7.0).**
+Organization Control records the issue command's answer without `token`, so a retry with the same
+`Idempotency-Key` answers `201` with the invitation alone.
+
+- **The replay is shown as one.** A `201` without `token` shows the invitation as already issued, and
+  says that its link was shown when it was first issued and cannot be shown again: revoke it and issue
+  another to get a new link. It never shows an empty link.
+- **A new key after each answer.** Until 1.10.0 the key followed the request's values alone, so issuing
+  a second invitation to the same address with the same validity, after the first was answered, reused
+  the first one's key. Organization Control then answered the first invitation again; before
+  `STD-GLB-001` 1.7.0 withheld it, that answer carried the first token, and the page showed it again.
+  The draft standard defines the key as what "the resource uses to recognize subsequent retries of the
+  same request", and "The idempotency key MUST be unique and MUST NOT be reused with another request
+  with a different request payload" [R8]. A second issue after an answer is a new request, not a
+  retry. So every command in the console now takes a new key once it has been answered, success or
+  refusal, and keeps it only while its outcome is unknown: no answer, a `5xx`, or
+  `409 request-in-progress`, the cases a resend must be recognised as the same command (§Every
+  mutation carries four things; `TDD-organization-experience-001` §Bulk Operations).
+- **What it fixes elsewhere.** The same rule makes Replay on a dead letter send a second replay when
+  pressed twice, rather than answer the first again.
 
 | # | Source |
 | :-- | :-- |
@@ -476,6 +607,8 @@ POST  /api/v1/invitations/accept   {"token"}                                    
 | R4 | MDN, *Window: sessionStorage property*, <https://developer.mozilla.org/en-US/docs/Web/API/Window/sessionStorage>, accessed 2026-10-19: "while localStorage is partitioned by origin only, sessionStorage is partitioned by both origin and browser tabs (top-level browsing contexts)."; "A page session lasts as long as the tab or the browser is open, and survives over page reloads and restores."; "Closing the tab/window ends the session and clears the data in sessionStorage." (1.8.0) |
 | R5 | MDN, *Clipboard: writeText() method*, <https://developer.mozilla.org/en-US/docs/Web/API/Clipboard/writeText>, accessed 2026-10-19: "Writing to the clipboard can only be done in a secure context." (1.8.0) |
 | R6 | MDN, *History: replaceState() method*, <https://developer.mozilla.org/en-US/docs/Web/API/History/replaceState>, accessed 2026-10-19: "The replaceState() method of the History interface modifies the current history entry, replacing it with the state object and URL passed in the method parameters."; "The new URL must be of the same origin as the current URL" (1.8.0) |
+| R7 | IETF, RFC 9457, *Problem Details for HTTP APIs*, §3.1.1 "type" and §3.1.4 "detail", <https://www.rfc-editor.org/rfc/rfc9457.html>, accessed 2026-10-21: "Consumers MUST use the "type" URI (after resolution, if necessary) as the problem type's primary identifier."; "Consumers SHOULD NOT parse the "detail" member for information" (1.10.0) |
+| R8 | IETF HTTPAPI Working Group, *The Idempotency-Key HTTP Header Field*, draft-ietf-httpapi-idempotency-key-header-07, §2 and §2.2, <https://datatracker.ietf.org/doc/html/draft-ietf-httpapi-idempotency-key-header-07>, accessed 2026-10-21 (as `STD-GLB-001` [R10] cites it): "An idempotency key is a unique value generated by the client which the resource uses to recognize subsequent retries of the same request."; "The idempotency key MUST be unique and MUST NOT be reused with another request with a different request payload." (1.10.0) |
 
 ## Algorithms / Logic
 
@@ -569,7 +702,7 @@ The first grant of a database is the bootstrap command's (`bootstrap-provider`, 
 
 | From | To | Driven by | Route | Console action |
 | :-- | :-- | :-- | :-- | :-- |
-| `new` | `active` | deployment procedure | `POST /v1/projections/consumers` | None: a consumer is registered with the declaration its owner wrote (`ADR-ORG-001 §5.7`), by the procedure that deploys it (organization-control `scripts/dev-wire.ps1`, §Wiring step 4). Registering again replaces the subscription and clears the snapshot mark, so it stays with that procedure |
+| `new` | `active` | deployment procedure | `POST /v1/projections/consumers` | None: a consumer is registered with the declaration its owner wrote (`ADR-ORG-001 §5.7`), by the procedure that deploys it (organization-control `scripts/dev-wire.ps1`, §Wiring step 4), with its `reconciliation_interval_seconds` (1.10.0). Registering again replaces the subscription and clears the snapshot mark, so it stays with that procedure |
 | `active` | `retired` | operator | `POST /v1/projections/consumers/{id}/retire` | Retire consumer |
 
 #### Dead Letter
@@ -594,6 +727,32 @@ The first grant of a database is the bootstrap command's (`bootstrap-provider`, 
 | `new` | `paused` | restore procedure | `deploy/dev/restore.sh` with `PAUSE_REASON` | None: recorded in the restored database before the service serves, naming no actor |
 | `unpaused` | `paused` | operator | `POST /v1/tenant-administration-pause` | Pause Tenant administration |
 | `paused` | `unpaused` | operator | `POST /v1/tenant-administration-pause` | Lift the pause |
+
+#### Reporter
+
+`TDD-organization-control-001` 1.27.0 §Reporters, `ADR-ORG-001 §5.11` (1.10.0). A retired reporter
+stays retired: its Principal is never registered again.
+
+| From | To | Driven by | Route | Console action |
+| :-- | :-- | :-- | :-- | :-- |
+| `new` | `active` | operator | `POST /v1/reporters` | Register reporter |
+| `active` | `retired` | operator | `POST /v1/reporters/{reporter_id}/retire` | Retire reporter |
+
+#### Membership
+
+`TDD-organization-control-002` §Algorithms and `internal/membership` there: grant, suspend, restore
+and revoke; a revoked Membership is final (1.10.0). A Tenant administrator drives every edge on the
+Memberships page. A provider drives the two withdrawals, and nothing else, on the Tenants page
+(`ADR-ORG-003 §5.6`). The invited person's acceptance also creates a Membership, as a self command on
+the acceptance page (1.8.0).
+
+| From | To | Driven by | Route | Console action |
+| :-- | :-- | :-- | :-- | :-- |
+| `new` | `active` | operator | `POST /v1/memberships` | Grant membership |
+| `active` | `suspended` | operator | `POST /v1/memberships/{id}/suspend`; `POST /v1/tenants/{tenant_id}/memberships/{id}/suspend` | Suspend; Suspend membership |
+| `suspended` | `active` | operator | `POST /v1/memberships/{id}/restore` | Restore |
+| `active` | `revoked` | operator | `POST /v1/memberships/{id}/revoke`; `POST /v1/tenants/{tenant_id}/memberships/{id}/revoke` | Revoke; Revoke membership |
+| `suspended` | `revoked` | operator | `POST /v1/memberships/{id}/revoke`; `POST /v1/tenants/{tenant_id}/memberships/{id}/revoke` | Revoke; Revoke membership |
 
 ### Membership Grant Has Two Paths
 
@@ -690,6 +849,10 @@ their stale behavior, their last reported mark, and their reconciliation age.
 The reconciliation age is when Organization Control last reconciled the consumer, how long ago as
 the service computed it, and how many findings the run reported (1.4.0). A consumer the service has
 not yet reconciled carries none of these fields and renders as "never reconciled".
+
+Each consumer also shows the interval it declared, and is marked overdue past one interval and
+critically overdue past two, and shows a reconciliation a restore requested and no run has cleared
+(1.10.0, §The Owner's Decisions of 2026-10-20, Served).
 
 A consumer past its declared budget renders as stale with its policy shown, because
 `use_with_marker`, `revalidate`, and `fail_closed` produce materially different
@@ -812,6 +975,32 @@ An `extra` reconciliation finding renders as a security finding, matching how
 - The pause renders paused or not, with who, when and why; Lift the pause and Pause Tenant
   administration each require a reason and send `{"paused": false}` or `{"paused": true}` (1.7.0).
 
+### The Owner's Decisions of 2026-10-20 (1.10.0)
+
+- The reporters list each reporter with what it reports, its state, version and registration, and
+  filters by state and reports. Register reporter sends `principal_id`, `reports` and `purpose` with a
+  required reason and an `Idempotency-Key`; an obligation reporter's domain is checked against the
+  API's pattern before sending; a `409` for a Principal already registered shows the page's sentence
+  and the API's. Retire reporter reads the reporter first, sends the version it read, and needs a
+  reason and the reports value typed. Neither is offered where the API would refuse it.
+- Projection health shows each consumer's interval, marks it overdue past one interval and critically
+  past two, and shows `reconciliation_requested_at` when set and nothing when null.
+- On an `active`, `suspended` or `offboarding` Tenant, Withdraw a Membership draws Suspend membership and
+  Revoke membership only once an identifier and a version are entered, each confirming in the row with
+  the Tenant named and a required reason, and sends `POST
+  /api/v1/tenants/{tenant_id}/memberships/{id}/suspend|revoke` with `expected_version`, the reason and
+  an `Idempotency-Key`; it then follows the provider enforcement read. No provider control grants or
+  restores a Membership.
+- The acceptance page shows the refused-invitation sentence for the `invitation-not-acceptable` type,
+  and forgets the token; a `404` of another type keeps it and shows the API's refusal.
+- An issue answered `201` without `token` shows the invitation as already issued, and no link. Issuing
+  the same values again after an answer sends a new `Idempotency-Key`; after a `503` or no answer it
+  resends the same one.
+- `transitions.test.ts` holds the Reporter and Membership tables as it holds the others.
+- The fixture-backed browser tests show the reporters page with Register reporter open, a Tenant's
+  Withdraw a Membership confirmation, and projection health with a consumer overdue and one with a
+  requested reconciliation, in both themes, with a screenshot and axe-core's WCAG 2.2 A and AA rules.
+
 ### Provider Grants (1.7.0)
 
 - The grants list each holder, scope, kind and revocation. Grant provider access sends the Principal,
@@ -880,3 +1069,12 @@ investigation.
 | Depends on | `TDD-organization-control-001` §The Tenant Administration Grant, §Pausing Tenant Administration — the grant, list, revoke and pause routes (1.7.0) |
 | Depends on | `TDD-organization-control-005` 2.5.0 §Listing a consumer's dead letters, §API / Interface — the dead-letter list, replay, resolve and waive (1.7.0) |
 | Depends on | `TDD-organization-control-002` §Consumer Registry — retiring a consumer (1.7.0) |
+| Governed by | ADR-ORG-001 §5.11 — reporters, registered and retired by a provider (1.10.0) |
+| Depends on | `TDD-organization-control-001` 1.27.0 §Reporters — the reporter routes (1.10.0) |
+| Governed by | ADR-ORG-001 §5.7 — the consumer reconciles itself on its declared interval (1.10.0) |
+| Depends on | `TDD-organization-control-002` 1.16.0 §Reconciliation Interval, §After a Restore to an Older Point, §A Provider Withdraws One Membership (1.10.0) |
+| Governed by | ADR-ORG-003 §5.6 — a provider suspends or revokes one Membership, never grants or restores (1.10.0) |
+| Depends on | `TDD-organization-control-004` 1.15.0 — the refusal type and the issue answer without its token (1.10.0) |
+| Conforms to | RFC 9457 §3.1.1 — a client branches on the problem type (1.10.0) |
+| Governed by | ADR-IAM-011 §5.1, §5.6 — the acceptance page's **I do not have an account**, accepted 2026-10-20, planned (1.10.0) |
+| Conforms to | draft-ietf-httpapi-idempotency-key-header-07 §2, §2.2; STD-GLB-001 1.7.0 — a key per request, new after an answer (1.10.0) |

@@ -187,6 +187,36 @@ export interface ActionProps<T> {
   // whose record keeps a reason of its own, such as a dead letter's waiver (TDD-organization-experience-002
   // 1.7.0). The header carries it too, as the access record's.
   readonly reasonField?: string;
+  // problem, when set, is why the values the action would send are not yet sendable, such as a field
+  // the API's pattern refuses (TDD-organization-experience-002 1.10.0). It is said on submit, and
+  // nothing is sent.
+  readonly problem?: string | null;
+  // refusal names what a refusal means here, in the page's words, beside the API's own sentence.
+  readonly refusal?: (error: ApiError) => string | null;
+  // startOpen opens the confirmation at once, for an action whose control already asked, such as one
+  // that read its record again first.
+  readonly startOpen?: boolean;
+}
+
+// Refusal says what the API refused, in the page's words where it gave some, then in the API's.
+function Refusal({
+  error,
+  refusal,
+}: {
+  readonly error: unknown;
+  readonly refusal: ((error: ApiError) => string | null) | undefined;
+}): ReactElement {
+  const own = error instanceof ApiError && refusal !== undefined ? refusal(error) : null;
+  return (
+    <>
+      {own === null ? null : (
+        <Notice tone="warning" role="status">
+          <p>{own}</p>
+        </Notice>
+      )}
+      <ApiErrorMessage error={error} />
+    </>
+  );
 }
 
 // Action runs one command under the mutation contract: an idempotency key per distinct request, the
@@ -203,12 +233,15 @@ export function Action<T>({
   onDone,
   tone = 'secondary',
   reasonField,
+  problem: blocked = null,
+  refusal,
+  startOpen = false,
 }: ActionProps<T>): ReactElement {
   const session = useSignedIn();
   const client = useQueryClient();
-  const keyFor = useIdempotencyKey();
+  const keys = useIdempotencyKey();
   const ids = { reason: useId(), confirm: useId() };
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(startOpen);
   const [reason, setReason] = useState('');
   const [typed, setTyped] = useState('');
   const [submitted, setSubmitted] = useState(false);
@@ -216,14 +249,15 @@ export function Action<T>({
     mutationFn: (sent: { reason: string }) =>
       apiCommand<T>(path, reasonField === undefined ? body : { ...body, [reasonField]: sent.reason }, {
         csrfToken: session.csrfToken,
-        idempotencyKey: keyFor({ path, body, reason: sent.reason }),
+        idempotencyKey: keys.keyFor({ path, body, reason: sent.reason }),
         reason: sent.reason,
       }),
     onSuccess: (result) => {
       setOpen(false);
       onDone?.(result);
     },
-    onSettled: async () => {
+    onSettled: async (_data, error) => {
+      keys.settle(error ?? undefined);
       await Promise.all(invalidates.map((queryKey) => client.invalidateQueries({ queryKey })));
     },
   });
@@ -234,7 +268,7 @@ export function Action<T>({
 
   const send = (): void => {
     setSubmitted(true);
-    if (problem !== null || !confirmed) {
+    if (problem !== null || !confirmed || blocked !== null) {
       return;
     }
     mutation.mutate({ reason: normalizeReason(reason) });
@@ -257,7 +291,7 @@ export function Action<T>({
         >
           {label}
         </Button>
-        {mutation.isError ? <ApiErrorMessage error={mutation.error} /> : null}
+        {mutation.isError ? <Refusal error={mutation.error} refusal={refusal} /> : null}
       </span>
     );
   }
@@ -339,7 +373,12 @@ export function Action<T>({
           {messages.cancel}
         </Button>
       </div>
-      {mutation.isError ? <ApiErrorMessage error={mutation.error} /> : null}
+      {submitted && blocked !== null ? (
+        <p role="alert" className={fieldClasses.error}>
+          {blocked}
+        </p>
+      ) : null}
+      {mutation.isError ? <Refusal error={mutation.error} refusal={refusal} /> : null}
     </form>
   );
 }
