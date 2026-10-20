@@ -172,7 +172,7 @@ jobs:
             [ "$i" = 60 ] && { echo "::error::identity-control did not report ready"; docker compose logs --no-color; exit 1; }
             sleep 2
           done
-          bash ./bootstrap.sh "ci@scnehaux.local" "stack-proof workflow"
+          bash ./bootstrap.sh "ci@scnehaux.local" "ci-witness@scnehaux.local" "stack-proof workflow"
 
       # The kernel's hostname is https://localhost behind Caddy's local CA, as identity-control's
       # deploy-dev trusts it, so sign-in runs over TLS end to end. The browser trusts it through the
