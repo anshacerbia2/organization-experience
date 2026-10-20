@@ -286,3 +286,147 @@ for (const theme of themes) {
     });
   }
 }
+
+// The sticky region (TDD-organization-experience-001 1.12.0, SAD-012 1.4.0 §8.4, STD-GLB-FE-005 2.2.0
+// §3.10 and §5): below 60rem wide or 30rem tall only the one-line scope is sticky, the bar and the full
+// banner scroll with the page, and the root's scroll-padding-top is the sticky region's height, so
+// tabbing backwards never leaves the focused element entirely under it. At a wide, tall viewport the
+// bar and banner stick as before and the line is not shown.
+const stickyPages = [
+  { persona: 'tenant', path: '/memberships', ready: '0199a1b2-1111-7e5f-8a9b-000000000004' },
+  { persona: 'provider-mode', path: '/tenants', ready: 'Zeta Freight' },
+] as const;
+const compact = [
+  { width: 320, height: 256 },
+  { width: 320, height: 844 },
+  { width: 1440, height: 256 },
+] as const;
+
+interface Sticky {
+  readonly line: {
+    position: string;
+    display: string;
+    height: number;
+    lineHeight: number;
+    extra: number;
+    textLines: number;
+  };
+  readonly top: { position: string };
+  readonly padding: string;
+  readonly bannerInPage: boolean;
+}
+
+const readSticky = (page: Page): Promise<Sticky> =>
+  page.evaluate(() => {
+    const line = document.querySelector('[data-sticky-region="line"]');
+    const top = document.querySelector('[data-sticky-region="top"]');
+    const inner = line?.firstElementChild ?? null;
+    if (line === null || top === null || inner === null) {
+      throw new Error('the frame has no sticky regions');
+    }
+    const style = getComputedStyle(inner);
+    // The lines the scope's words take: each distinct top of the text's boxes.
+    const range = document.createRange();
+    range.selectNodeContents(inner.querySelector('strong')?.parentElement ?? inner);
+    const tops = new Set(
+      [...range.getClientRects()].filter((rect) => rect.width > 0).map((rect) => Math.round(rect.top / 4)),
+    );
+    const lineStyle = getComputedStyle(line);
+    return {
+      line: {
+        position: lineStyle.position,
+        display: lineStyle.display,
+        height: line.getBoundingClientRect().height,
+        lineHeight: parseFloat(style.lineHeight),
+        extra:
+          parseFloat(style.paddingTop) +
+          parseFloat(style.paddingBottom) +
+          parseFloat(style.borderTopWidth) +
+          parseFloat(style.borderBottomWidth),
+        textLines: tops.size,
+      },
+      top: { position: getComputedStyle(top).position },
+      padding: document.documentElement.style.getPropertyValue('scroll-padding-top'),
+      bannerInPage: top.querySelector('section[aria-label="Active scope"]') !== null,
+    };
+  });
+
+for (const sticky of stickyPages) {
+  test(`only the scope line is sticky on a small viewport, and backward tabbing is never hidden under it, ${sticky.path}`, async ({
+    page,
+    baseURL,
+  }, testInfo) => {
+    await page.context().addCookies([{ name: 'persona', value: sticky.persona, url: baseURL ?? '' }]);
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto(sticky.path);
+    await expect(page.getByText(sticky.ready).first()).toBeVisible();
+    await expect(page.locator('[aria-busy="true"]')).toHaveCount(0);
+
+    const wide = await readSticky(page);
+    expect(wide.top.position).toBe('sticky');
+    expect(wide.line.display).toBe('none');
+
+    for (const viewport of compact) {
+      await page.setViewportSize(viewport);
+      await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(resolve)));
+      const small = await readSticky(page);
+      const where = `${String(viewport.width)}x${String(viewport.height)}`;
+      expect(small.top.position, where).toBe('static');
+      expect(small.line.position, where).toBe('sticky');
+      expect(small.bannerInPage, where).toBe(true);
+      // One line: its words on one line, and the region less than two lines tall with its padding and
+      // its edge.
+      expect(small.line.textLines, where).toBe(1);
+      expect(small.line.height, where).toBeLessThan(2 * small.line.lineHeight + small.line.extra);
+      await expect
+        .poll(async () => (await readSticky(page)).padding, { message: where })
+        .toBe(`${String(Math.ceil(small.line.height))}px`);
+      // In view at the top of the page and after scrolling to its end.
+      const line = page.locator('[data-sticky-region="line"]');
+      await page.evaluate('window.scrollTo(0, 0)');
+      await expect(line, where).toBeInViewport({ ratio: 1 });
+      await page.evaluate('window.scrollTo(0, document.documentElement.scrollHeight)');
+      await expect(line, where).toBeInViewport({ ratio: 1 });
+      await page.evaluate('window.scrollTo(0, 0)');
+    }
+
+    // Backwards from the end of the page: every focused element is at least partly out from under the
+    // sticky line (WCAG 2.2 SC 2.4.11, technique C43).
+    await page.setViewportSize({ width: 320, height: 256 });
+    await page.evaluate('window.scrollTo(0, document.documentElement.scrollHeight)');
+    await page.evaluate('document.activeElement instanceof HTMLElement && document.activeElement.blur()');
+    const hidden: string[] = [];
+    let previous = '';
+    for (let step = 0; step < 120; step += 1) {
+      await page.keyboard.press('Shift+Tab');
+      const found = await page.evaluate(() => {
+        const focused = document.activeElement;
+        const line = document.querySelector('[data-sticky-region="line"]');
+        if (focused === null || focused === document.body || line === null) {
+          return null;
+        }
+        const box = focused.getBoundingClientRect();
+        const under = line.getBoundingClientRect();
+        const covered =
+          box.top >= under.top - 0.5 &&
+          box.bottom <= under.bottom + 0.5 &&
+          box.left >= under.left - 0.5 &&
+          box.right <= under.right + 0.5;
+        const name = `${focused.tagName.toLowerCase()} "${(focused.textContent || focused.getAttribute('aria-label') || '').trim().slice(0, 40)}"`;
+        return { name, covered, key: `${name}@${String(Math.round(box.top + window.scrollY))}` };
+      });
+      if (found === null || found.key === previous) {
+        break;
+      }
+      previous = found.key;
+      if (found.covered) {
+        hidden.push(found.name);
+      }
+    }
+    await page.screenshot({
+      path: testInfo.outputPath(`sticky-${sticky.persona}-320x256.png`),
+      animations: 'disabled',
+    });
+    expect(hidden).toEqual([]);
+  });
+}

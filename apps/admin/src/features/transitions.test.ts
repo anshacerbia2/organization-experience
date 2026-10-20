@@ -66,6 +66,19 @@ const edges: Readonly<Record<string, readonly (readonly [string, string])[]>> = 
     ['waived', 'resolved'],
     ['waived', 'open'],
   ],
+  // TDD-organization-control-001 1.27.0 §Reporters: a retired reporter stays retired.
+  reporter: [
+    ['new', 'active'],
+    ['active', 'retired'],
+  ],
+  // organization-control internal/membership/state.go: grant, suspend, restore, revoke; revoked is final.
+  membership: [
+    ['new', 'active'],
+    ['active', 'suspended'],
+    ['suspended', 'active'],
+    ['active', 'revoked'],
+    ['suspended', 'revoked'],
+  ],
   // ADR-ORG-003 §5.5, TDD-organization-control-001 §Pausing Tenant Administration.
   'tenant-administration pause': [
     ['new', 'paused'],

@@ -199,7 +199,10 @@ test('the invitation token is sent only in the acceptance body, never in a URL',
       await route.fulfill({
         status: 404,
         contentType: 'application/problem+json',
-        body: JSON.stringify({ type: 'https://problems.scnehaux.com/not-found', status: 404 }),
+        body: JSON.stringify({
+          type: 'https://problems.scnehaux.com/invitation-not-acceptable',
+          status: 404,
+        }),
       });
     },
   );

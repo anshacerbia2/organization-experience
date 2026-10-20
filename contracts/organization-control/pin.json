@@ -1,0 +1,7 @@
+{
+  "source": "anshacerbia2/organization-control",
+  "commit": "6a36b8d7631498daed4d1b8ab6ddcce4d2e9a694",
+  "path": "api/openapi.yaml",
+  "vendored": "contracts/organization-control/openapi.yaml",
+  "version": "1.0.0"
+}

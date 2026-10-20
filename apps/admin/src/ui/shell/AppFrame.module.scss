@@ -168,6 +168,48 @@
     z-index: var(--ds-z-sticky);
   }
 
+  // The one-line scope, shown and sticky only on a small viewport (below).
+  .line {
+    display: none;
+  }
+
+  // This repository's (TDD-organization-experience-001 1.12.0, SAD-012 1.4.0 §8.4, STD-GLB-FE-005 2.2.0
+  // §3.10): below 60rem wide or 30rem tall only the scope line is sticky. The bar and the full banner
+  // scroll with the page, where the banner keeps every word; WCAG technique C34 un-fixes sticky regions
+  // by media query because they "may block a big portion of the screen".
+  // The line is the frame's first row, across both columns, so it is in view from the top of the page,
+  // above the rail; the rail's contents stop sticking there too, so nothing slides under the line.
+  @media (width < 60rem), (height < 30rem) {
+    .root {
+      grid-template-rows: auto auto 1fr;
+
+      @media (width >= 60rem) {
+        grid-template-rows: auto 1fr;
+      }
+    }
+
+    .top {
+      position: static;
+    }
+
+    .line {
+      position: sticky;
+      inset-block-start: 0;
+      z-index: var(--ds-z-sticky);
+      display: block;
+      grid-column: 1 / -1;
+
+      // A grid item's automatic minimum is its content's, and the line's words never wrap: without
+      // this the line would widen the page instead of ending in an ellipsis (STD-GLB-FE-005 §3.10).
+      min-inline-size: 0;
+    }
+
+    .railInner {
+      position: static;
+      max-block-size: none;
+    }
+  }
+
   .bar {
     flex-wrap: wrap;
     padding-block: var(--ds-spacing-xs);

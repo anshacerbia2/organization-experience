@@ -24,6 +24,7 @@ import {
 import { TenantAdministrators } from './administrators';
 import { Action, ApiErrorMessage, Field, ListState, LoadMore, usePagedList } from './common';
 import { BeginOffboarding, type TenantDetail } from './offboarding';
+import { WithdrawMembership } from './withdraw';
 
 // The provider-mode surfaces (TDD-organization-experience-002 1.2.0): the Organization registry and
 // the Tenant lifecycle, across Tenants, reachable only while a provider window is in force. Every
@@ -55,11 +56,12 @@ const tenantsKey = ['tenants'] as const;
 function useCreate<T>(path: `/v1/${string}`, key: readonly string[]) {
   const session = useSignedIn();
   const client = useQueryClient();
-  const keyFor = useIdempotencyKey();
+  const keys = useIdempotencyKey();
   return useMutation({
     mutationFn: (body: Record<string, unknown>) =>
-      apiCommand<T>(path, body, { csrfToken: session.csrfToken, idempotencyKey: keyFor(body) }),
-    onSettled: async () => {
+      apiCommand<T>(path, body, { csrfToken: session.csrfToken, idempotencyKey: keys.keyFor(body) }),
+    onSettled: async (_data, error) => {
+      keys.settle(error ?? undefined);
       await client.invalidateQueries({ queryKey: key });
     },
   });
@@ -436,6 +438,13 @@ export function TenantsPage(): ReactElement {
                   name={tenant.display_name}
                   status={tenant.status}
                 />
+              ) : null}{' '}
+              {/* A provider's withdrawal of one Membership (TDD-organization-experience-002 1.10.0): the
+                  states that can hold one. */}
+              {tenant.status === 'active' ||
+              tenant.status === 'suspended' ||
+              tenant.status === 'offboarding' ? (
+                <WithdrawMembership tenantId={tenant.tenant_id} name={tenant.display_name} />
               ) : null}
             </Row>
           );

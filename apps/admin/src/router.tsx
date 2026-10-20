@@ -5,6 +5,7 @@ import { AcceptInvitationPage } from './features/invitation';
 import { OffboardingDetail, OffboardingsPage } from './features/offboarding';
 import { ProjectionsPage } from './features/projections';
 import { OrganizationsPage, TenantsPage } from './features/provider';
+import { ReportersPage } from './features/reporters';
 import { AccessReviewPage, TenantProviderAccessPage } from './features/review';
 import { InvitationsPage, MembershipsPage, WorkspacesPage } from './features/tenant';
 import { acceptancePath } from './invitationLink';
@@ -78,6 +79,13 @@ const projections = createRoute({
   component: () => <RequireScope scope="provider-mode">{() => <ProjectionsPage />}</RequireScope>,
 });
 
+// The reporter registry (TDD-organization-experience-002 1.10.0): provider commands, in provider mode.
+const reporters = createRoute({
+  getParentRoute: () => root,
+  path: '/reporters',
+  component: () => <RequireScope scope="provider-mode">{() => <ReportersPage />}</RequireScope>,
+});
+
 // The provider-access review needs a window in force: the record is read by a provider in force
 // (ADR-ORG-002 §5.6). A Tenant's read of the provider access to it is a Tenant surface.
 const accessReview = createRoute({
@@ -117,6 +125,7 @@ const routeTree = root.addChildren([
   offboardings,
   offboarding,
   projections,
+  reporters,
   accessReview,
   providerAccess,
   providerMode,

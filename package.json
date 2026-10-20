@@ -17,7 +17,8 @@
     "test:browser": "pnpm --filter @organization-experience/e2e test:browser",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "check:bff-conformance": "node scripts/check-bff-conformance.mjs"
+    "check:bff-conformance": "node scripts/check-bff-conformance.mjs",
+    "check:api-contract": "node scripts/check-api-contract.mjs"
   },
   "devDependencies": {
     "@eslint/js": "9.39.5",

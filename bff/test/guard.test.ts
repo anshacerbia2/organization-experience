@@ -190,6 +190,37 @@ describe('provider scope', () => {
   });
 });
 
+// TDD-organization-experience-001 1.12.0: the routes of 2026-10-20 are provider routes, and the
+// withdrawal of one Membership names its Tenant in the path, so the window's targets hold it.
+describe('reporters and a provider’s withdrawal of one Membership', () => {
+  const membership = '0199a1b2-c3d4-7e5f-8a9b-0c1d2e3f4d21';
+
+  it('reaches the reporter registry only with a window in force', () => {
+    for (const path of ['/v1/reporters', '/v1/reporters/r', '/v1/reporters/r/retire']) {
+      expect(guard(providerScope(window()), request(path), now).allowed).toBe(true);
+      expect(guard(providerScope(null), request(path), now).allowed).toBe(false);
+      expect(guard(tenantScope, request(path), now).allowed).toBe(false);
+    }
+  });
+
+  it('reaches a withdrawal in a target Tenant, and refuses one in another, before it leaves the BFF', () => {
+    for (const action of ['suspend', 'revoke', 'enforcement']) {
+      const inTarget = post(`/v1/tenants/${tenantA}/memberships/${membership}/${action}`, {
+        expected_version: 3,
+      });
+      expect(guard(providerScope(window()), inTarget, now).allowed).toBe(true);
+      const outside = post(`/v1/tenants/${tenantB}/memberships/${membership}/${action}`, {
+        expected_version: 3,
+      });
+      expect(guard(providerScope(window()), outside, now)).toEqual({
+        allowed: false,
+        detail: 'This request names a Tenant outside the ones provider mode was entered for.',
+      });
+      expect(guard(tenantScope, inTarget, now).allowed).toBe(false);
+    }
+  });
+});
+
 describe('namedTenants', () => {
   it('reads the path after /v1/tenants/ and a top-level tenant_id, and nothing else', () => {
     expect(namedTenants(request(`/v1/tenants/${tenantA}/administrators`))).toEqual([tenantA]);

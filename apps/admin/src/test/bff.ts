@@ -1,5 +1,7 @@
 import { vi } from 'vitest';
 
+import { checkSent } from './contract';
+
 // A stand-in BFF for the application's tests: the session, the scope, and whatever API answers a
 // test needs. Each handler may answer a request; the first that does wins.
 
@@ -46,6 +48,8 @@ export type Handler = (url: string, init: RequestInit | undefined) => Response |
 
 export function stub(...handlers: Handler[]) {
   const fetchMock = vi.fn((input: string, init?: RequestInit) => {
+    // Every request to the API is one Organization Control's specification declares (ADR-GLB-010 §5.1).
+    checkSent(input, init);
     for (const handler of handlers) {
       const answer = handler(input, init);
       if (answer !== undefined) {

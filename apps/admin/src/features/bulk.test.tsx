@@ -6,6 +6,9 @@ import { App } from '../App';
 import { checkWcag } from '../test/a11y';
 import { headersOf, json, sent, signedInto, stub, visit } from '../test/bff';
 
+// A Membership identifier, as Organization Control's specification has them: UUIDs.
+const mid = (n: number): string => `0192f0e0-dddd-7000-8000-00000000d0${String(n).padStart(2, '0')}`;
+
 // ADR-ORG-004 §5.1, TDD-organization-experience-001 §Bulk Operations: a server preview, a confirmation
 // naming the count and the scope, an execution of the previewed set, and each item's outcome.
 
@@ -13,7 +16,7 @@ const tenantA = '0199a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a5b';
 const batchId = '0199a1b2-c3d4-7e5f-8a9b-0c1d2e3f4e01';
 
 const membership = (n: number, status = 'active') => ({
-  membership_id: `m-${String(n)}`,
+  membership_id: mid(n),
   principal_id: `p-${String(n)}`,
   subject_type: 'human',
   status,
@@ -23,7 +26,7 @@ const membership = (n: number, status = 'active') => ({
 });
 
 const item = (n: number, overrides: Record<string, unknown> = {}) => ({
-  membership_id: `m-${String(n)}`,
+  membership_id: mid(n),
   principal_id: `p-${String(n)}`,
   current_status: 'active',
   version: 3,
@@ -114,7 +117,7 @@ describe('bulk membership actions', () => {
       }
       if (url.endsWith('/enforcement')) {
         return json({
-          membership_id: 'm-1',
+          membership_id: mid(1),
           event_id: 'e1',
           transition: 'revoked',
           accepted_at: new Date().toISOString(),
@@ -147,7 +150,7 @@ describe('bulk membership actions', () => {
     const [previewInit] = sent(fetchMock, '/api/v1/membership-batches');
     expect(JSON.parse(previewInit?.body as string)).toEqual({
       action: 'revoke',
-      membership_ids: ['m-1', 'm-2', 'm-3'],
+      membership_ids: [mid(1), mid(2), mid(3)],
     });
     expect(headersOf(previewInit)['x-administrative-reason']).toBe('Contractors whose engagement ended');
 
@@ -188,7 +191,7 @@ describe('bulk membership actions', () => {
     });
     expect(JSON.parse(sent(fetchMock, '/api/v1/membership-batches')[1]?.body as string)).toEqual({
       action: 'revoke',
-      membership_ids: ['m-2'],
+      membership_ids: [mid(2)],
       continues: batchId,
     });
   }, 15_000);
@@ -255,7 +258,7 @@ describe('bulk membership actions', () => {
       }
       if (url.endsWith('/enforcement')) {
         return json({
-          membership_id: 'm-1',
+          membership_id: mid(1),
           event_id: 'e1',
           transition: 'revoked',
           accepted_at: new Date().toISOString(),
@@ -311,8 +314,8 @@ describe('bulk membership actions', () => {
       (init) => JSON.parse(init?.body as string) as unknown,
     );
     expect(previews).toEqual([
-      { action: 'revoke', membership_ids: ['m-1', 'm-2', 'm-3'] },
-      { action: 'revoke', membership_ids: ['m-2'], continues: batchId },
+      { action: 'revoke', membership_ids: [mid(1), mid(2), mid(3)] },
+      { action: 'revoke', membership_ids: [mid(2)], continues: batchId },
     ]);
     const [continuationKey] = sent(fetchMock, `/api/v1/membership-batches/${continuationId}/execute`).map(
       (init) => headersOf(init)['idempotency-key'],

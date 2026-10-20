@@ -91,17 +91,21 @@ export function BulkMembershipAction({
           membership_ids: sent.ids,
           ...(sent.continues === null ? {} : { continues: sent.continues }),
         },
-        { csrfToken: session.csrfToken, idempotencyKey: previewKey(sent), reason: sent.reason },
+        { csrfToken: session.csrfToken, idempotencyKey: previewKey.keyFor(sent), reason: sent.reason },
       ),
+    onSettled: (_data, error) => {
+      previewKey.settle(error ?? undefined);
+    },
   });
   const execute = useMutation({
     mutationFn: (batch: Batch) =>
       apiCommand<Batch>(
         `/v1/membership-batches/${batch.batch_id}/execute`,
         {},
-        { csrfToken: session.csrfToken, idempotencyKey: executeKey(batch.batch_id) },
+        { csrfToken: session.csrfToken, idempotencyKey: executeKey.keyFor(batch.batch_id) },
       ),
-    onSettled: async () => {
+    onSettled: async (_data, error) => {
+      executeKey.settle(error ?? undefined);
       await client.invalidateQueries({ queryKey: ['memberships'] });
     },
   });

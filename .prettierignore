@@ -3,3 +3,4 @@ pnpm-lock.yaml
 **/coverage
 apps/*/src/routeTree.gen.ts
 docs
+contracts/organization-control/openapi.yaml

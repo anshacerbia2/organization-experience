@@ -40,21 +40,35 @@ interface Said {
   readonly lead: string;
   readonly rest?: string;
   readonly endsIn?: string;
+  // The one-line summary on a small viewport: the scope's kind and what it reaches, short.
+  readonly kind: string;
+  readonly target?: string;
 }
+
+const countOf = (tenants: 'all' | readonly string[]): string =>
+  tenants === 'all' ? messages.everyTenant : messages.lineTenantCount(tenants.length);
 
 function describe(scope: Scope, now: number): Said {
   if (scope.scope === 'tenant') {
-    return { tone: 'tenant', lead: messages.tenantScope, rest: `: ${scope.tenantId}` };
+    return {
+      tone: 'tenant',
+      lead: messages.tenantScope,
+      rest: `: ${scope.tenantId}`,
+      kind: messages.tenantScope,
+      target: scope.tenantId,
+    };
   }
   const window = scope.window;
   if (window === null) {
-    return { tone: 'idle', lead: messages.providerSignedIn };
+    return { tone: 'idle', lead: messages.providerSignedIn, kind: messages.lineNoTenant };
   }
   if (window.state === 'pending' || window.endsAt === null) {
     return {
       tone: 'provider',
       lead: messages.providerPending,
       rest: `. ${messages.providerTargets}: ${targetsOf(window.tenants)}`,
+      kind: messages.lineProviderPending,
+      target: countOf(window.tenants),
     };
   }
   return {
@@ -62,6 +76,8 @@ function describe(scope: Scope, now: number): Said {
     lead: `${messages.providerActive}${window.emergency ? ` ${messages.emergencyGrant}` : ''}`,
     rest: `. ${messages.providerTargets}: ${targetsOf(window.tenants)}. `,
     endsIn: remaining(window.endsAt, now),
+    kind: messages.providerActive,
+    target: countOf(window.tenants),
   };
 }
 
@@ -72,19 +88,47 @@ const glyphs: Readonly<Record<Tone, IconName>> = {
   warning: 'alert',
 };
 
-export function ScopeBanner(): ReactElement {
+function useSaid(): Said {
   const { state } = useScope();
   const counting =
     state.status === 'ready' && state.scope.scope === 'provider' && state.scope.window?.state === 'in-force';
   const now = useNow(1000, counting);
-  let said: Said = { tone: 'warning', lead: messages.scopeLoading };
   if (state.status === 'ready') {
-    said = describe(state.scope, now);
-  } else if (state.status === 'unavailable') {
-    said = { tone: 'warning', lead: messages.scopeUnavailable };
-  } else if (state.status === 'ambiguous') {
-    said = { tone: 'warning', lead: messages.scopeAmbiguous };
+    return describe(state.scope, now);
   }
+  if (state.status === 'unavailable') {
+    return { tone: 'warning', lead: messages.scopeUnavailable, kind: messages.lineScopeUnknown };
+  }
+  if (state.status === 'ambiguous') {
+    return { tone: 'warning', lead: messages.scopeAmbiguous, kind: messages.lineScopeUnknown };
+  }
+  return { tone: 'warning', lead: messages.scopeLoading, kind: messages.lineScopeUnknown };
+}
+
+// ScopeLine is the scope on one line, sticky on a small viewport, where the bar and the banner scroll
+// with the page (TDD-organization-experience-001 1.12.0, SAD-012 1.4.0 §8.4, STD-GLB-FE-005 2.2.0
+// §3.10): the kind, the Tenant or how many a window reaches, and the time left. Nothing in it wraps; the
+// kind and the target end in an ellipsis, and the time left never shrinks. It repeats the banner, which
+// stays in the page with every word, so it is hidden from assistive technology and the scope is read
+// once, from the banner's region.
+export function ScopeLine(): ReactElement {
+  const said = useSaid();
+  return (
+    <div className={styles['line']} data-scope={said.tone} aria-hidden="true">
+      <span className={styles['glyph']}>
+        <Icon name={glyphs[said.tone]} />
+      </span>
+      <span className={styles['lineText']}>
+        <strong className={styles['lead']}>{said.kind}</strong>
+        {said.target === undefined ? null : `${messages.separator}${said.target}`}
+      </span>
+      {said.endsIn === undefined ? null : <span className={styles['countdown']}>{said.endsIn}</span>}
+    </div>
+  );
+}
+
+export function ScopeBanner(): ReactElement {
+  const said = useSaid();
   return (
     <section aria-label={messages.scopeRegion} className={styles['banner']} data-scope={said.tone}>
       <span className={styles['glyph']}>
