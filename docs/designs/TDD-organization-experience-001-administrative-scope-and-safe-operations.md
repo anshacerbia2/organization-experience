@@ -3,7 +3,7 @@ doc_meta:
   id: TDD-organization-experience-001
   title: Administrative Scope, Provider Mode, and Safe Bulk Operations
   owner: Core Platform Team
-  version: 1.11.0
+  version: 1.11.1
   status: approved
   classification: restricted
   review_cycle_days: 90
@@ -402,7 +402,9 @@ fields in a grid, the filters in a toolbar, then the records.
     narrower. No text of four characters or more runs three lines or more, each narrower than one and
     a half of its font size. The page never scrolls sideways [R5, SC 1.4.10]; when it does, the test
     names the innermost elements that reach past the viewport, as identity-experience#58 measures it.
-  - **What 320 found.** At 390 and 320 CSS px two pages scrolled sideways, and two more places could.
+  - **What 320 found (1.11.1 completes it).** At 390 and 320 CSS px two pages scrolled sideways, and
+    two more places could. 1.11.1 lays every route out at 320, ports identity-experience#58's `Button`,
+    and wraps the banner and the bar's title.
     - A Tenant's overview held "Switch to provider administration" on one line, 296px wide in a 240px
       panel. `Button` had `white-space: nowrap`, so its min-content size was its whole label.
       identity-experience#58 found the same and fixed it (`TDD-identity-experience-003` 1.30.0
