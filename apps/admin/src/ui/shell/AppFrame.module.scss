@@ -182,7 +182,11 @@
     backdrop-filter: blur(20px) saturate(140%);
   }
 
+  // This repository's change: a title longer than the bar wraps rather than pushing the page sideways
+  // at 320 CSS px (STD-GLB-FE-005 §3.10, TDD-organization-experience-001 1.11.0).
   .title {
+    min-inline-size: 0;
+    overflow-wrap: anywhere;
     font-size: var(--ds-font-size-md);
     font-weight: var(--ds-font-weight-semibold);
     letter-spacing: var(--ds-letter-spacing-tight);
