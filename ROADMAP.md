@@ -236,8 +236,9 @@ from the console stayed `requested` ("Awaiting provisioning") and could never be
   `overflow-wrap: anywhere`; `Table` keeps `overflow-wrap: normal`. Latent here. `e2e/browser/layout.spec.ts` checks
   panel width, one-character lines and sideways scroll at 1440, 1024, 768, 390 and 320 px, and every
   main route's sideways overflow is checked at the same widths and 820 (`STD-GLB-FE-005` 2.1.0 §3.10).
-  320 found two pages that scrolled sideways: a `Button` and a `StatusPill` now wrap a label longer
-  than their room.
+  Every route is laid out at 320. It found two pages that scrolled sideways: `Button` loses
+  `white-space: nowrap` as identity-experience#58 did, a `StatusPill` wraps a status longer than its
+  room, the scope banner wraps around its time left, and the bar's title wraps.
 
 ## Week 4 · Bulk, freshness, and offboarding
 
