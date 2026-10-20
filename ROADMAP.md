@@ -230,6 +230,42 @@ from the console stayed `requested` ("Awaiting provisioning") and could never be
   - Unit tests, the fixture-backed browser tests with screenshots and axe-core for the entry, the
     picker with one, several and no contexts, and the provider mode page; the stack proof signs in
     with no Tenant and chooses it from the list.
+- ✅ **The owner's decisions of 2026-10-20, served by organization-control #75 (`6a36b8d`)
+  (TDD-organization-experience-002 1.10.0, TDD-organization-experience-001 1.12.0,
+  TDD-organization-experience-003 1.6.0).**
+  - **Reporters** (`ADR-ORG-001 §5.11`): `/reporters` in provider mode lists, registers and retires the
+    workloads that report provisioning and each domain's obligations. Register takes the workload, what it
+    reports and its purpose with a required reason, and says a workload is registered once when the API
+    answers `409`. Retire reads the reporter again and sends the version it read. The Reporter machine has
+    its transition table and test.
+  - **The reconciliation interval** (`ADR-ORG-001 §5.7`): projection health shows each consumer's
+    `reconciliation_interval_seconds`, marks it overdue past one interval and critically past two, and
+    shows `reconciliation_requested_at` when a restore set it. Registration stays the deployment
+    procedure's, which sends the interval.
+  - **A provider withdraws one Membership** (`ADR-ORG-003 §5.6`): Withdraw a Membership on an `active`,
+    `suspended` or `offboarding` Tenant's row; Suspend membership or Revoke membership, confirmed in the
+    row with a reason, the version and an `Idempotency-Key`, then followed by its enforcement. Never grant
+    or restore. The Membership machine has its transition table and test.
+  - **The refused invitation is known by its type** (`ADR-ORG-007 §5.4`, RFC 9457 §3.1.1):
+    `invitation-not-acceptable`, not every `404`.
+  - **An issue without its token is a replay** (`ADR-ORG-007 §5.5`, `STD-GLB-001` 1.7.0), shown as already
+    issued with no link. Every command takes a new `Idempotency-Key` once answered, and keeps it only while
+    its outcome is unknown. This fixes an identical second issue reusing the first one's key.
+  - ⏳ **The withdrawal's version is typed.** Organization Control serves no provider read of a Tenant's
+    Memberships, so the console cannot show the record before acting. A provider read of one Membership
+    would let it; that is organization-control's to decide.
+- ✅ **One sticky scope line on a small viewport (TDD-organization-experience-001 1.12.0, `SAD-012` 1.4.0
+  §8.4, `STD-GLB-FE-005` 2.2.0 §3.10).** Below 60rem wide or 30rem tall only the scope line is sticky; the
+  bar and the full banner scroll with the page. The root's `scroll-padding-top` follows the sticky region.
+  `layout.spec.ts` checks it at 320×256, 320×844 and 1440×256, and tabs backwards from the end of the page
+  with nothing focused hidden under it.
+- ✅ **The Organization Control client is contract-tested (`ADR-GLB-010 §5.1`, TDD-organization-experience-001
+  1.12.0).** Contract-tested rather than generated, the smaller change: no call site moves.
+  `contracts/organization-control/openapi.yaml` is organization-control's at `6a36b8d`, proved byte for byte by
+  `pnpm check:api-contract` in CI. The tests hold every `/api/v1/` request the application's unit tests
+  send, every path the source and `bff/src/scope/control.ts` write, `control.ts`'s calls against
+  spec-valid answers, and every browser fixture, unknown fields included. They found the fixtures short of
+  required fields and holding invented identifiers; both are fixed.
 - ✅ **A panel is never sized as if it were empty (TDD-organization-experience-001 1.11.0 §Visual
   Language).** Ported from identity-experience#57: `Panel` loses `container-type: inline-size`, which
   sized an unstretched panel to its padding, and gains `min-inline-size: 0` and
@@ -308,17 +344,19 @@ the components are local, under `apps/admin/src/ui/`, behind one entry point.
   of every main route, signed in, with data, Tenant scope and provider mode, light and dark, desktop and
   tablet, as the `browser-screens` artifact; axe with layout on each, no violation; colour contrast
   recorded as "needs review"; the banner, focus, links and destructive actions checked.
-- ⏳ **The UI Platform exception** is pending here as in identity-experience. When `@scnx/system`
-  ships, `apps/admin/src/ui/index.ts` re-exports it and the copies go.
+- ✅ **The UI Platform exception is `ADR-ORG-008`**, accepted 2026-10-20, expiring **2027-04-20**. When
+  `@scnx/system` and `@scnx/core-ui` ship, `apps/admin/src/ui/index.ts` re-exports them and the copies go
+  (§5.4). If they have not shipped by then, a new exception supersedes it, or the waiver check blocks the
+  repository. The entry point's header cites it.
 
 ## Depends on
 
-| Repository             | What this needs from it                                                                   |
-| :--------------------- | :---------------------------------------------------------------------------------------- |
-| `identity-experience`  | The BFF pattern, as a normative reference and a test suite                                |
-| `organization-control` | The Organization Control API, which reauthorizes every command                            |
-| `identity-kernel`      | Hosted login and step-up `acr` values                                                     |
-| `scnehaux-ui-platform` | Design system packages, build-time only, once UI Platform ships them (SAD-012 1.1.0 §7.3) |
+| Repository             | What this needs from it                                                                                                      |
+| :--------------------- | :--------------------------------------------------------------------------------------------------------------------------- |
+| `identity-experience`  | The BFF pattern, as a normative reference and a test suite                                                                   |
+| `organization-control` | The Organization Control API, which reauthorizes every command                                                               |
+| `identity-kernel`      | Hosted login and step-up `acr` values                                                                                        |
+| `scnehaux-ui-platform` | Design system packages, build-time only, once UI Platform ships them (SAD-012 §7.3; until then `ADR-ORG-008`, to 2027-04-20) |
 
 Nothing here waits on the Keycloak proof-of-concept.
 

@@ -165,6 +165,11 @@ re-raise open obligations. Offboarding resumes from its stage.
    - Chase that domain, not the board. Only the domain resolves its obligation, by completing,
      waiving or failing it (`POST /v1/obligations/{obligation_id}/resolve`). The board offers no
      control to resolve another domain's row, by design.
+   - Before chasing, open **Reporters** in provider mode and filter by `obligation:<domain>`. A domain
+     resolves only as its reporter workload, so a domain with no active reporter cannot resolve at
+     all: register its workload first, with the domain owner's confirmation in the reason
+     (`ADR-ORG-001 §5.11`, `TDD-organization-experience-002` 1.10.0). No provider resolves an
+     obligation.
    - Never ask a domain to waive in order to make progress. `waived` records that an accountable
      person decided the obligation would not be met (`TDD-organization-control-004` §Security
      Notes).
@@ -179,7 +184,7 @@ re-raise open obligations. Offboarding resumes from its stage.
    - `requested`: still in flight. Wait.
    - `unresolved`: a timeout. The infrastructure may or may not have been released. Do not retry.
      Establish the outcome with the provisioning system's owners, which then report it to
-     `/deprovisioning`.
+     `/deprovisioning` as the `provisioning` reporter. **Reporters** shows whether one is active.
    - `failed`: refused. Investigate the cause with the provisioning system's owners before anything
      is run again.
 5. **Retirement refused.** The refusal lists the open obligations as rows. Go back to step 2 for
