@@ -7,11 +7,11 @@ import { ContextSwitcher } from './features/contexts';
 import { Gate, gateClasses } from './Gate';
 import { acceptancePath, waitingInvitationToken } from './invitationLink';
 import { messages } from './messages';
-import { ProviderModeGate } from './ProviderMode';
+import { ProviderClosed, ProviderModeGate } from './ProviderMode';
 import { ScopeBanner } from './ScopeBanner';
 import { ScopeProvider, useScope, useWindowInForce } from './ScopeContext';
-import { ProviderSignIn, TenantSignIn } from './ScopeEntry';
-import { signInOutcome, signOut } from './session';
+import { ProviderSignIn, SignIn } from './ScopeEntry';
+import { providerModePath, signInOutcome, signOut } from './session';
 import { SignedInProvider, useSessionQuery, useSignedIn } from './SessionContext';
 import {
   AppFrame,
@@ -20,6 +20,9 @@ import {
   layout,
   navClasses,
   Notice,
+  Page,
+  PageHeader,
+  PageTitle,
   Panel,
   StatusPill,
   ThemeToggle,
@@ -83,16 +86,22 @@ export function Shell(): ReactElement {
   );
 
   // Signed out: the entry, alone on the canvas, as the kernel's hosted login stands
-  // (TDD-identity-kernel-004 §Visual Language).
+  // (TDD-identity-kernel-004 §Visual Language). One neutral sign-in, and the provider's apart under a
+  // rule (TDD-organization-experience-001 1.11.0 §The Sign-In Entry). Neither takes a Tenant: the
+  // person chooses one of their own after signing in.
   if (session.data?.authenticated !== true) {
     return (
       <Gate title={messages.title} description={session.data === undefined ? undefined : messages.signedOut}>
         {notices}
         {session.data === undefined ? null : (
           <div className={gateClasses.body}>
-            <TenantSignIn returnTo={here()} label={messages.signInTenant} />
+            <div className={gateClasses.entry}>
+              <p className={gateClasses.lead}>{messages.signInLead}</p>
+              <SignIn returnTo={here()} />
+            </div>
             <div className={gateClasses.provider}>
-              <ProviderSignIn returnTo={here()} label={messages.signInProvider} />
+              <p className={gateClasses.lead}>{messages.signInProviderLead}</p>
+              <ProviderSignIn returnTo={providerModePath} label={messages.signInProvider} />
             </div>
           </div>
         )}
@@ -238,8 +247,10 @@ function Navigation(): ReactElement | null {
   );
 }
 
-// Home offers what the active scope allows: moving to another scope, and in provider scope the
-// provider mode ceremony.
+// Home offers what the active scope allows. In a Tenant scope: the person's other Tenants and the
+// provider sign-in. Without a Tenant: the person's Tenants first, to choose one, then provider
+// administration; a provider window open in the session comes first instead, with its one action
+// (TDD-organization-experience-002 1.9.0 §The Picker After Sign-In).
 export function Home(): ReactElement | null {
   const session = useSignedIn();
   const { state, reload } = useScope();
@@ -260,29 +271,60 @@ export function Home(): ReactElement | null {
     return (
       <div className={layout.cards}>
         <ContextSwitcher returnTo={here()} current={scope.tenantId} />
-        <Panel.Root>
-          <TenantSignIn returnTo={here()} label={messages.switchTenant} />
-          <div className={layout.actions}>
-            <ProviderSignIn returnTo={here()} label={messages.switchToProvider} />
-          </div>
-        </Panel.Root>
+        <ProviderAdministration>
+          <ProviderSignIn returnTo={providerModePath} label={messages.switchToProvider} />
+        </ProviderAdministration>
       </div>
     );
   }
+  // Switching to a Tenant replaces the session; an open window is left first, so its activation ends
+  // rather than outliving the session that asked for it.
+  if (scope.window !== null) {
+    return <ProviderModeGate scope={scope} csrfToken={session.csrfToken} returnTo={here()} />;
+  }
   return (
     <div className={layout.stack}>
-      <ProviderModeGate scope={scope} csrfToken={session.csrfToken} returnTo={here()} />
-      {/* Switching to a Tenant replaces the session; an open window is left first, so its
-          activation ends rather than outliving the session that asked for it. */}
-      {scope.window === null ? (
-        <div className={layout.cards}>
-          <ContextSwitcher returnTo={here()} current={null} />
-          <Panel.Root>
-            <TenantSignIn returnTo={here()} label={messages.signInTenant} />
-          </Panel.Root>
-        </div>
-      ) : null}
+      <ProviderClosed scope={scope} />
+      <div className={layout.cards}>
+        <ContextSwitcher returnTo={here()} current={null} />
+        <ProviderAdministration>
+          <Button variant="secondary" href={providerModePath} icon={<Icon name="shield" />}>
+            {messages.goToProviderMode}
+          </Button>
+        </ProviderAdministration>
+      </div>
     </div>
+  );
+}
+
+// ProviderAdministration is the overview's way to provider mode, below the person's Tenants.
+function ProviderAdministration({ children }: { readonly children: ReactNode }): ReactElement {
+  return (
+    <Panel.Root aria-labelledby="provider-administration-heading">
+      <Panel.Header>
+        <Panel.Title id="provider-administration-heading">{messages.providerAdministration}</Panel.Title>
+        <Panel.Description>{messages.providerAdministrationLead}</Panel.Description>
+      </Panel.Header>
+      <div className={layout.actions}>{children}</div>
+    </Panel.Root>
+  );
+}
+
+// ProviderModePage holds the provider mode ceremony: the form, or the open window with its one action.
+// The provider sign-in returns here (TDD-organization-experience-001 1.11.0).
+export function ProviderModePage(): ReactElement | null {
+  const session = useSignedIn();
+  const { state } = useScope();
+  if (state.status !== 'ready' || state.scope.scope !== 'provider') {
+    return null;
+  }
+  return (
+    <Page aria-labelledby="provider-mode-heading">
+      <PageHeader>
+        <PageTitle id="provider-mode-heading">{messages.providerModePage}</PageTitle>
+      </PageHeader>
+      <ProviderModeGate scope={state.scope} csrfToken={session.csrfToken} returnTo={providerModePath} />
+    </Page>
   );
 }
 
@@ -310,15 +352,39 @@ export function RequireScope({
   if (scope === 'provider-mode' && inForce) {
     return <>{children('')}</>;
   }
+  // The way to the scope the surface needs, under the sentence that names it: the person's Tenants,
+  // each returning here, so a deep link ends on its surface after one choice; the provider sign-in;
+  // or the provider mode page.
+  let way: ReactNode = null;
+  if (scope === 'tenant' && active.scope === 'provider' && active.window === null) {
+    way = <ContextSwitcher returnTo={here()} current={null} />;
+  } else if (scope !== 'tenant' && active.scope === 'tenant') {
+    way = (
+      <div className={layout.actions}>
+        <ProviderSignIn returnTo={providerModePath} label={messages.switchToProvider} />
+      </div>
+    );
+  } else if (scope === 'provider-mode') {
+    way = (
+      <div className={layout.actions}>
+        <Button variant="secondary" href={providerModePath} icon={<Icon name="shield" />}>
+          {messages.goToProviderMode}
+        </Button>
+      </div>
+    );
+  }
   return (
-    <Notice tone="warning" icon="shield" role="status">
-      <p>
-        {scope === 'tenant'
-          ? messages.needsTenantScope
-          : scope === 'provider'
-            ? messages.needsProvider
-            : messages.needsProviderMode}
-      </p>
-    </Notice>
+    <div className={layout.stack}>
+      <Notice tone="warning" icon="shield" role="status">
+        <p>
+          {scope === 'tenant'
+            ? messages.needsTenantScope
+            : scope === 'provider'
+              ? messages.needsProvider
+              : messages.needsProviderMode}
+        </p>
+      </Notice>
+      {way}
+    </div>
   );
 }

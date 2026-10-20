@@ -288,6 +288,19 @@ function LeaveProviderMode({
   );
 }
 
+// ProviderClosed says once why a window closed without the operator leaving it. The overview shows it
+// too, since the window may close while the operator is there.
+export function ProviderClosed({ scope }: { readonly scope: ProviderScope }): ReactElement | null {
+  if (scope.closed === undefined) {
+    return null;
+  }
+  return (
+    <Notice tone={scope.closed === 'ended' ? 'info' : 'warning'} role="status">
+      <p>{messages.providerClosed[scope.closed]}</p>
+    </Notice>
+  );
+}
+
 export function ProviderModeGate({
   scope,
   csrfToken,
@@ -299,11 +312,7 @@ export function ProviderModeGate({
 }): ReactElement {
   return (
     <>
-      {scope.closed === undefined ? null : (
-        <Notice tone={scope.closed === 'ended' ? 'info' : 'warning'} role="status">
-          <p>{messages.providerClosed[scope.closed]}</p>
-        </Notice>
-      )}
+      <ProviderClosed scope={scope} />
       {scope.window === null ? (
         <ProviderModeForm scope={scope} csrfToken={csrfToken} returnTo={returnTo} />
       ) : (

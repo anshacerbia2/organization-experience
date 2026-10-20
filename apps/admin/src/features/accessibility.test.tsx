@@ -266,8 +266,11 @@ const cases: readonly {
     },
     shows: 'Suspending after the contract lapsed',
   },
-  // The provider mode form, offered to a provider sign-in with no window.
-  { path: '/', scope: providerIdle, bodies: {}, shows: 'Enter provider mode' },
+  // Signed in without a Tenant: the person's Tenants, then provider administration
+  // (TDD-organization-experience-001 1.11.0).
+  { path: '/', scope: providerIdle, bodies: {}, shows: 'Provider administration' },
+  // The provider mode form, on its own page, for a session with no window.
+  { path: '/provider-mode', scope: providerIdle, bodies: {}, shows: 'Enter provider mode' },
 ];
 
 describe('accessibility', () => {

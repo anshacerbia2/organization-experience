@@ -15,6 +15,7 @@ import {
   betaTenant,
   invitationToken,
   me,
+  tenantId,
   offboardingId,
   releasedOffboardingId,
   type Persona,
@@ -34,6 +35,8 @@ interface Screen {
   // commands, when set, are what the page's commands are answered with. The stand-in takes no command
   // (serve.ts), so a screen that shows a command's outcome answers it here, in the browser.
   readonly commands?: readonly Command[];
+  // reads, when set, answer the page's reads in place of the stand-in's fixtures, in the browser.
+  readonly reads?: readonly Command[];
 }
 
 interface Command {
@@ -74,6 +77,29 @@ const acceptance = (name: string, status: number, body: unknown, shows: string):
   },
   tablet: status === 200,
 });
+
+// The person's own contexts, as the self read answers them (ADR-ORG-005 §5.2), for the picker after a
+// sign-in without a Tenant (TDD-organization-experience-002 1.9.0) with one entry and with none. The
+// fixtures' two entries are the picker with several.
+const contextsPath = `/api/v1/principals/${me}/contexts`;
+const oneContext: Command = {
+  path: contextsPath,
+  status: 200,
+  body: {
+    contexts: [
+      {
+        membership_id: 'm-1',
+        tenant_id: tenantId,
+        tenant_display_name: 'Acme Retail',
+        tenant_status: 'active',
+        workspace_id: null,
+        administers: true,
+      },
+    ],
+    next: null,
+  },
+};
+const noContexts: Command = { path: contextsPath, status: 200, body: { contexts: [], next: null } };
 
 const screens: readonly Screen[] = [
   {
@@ -188,10 +214,42 @@ const screens: readonly Screen[] = [
     path: '/provider-access',
     ready: (page) => page.getByText('Incident 4471', { exact: false }),
   },
+  // TDD-organization-experience-001 1.11.0: signed in without a Tenant, the person's Tenants first, then
+  // provider administration; with several, one and no contexts.
   {
     name: 'provider-overview',
     persona: 'provider',
     path: '/',
+    ready: (page) => page.getByRole('link', { name: 'Beta Logistics' }),
+    tablet: true,
+  },
+  {
+    name: 'picker-one-tenant',
+    persona: 'provider',
+    path: '/',
+    reads: [oneContext],
+    ready: (page) => page.getByRole('link', { name: 'Acme Retail' }),
+  },
+  {
+    name: 'picker-no-tenant',
+    persona: 'provider',
+    path: '/',
+    reads: [noContexts],
+    ready: (page) => page.getByText('You hold no active membership in an active Tenant.', { exact: false }),
+    tablet: true,
+  },
+  // A Tenant surface reached without a Tenant: the notice, and the Tenants each returning to it.
+  {
+    name: 'picker-deep-link',
+    persona: 'provider',
+    path: '/memberships',
+    ready: (page) => page.getByRole('link', { name: 'Beta Logistics' }),
+  },
+  // Where the provider sign-in returns: the provider mode form.
+  {
+    name: 'provider-mode-entry',
+    persona: 'provider',
+    path: '/provider-mode',
     ready: (page) => page.getByRole('form', { name: 'Enter provider mode' }),
     tablet: true,
   },
@@ -380,6 +438,22 @@ async function open(
       JSON.stringify({ theme }),
     )}); } catch {}`,
   });
+  for (const read of screen.reads ?? []) {
+    await page.route(
+      (url) => url.pathname === read.path,
+      async (route) => {
+        if (route.request().method() !== 'GET') {
+          await route.fallback();
+          return;
+        }
+        await route.fulfill({
+          status: read.status,
+          contentType: 'application/json',
+          body: JSON.stringify(read.body),
+        });
+      },
+    );
+  }
   for (const command of screen.commands ?? []) {
     await page.route(
       (url) => url.pathname === command.path,

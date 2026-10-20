@@ -34,9 +34,10 @@ export async function fetchSession(): Promise<Session> {
   return (await response.json()) as Session;
 }
 
-// signInHref starts a sign-in that returns here. It is a full navigation to the BFF, never a
-// fetch: the identity kernel's hosted page is where credentials are entered. The BFF accepts only a
-// path on its own origin.
+// signInHref starts a sign-in with no Tenant that returns here: the provider form, which grants
+// nothing (ADR-IAM-008 §5.5), so the person reads their own contexts and chooses a Tenant after it. It
+// is a full navigation to the BFF, never a fetch: the identity kernel's hosted page is where
+// credentials are entered. The BFF accepts only a path on its own origin.
 export const signInHref = (returnTo: string): string =>
   `/auth/login?return_to=${encodeURIComponent(returnTo)}`;
 
@@ -45,8 +46,12 @@ export const signInHref = (returnTo: string): string =>
 export const providerSignInHref = (returnTo: string): string =>
   `/auth/login?acr_values=aal2&max_age=0&return_to=${encodeURIComponent(returnTo)}`;
 
-// tenantSignInHref signs in to one Tenant, chosen from the operator's contexts or a deep link. The
-// kernel admits a member alone, and the BFF holds the ID token to the Tenant asked for.
+// providerModePath is the page that holds provider mode's entry ceremony, where the provider sign-in
+// returns (TDD-organization-experience-001 1.11.0 §The Sign-In Entry).
+export const providerModePath = '/provider-mode';
+
+// tenantSignInHref signs in to one Tenant, chosen from the person's own contexts (ADR-ORG-005 §5.3).
+// The kernel admits a member alone, and the BFF holds the ID token to the Tenant asked for.
 export const tenantSignInHref = (tenantId: string, returnTo: string): string =>
   `/auth/login?tenant=${encodeURIComponent(tenantId)}&return_to=${encodeURIComponent(returnTo)}`;
 

@@ -45,5 +45,7 @@ export function Gate({
 
 export const gateClasses = {
   body: shellStyles['gateBody'],
+  entry: shellStyles['gateEntry'],
+  lead: shellStyles['gateLead'],
   provider: shellStyles['gateProvider'],
 } as const;
