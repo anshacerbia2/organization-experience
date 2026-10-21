@@ -287,7 +287,7 @@ for (const theme of themes) {
   }
 }
 
-// The sticky region (TDD-organization-experience-001 1.12.0, SAD-012 1.4.0 §8.4, STD-GLB-FE-005 2.2.0
+// The sticky region (TDD-organization-experience-001 1.12.0, SAD-012 1.4.0 §8.4, STD-GLB-FE-005 2.3.0
 // §3.10 and §5): below 60rem wide or 30rem tall only the one-line scope is sticky, the bar and the full
 // banner scroll with the page, and the root's scroll-padding-top is the sticky region's height, so
 // tabbing backwards never leaves the focused element entirely under it. At a wide, tall viewport the
@@ -295,6 +295,10 @@ for (const theme of themes) {
 const stickyPages = [
   { persona: 'tenant', path: '/memberships', ready: '0199a1b2-1111-7e5f-8a9b-000000000004' },
   { persona: 'provider-mode', path: '/tenants', ready: 'Zeta Freight' },
+] as const;
+const tabChecks = [
+  { width: 320, height: 256, region: 'line' },
+  { width: 1440, height: 900, region: 'top' },
 ] as const;
 const compact = [
   { width: 320, height: 256 },
@@ -391,42 +395,47 @@ for (const sticky of stickyPages) {
     }
 
     // Backwards from the end of the page: every focused element is at least partly out from under the
-    // sticky line (WCAG 2.2 SC 2.4.11, technique C43).
-    await page.setViewportSize({ width: 320, height: 256 });
-    await page.evaluate('window.scrollTo(0, document.documentElement.scrollHeight)');
-    await page.evaluate('document.activeElement instanceof HTMLElement && document.activeElement.blur()');
-    const hidden: string[] = [];
-    let previous = '';
-    for (let step = 0; step < 120; step += 1) {
-      await page.keyboard.press('Shift+Tab');
-      const found = await page.evaluate(() => {
-        const focused = document.activeElement;
-        const line = document.querySelector('[data-sticky-region="line"]');
-        if (focused === null || focused === document.body || line === null) {
-          return null;
+    // sticky region (WCAG 2.2 SC 2.4.11, technique C43). The check runs on the small viewport, under the
+    // line, and once above both thresholds, under the bar and the full banner that stick there and may
+    // wrap (STD-GLB-FE-005 2.3.0 §3.10).
+    for (const { width, height, region } of tabChecks) {
+      await page.setViewportSize({ width, height });
+      await page.evaluate('window.scrollTo(0, document.documentElement.scrollHeight)');
+      await page.evaluate('document.activeElement instanceof HTMLElement && document.activeElement.blur()');
+      const hidden: string[] = [];
+      let previous = '';
+      for (let step = 0; step < 120; step += 1) {
+        await page.keyboard.press('Shift+Tab');
+        const found = await page.evaluate((which) => {
+          const focused = document.activeElement;
+          const line = document.querySelector(`[data-sticky-region="${which}"]`);
+          if (focused === null || focused === document.body || line === null) {
+            return null;
+          }
+          const box = focused.getBoundingClientRect();
+          const under = line.getBoundingClientRect();
+          const covered =
+            !line.contains(focused) &&
+            box.top >= under.top - 0.5 &&
+            box.bottom <= under.bottom + 0.5 &&
+            box.left >= under.left - 0.5 &&
+            box.right <= under.right + 0.5;
+          const name = `${focused.tagName.toLowerCase()} "${(focused.textContent || focused.getAttribute('aria-label') || '').trim().slice(0, 40)}"`;
+          return { name, covered, key: `${name}@${String(Math.round(box.top + window.scrollY))}` };
+        }, region);
+        if (found === null || found.key === previous) {
+          break;
         }
-        const box = focused.getBoundingClientRect();
-        const under = line.getBoundingClientRect();
-        const covered =
-          box.top >= under.top - 0.5 &&
-          box.bottom <= under.bottom + 0.5 &&
-          box.left >= under.left - 0.5 &&
-          box.right <= under.right + 0.5;
-        const name = `${focused.tagName.toLowerCase()} "${(focused.textContent || focused.getAttribute('aria-label') || '').trim().slice(0, 40)}"`;
-        return { name, covered, key: `${name}@${String(Math.round(box.top + window.scrollY))}` };
+        previous = found.key;
+        if (found.covered) {
+          hidden.push(found.name);
+        }
+      }
+      await page.screenshot({
+        path: testInfo.outputPath(`sticky-${sticky.persona}-${String(width)}x${String(height)}.png`),
+        animations: 'disabled',
       });
-      if (found === null || found.key === previous) {
-        break;
-      }
-      previous = found.key;
-      if (found.covered) {
-        hidden.push(found.name);
-      }
+      expect(hidden, `${String(width)}x${String(height)}`).toEqual([]);
     }
-    await page.screenshot({
-      path: testInfo.outputPath(`sticky-${sticky.persona}-320x256.png`),
-      animations: 'disabled',
-    });
-    expect(hidden).toEqual([]);
   });
 }

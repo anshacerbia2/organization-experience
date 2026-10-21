@@ -3,7 +3,7 @@ doc_meta:
   id: TDD-organization-experience-002
   title: Organization, Tenant, Workspace, and Membership Administration Surfaces
   owner: Core Platform Team
-  version: 1.10.0
+  version: 1.11.0
   status: approved
   classification: restricted
   review_cycle_days: 90
@@ -474,6 +474,13 @@ POST  /api/v1/invitations/accept   {"token"}                                    
     Control's `POST /v1/invitations/resolve`, and the page is identity-experience's. None is served yet,
     and the enrolment page's address is not decided, so the page offers no such path and a provider
     creates the person first (`ADR-ORG-007 §5.7`). It is built once those three are.
+    `ADR-IAM-011` §5.7 (amended 2026-10-21, 1.11.0) fixes the producer terms this link waits on:
+    identity-control's workload is admitted to `POST /v1/invitations/resolve` from a registry row, "a
+    new `invitation:resolve` entry beside the reporter's", and the route answers one `404` with the
+    same body for an unknown, expired, revoked or accepted token. So **I do not have an account**
+    depends on identity-control ROADMAP item 17 (registers that workload and calls the route) and
+    organization-control ROADMAP item 56 (serves the route), as well as `POST /v1/enrolments` and
+    identity-experience's enrolment page. This page calls neither route: its only act is the link.
 - **The invitation states.** `identity_verified` is gone (`ADR-ORG-007 §5.4`). An invitation is
   `pending`, `accepted`, `expired` or `revoked`. The filter and the labels lose it, and a pending
   invitation reads "nothing is granted until the invited person accepts, signed in as themselves".
@@ -1076,5 +1083,5 @@ investigation.
 | Governed by | ADR-ORG-003 §5.6 — a provider suspends or revokes one Membership, never grants or restores (1.10.0) |
 | Depends on | `TDD-organization-control-004` 1.15.0 — the refusal type and the issue answer without its token (1.10.0) |
 | Conforms to | RFC 9457 §3.1.1 — a client branches on the problem type (1.10.0) |
-| Governed by | ADR-IAM-011 §5.1, §5.6 — the acceptance page's **I do not have an account**, accepted 2026-10-20, planned (1.10.0) |
+| Governed by | ADR-IAM-011 §5.1, §5.6 — the acceptance page's **I do not have an account**, accepted 2026-10-20, planned (1.10.0); §5.7 as amended 2026-10-21: waits on identity-control ROADMAP item 17 and organization-control item 56 (1.11.0) |
 | Conforms to | draft-ietf-httpapi-idempotency-key-header-07 §2, §2.2; STD-GLB-001 1.7.0 — a key per request, new after an answer (1.10.0) |

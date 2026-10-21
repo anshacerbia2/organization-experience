@@ -5,6 +5,7 @@ import {
   cookieValue,
   minutes,
   publicOrigin,
+  sessionKey,
   sessionOf,
   signIn,
   startHarness,
@@ -12,7 +13,8 @@ import {
 } from './support/harness.js';
 import { defaultUser } from './support/identity-provider.js';
 import { safeReturnTo, stepUpMaxAge, withActionOutcome } from '../src/auth/routes.js';
-import { digest } from '../src/session/seal.js';
+import { Sealer, digest } from '../src/session/seal.js';
+import { SessionStore } from '../src/session/store.js';
 
 // TDD-identity-experience-001 §Testing Strategy, against a real PostgreSQL session store and a
 // PS256-signing stand-in for the identity kernel.
@@ -674,6 +676,28 @@ describe('revocation', () => {
 });
 
 describe('session lifetime', () => {
+  // STD-IAM-001 3.0.0 §3.4: a session record is deleted at the earliest of its absolute timeout, its
+  // idle timeout, logout and revocation, by an expiry on the record. The purge is that expiry: it
+  // removes a row nobody presents again, which a presented one never reaches.
+  it('the purge deletes a session past its expiry without it being presented, and keeps a live one', async () => {
+    const store = new SessionStore(harness.database.pool, new Sealer(sessionKey));
+    const present = async (cookie: string): Promise<number> =>
+      (await harness.database.pool.query('SELECT 1 FROM sessions WHERE id_hash = $1', [digest(cookie)]))
+        .rowCount ?? 0;
+    const { session: expired } = await signIn(harness);
+    harness.clock.advance(minutes(20));
+    const { session: live } = await signIn(harness);
+    harness.clock.advance(minutes(15));
+    try {
+      expect(await present(expired)).toBe(1);
+      await store.purgeExpired(harness.clock.now());
+      expect(await present(expired)).toBe(0);
+      expect(await present(live)).toBe(1);
+    } finally {
+      harness.clock.advance(-minutes(35));
+    }
+  });
+
   it('ends a session idle beyond SESSION_IDLE', async () => {
     const { session } = await signIn(harness);
     harness.clock.advance(minutes(31));

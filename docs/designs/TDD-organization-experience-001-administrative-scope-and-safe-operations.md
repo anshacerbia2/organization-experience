@@ -3,7 +3,7 @@ doc_meta:
   id: TDD-organization-experience-001
   title: Administrative Scope, Provider Mode, and Safe Bulk Operations
   owner: Core Platform Team
-  version: 1.12.0
+  version: 1.13.0
   status: approved
   classification: restricted
   review_cycle_days: 90
@@ -78,6 +78,19 @@ two connection pools:
 That separation is enforced by PostgreSQL and by the API. This design carries it into
 the interface, because a boundary the operator cannot see is a boundary the operator
 will cross by accident.
+
+**The session record ends with its session (1.13.0, `STD-IAM-001` 3.0.0 §3.4).** The standard asks that
+a record be deleted at the earliest of the absolute timeout, the idle timeout, logout and revocation,
+"by an expiry on the record", and that the store be excluded from backup and restore and not be an
+authoritative store. This application's BFF store is identity-experience's, byte for byte
+(`bff/conformance.json`: `bff/migrations/0001_sessions.sql`, `bff/src/session/store.ts`,
+`bff/src/session/sessions.ts`), so it conforms as `TDD-identity-experience-001` 1.23.0 §Data Model
+records. The evidence here: the `idle_expires_at` and `absolute_expires_at` columns;
+`SessionStore.purgeExpired`, run every five minutes by `bff/src/server.ts` (this repository's own file,
+which keeps the same interval); `destroy` on sign-out and `destroyForLogout` on a back-channel logout.
+The test is `bff/test/auth.test.ts`, "session lifetime": the purge deletes an expired session that was
+never presented and keeps a live one. No backup script and no restore drill exists here, so none
+includes the session store (`deploy/dev/README.md` §Backups). No `bff/` conformance-set file changed.
 
 ## Component Design
 
@@ -310,9 +323,11 @@ invisible at the moment it is made.
 **On a small viewport, one sticky line (1.12.0).** `SAD-012` 1.4.0 §8.4: "The scope is always in view
 (1.4.0). Its kind, the Tenant when there is one, and the time left stay in view at every width,
 compacted to one sticky line on a small viewport. The full scope banner, with any long text, is in the
-page flow." `STD-GLB-FE-005` 2.2.0 §3.10 sets the rule for every sticky region: below the application's
-narrow breakpoint, `60rem` here, and at a short viewport height, only what a SAD requires in view stays
-sticky, on one line, and everything else becomes static.
+page flow." `STD-GLB-FE-005` 2.3.0 §3.10 sets the rule for every sticky region: the sticky line is
+compact "when the viewport is narrower than `60rem` or shorter than `30rem`, either one", and only what
+a SAD requires in view stays sticky, on one line; everything else becomes static. "Above both
+thresholds, the sticky region may hold the full banner, and the full banner may wrap to more than one
+line there" (2.3.0, 1.13.0).
 
 - **What sticks.** Below `60rem` wide, or below `30rem` tall, the bar and the full banner become static
   and scroll away with the page. A scope line takes their place at the top of the viewport. It is the
@@ -336,7 +351,9 @@ sticky, on one line, and everything else becomes static.
   a focused component "is not entirely hidden due to author-created content" [R13].
 - `e2e/browser/layout.spec.ts` checks it at 320 by 256 CSS px and at 1440 by 900: the sticky region is
   one line on the small one, in view at the top of the page and at its end, and tabbing backwards from the end of the page never leaves the focused
-  element entirely under it (§Testing Strategy).
+  element entirely under it (§Testing Strategy). Since 1.13.0 the backward tab runs at 1440 by 900 too,
+  under the bar and the full banner that stick there and may wrap, as `STD-GLB-FE-005` 2.3.0 §3.10
+  asks: "The same tab check runs once above both thresholds".
 
 ### Visual Language (1.9.0)
 
@@ -387,7 +404,7 @@ the page scrolls to; the browser test scrolls a long page and asserts the banner
 Below `60rem` wide or `30rem` tall, the scope line sticks instead and the banner stays in the flow
 (1.12.0, §Scope Visibility): one line that never wraps, ending in an ellipsis, with the root's
 `scroll-padding-top` at its height, laid out at 320 CSS px wide and 256 tall and tabbed backwards by
-`layout.spec.ts` (`STD-GLB-FE-005` 2.2.0 §3.10). The banner's words wrap only where it is in the page
+`layout.spec.ts` (`STD-GLB-FE-005` 2.3.0 §3.10). The banner's words wrap only where it is in the page
 flow, or on a viewport neither narrow nor short, where 1.11.1 let a long Tenant list wrap rather than
 push the page sideways; the sticky line never wraps.
 The time left is set apart at the end of the banner in tabular figures. The banner reads the same
@@ -883,8 +900,9 @@ command. The stand-in proves no BFF behaviour: `bff/test` and the stack-proof wo
   sticky region is one line, the bar and the banner are static, the full banner is in the page, and
   the root's `scroll-padding-top` is the line's height; tabbing backwards from the last control to
   the first, no focused element is entirely under the sticky region. At 1440 by 900 the bar and
-  banner stick as before and the scope line is not shown. The same holds at 320 by 844 and 1440 by
-  256.
+  banner stick as before and the scope line is not shown, and tabbing backwards from the end of the
+  page leaves no focused element entirely under them (1.13.0, `STD-GLB-FE-005` 2.3.0 §3.10). The
+  sticky-line checks also hold at 320 by 844 and 1440 by 256.
 - Playwright's guide: "Note that automated testing cannot detect all types of WCAG violations", and
   "many accessibility problems can only be discovered through manual testing" [R7]. The manual WCAG
   2.2 AA audit above is not replaced by any of it.
@@ -1059,8 +1077,9 @@ when its session store does not answer (1.5.0); the operator's steps are identit
 | Follows | WCAG 2.2 SC 3.2.5 — one listed Tenant is not entered by itself (1.11.0) |
 | Follows | `TDD-identity-experience-003` 1.29.0 and 1.30.0 §Layout — a panel without size containment, a button label that wraps, and the layout check down to 320 CSS px (1.11.0) |
 | Conforms to | `STD-GLB-FE-005` 2.1.0 §3.10 — intrinsic sizing and reflow, the layout test at 320 CSS px included (proposed in scnehaux-architecture #100) (1.11.0) |
-| Conforms to | `STD-GLB-FE-005` 2.2.0 §3.10 and `SAD-012` 1.4.0 §8.4 — one sticky scope line on a small viewport, `scroll-padding-top`, and the layout test at 320 by 256 with backward tabbing (1.12.0) |
+| Conforms to | `STD-GLB-FE-005` 2.3.0 §3.10 (1.13.0: `60rem` wide or `30rem` tall, the full banner may wrap above both, the tab check runs above both), after 2.2.0 and `SAD-012` 1.4.0 §8.4 — one sticky scope line on a small viewport, `scroll-padding-top`, and the layout test at 320 by 256 with backward tabbing (1.12.0) |
 | Conforms to | `ADR-GLB-010` §5.1 (amended 2026-10-20) — the hand-written client contract-tested in CI against organization-control's `api/openapi.yaml` at a pinned commit (1.12.0) |
+| Conforms to | `STD-IAM-001` 3.0.0 §3.4 — the session record is deleted by an expiry on the record; the store is excluded from backup and restore and is not an authority; this BFF's store is identity-experience's (1.13.0) |
 | Governed by | `ADR-ORG-008` — the local components under `apps/admin/src/ui/`, an exception that expires 2027-04-20 (1.12.0) |
 
 ### Standalone Operation

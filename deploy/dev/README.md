@@ -203,7 +203,7 @@ POST /v1/registrations/{registration_id}/keys
 script. This application owns none on the server, so nothing here needs a backup. The client lives in the kernel's database and its registration in
 identity-control's, and each stack backs up its own. The laptop's session store, in the database
 `ORGANIZATION_EXPERIENCE_DATABASE_URL` names, is disposable: drop its schema and `dev-local.ps1` makes it again,
-and you sign in again. A lost private key is replaced by a new one, registered as a rotation.
+and you sign in again. It is never part of a backup or a restore (`STD-IAM-001` 3.0.0 §3.4): a record ends with its session, by its own expiry, and a restore brings the platform up with it empty. A lost private key is replaced by a new one, registered as a rotation.
 
 ## Never do
 
