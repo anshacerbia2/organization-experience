@@ -234,16 +234,46 @@ describe('a provider withdraws one Membership', () => {
     version: 4,
   };
 
-  it('draws suspend and revoke only once entered, confirms in the row, and follows the enforcement', async () => {
+  const record = (status: 'active' | 'suspended' | 'revoked', version: number) => ({
+    membership_id: membershipId,
+    principal_id: '0199a1b2-c3d4-7e5f-8a9b-0c1d2e3f4c21',
+    tenant_id: tenantId,
+    workspace_id: null,
+    subject_type: 'human',
+    status,
+    version,
+    valid_from: '2026-09-01T00:00:00Z',
+    valid_until: null,
+    provenance: 'HR-1042',
+  });
+  const reason = 'Incident 4471: a compromised member';
+
+  // openAndRead opens the row's withdrawal, enters the identifier and the reason, and reads it.
+  const openAndRead = async (
+    user: ReturnType<typeof userEvent.setup>,
+    row: HTMLElement,
+  ): Promise<HTMLElement> => {
+    await user.click(within(row).getByRole('button', { name: 'Withdraw a Membership' }));
+    const section = within(row).getByRole('region', { name: 'Withdraw a Membership in Acme' });
+    await user.type(within(section).getByLabelText('Membership identifier'), membershipId);
+    await user.type(within(section).getByLabelText('Why you read it'), reason);
+    await user.click(within(section).getByRole('button', { name: 'Read the Membership' }));
+    return section;
+  };
+
+  it('reads the Membership with the reason, then offers its withdrawals with the version it read', async () => {
     visit('/tenants');
     const base = `/api/v1/tenants/${tenantId}/memberships/${membershipId}`;
     const fetchMock = stub(provider, (url, init) => {
       if (url === '/api/v1/tenants') {
         return json({ tenants: [tenant], next: null });
       }
+      if (url === base && (init?.method ?? 'GET') === 'GET') {
+        return json(record('active', 7));
+      }
       if (url === `${base}/revoke` && init?.method === 'POST') {
         return json({
-          membership: { membership_id: membershipId, status: 'revoked', version: 8 },
+          membership: { ...record('revoked', 8) },
           accepted_at: '2026-10-21T10:00:00Z',
           tenant_security_version: 3,
           event_id: '0199a1b2-c3d4-7e5f-8a9b-0c1d2e3f4e09',
@@ -272,30 +302,105 @@ describe('a provider withdraws one Membership', () => {
     expect(
       within(section).queryByRole('button', { name: /Suspend membership|Revoke membership/ }),
     ).toBeNull();
+    expect(within(section).queryByLabelText(/version/i)).toBeNull();
     expect(section).toHaveTextContent('A provider never grants or restores a Membership.');
     expect(within(row).queryByRole('button', { name: /Grant|Restore/ })).toBeNull();
 
+    // Nothing is read until the identifier is a UUID and the reason is given; neither is disabled.
+    await user.type(within(section).getByLabelText('Membership identifier'), 'm-1');
+    await user.click(within(section).getByRole('button', { name: 'Read the Membership' }));
+    expect(within(section).getAllByRole('alert')).toHaveLength(2);
+    expect(sent(fetchMock, base)).toHaveLength(0);
+    await user.clear(within(section).getByLabelText('Membership identifier'));
     await user.type(within(section).getByLabelText('Membership identifier'), membershipId);
-    await user.type(within(section).getByLabelText('Version you act on'), '7');
-    await user.click(within(section).getByRole('button', { name: 'Revoke membership' }));
-    const form = within(section).getByRole('form', { name: 'Revoke membership' });
+    await user.type(within(section).getByLabelText('Why you read it'), reason);
+    await user.click(within(section).getByRole('button', { name: 'Read the Membership' }));
+
+    const shown = await within(section).findByRole('group', { name: `Membership ${membershipId}` });
+    expect(shown).toHaveTextContent('0199a1b2-c3d4-7e5f-8a9b-0c1d2e3f4c21');
+    expect(shown).toHaveTextContent('version 7');
+    const [readRequest] = sent(fetchMock, base);
+    expect(headersOf(readRequest)['x-administrative-reason']).toBe(reason);
+    expect(headersOf(readRequest)['idempotency-key']).toBeUndefined();
+
+    await user.click(within(shown).getByRole('button', { name: 'Revoke membership' }));
+    const form = within(shown).getByRole('form', { name: 'Revoke membership' });
     expect(form).toHaveAttribute('data-tone', 'danger');
     expect(form).toHaveTextContent(
       `Revokes Membership ${membershipId} in Tenant Acme. This cannot be undone`,
     );
-    await user.click(within(form).getByRole('button', { name: 'Revoke membership' }));
-    expect(sent(fetchMock, `${base}/revoke`)).toHaveLength(0);
-    await user.type(within(form).getByLabelText('Reason'), 'Incident 4471: a compromised member');
+    // The reason the read was made with is offered again, and the operator may change it.
+    expect(within(form).getByLabelText('Reason')).toHaveValue(reason);
     await user.click(within(form).getByRole('button', { name: 'Revoke membership' }));
     expect(await within(section).findByText(/the Membership is revoked, version 8/)).toBeInTheDocument();
     const [posted] = sent(fetchMock, `${base}/revoke`);
     expect(bodyOf(posted)).toEqual({ expected_version: 7 });
-    expect(headersOf(posted)['x-administrative-reason']).toBe('Incident 4471: a compromised member');
+    expect(headersOf(posted)['x-administrative-reason']).toBe(reason);
     expect(headersOf(posted)['idempotency-key']).toMatch(/^[0-9a-f-]{36}$/);
     await waitFor(() => {
       expect(section.querySelector('[data-enforcement="enforced"]')).not.toBeNull();
     });
+    expect(within(shown).queryByRole('button', { name: /Suspend membership|Revoke membership/ })).toBeNull();
     expect(await checkWcag(container)).toHaveNoViolations();
+  });
+
+  it('offers revoke alone on a suspended Membership, and nothing on a revoked one', async () => {
+    visit('/tenants');
+    const base = `/api/v1/tenants/${tenantId}/memberships/${membershipId}`;
+    let status: 'suspended' | 'revoked' = 'suspended';
+    stub(provider, (url) => {
+      if (url === '/api/v1/tenants') {
+        return json({ tenants: [tenant], next: null });
+      }
+      if (url === base) {
+        return json(record(status, status === 'suspended' ? 5 : 9));
+      }
+      return undefined;
+    });
+    const user = userEvent.setup();
+    render(<App />);
+    const row = (await screen.findByText('Acme')).closest('li') as HTMLElement;
+    const section = await openAndRead(user, row);
+    const shown = await within(section).findByRole('group', { name: `Membership ${membershipId}` });
+    expect(within(shown).getByRole('button', { name: 'Revoke membership' })).toBeInTheDocument();
+    expect(within(shown).queryByRole('button', { name: 'Suspend membership' })).toBeNull();
+
+    status = 'revoked';
+    await user.type(within(section).getByLabelText('Why you read it'), ' again');
+    await user.click(within(section).getByRole('button', { name: 'Read the Membership' }));
+    expect(
+      await within(section).findByText(/This Membership is revoked\. Nothing is left to withdraw/),
+    ).toBeInTheDocument();
+    expect(
+      within(section).queryByRole('button', { name: /Suspend membership|Revoke membership/ }),
+    ).toBeNull();
+  });
+
+  it('says a Membership not in this Tenant is not found, and offers nothing', async () => {
+    visit('/tenants');
+    const base = `/api/v1/tenants/${tenantId}/memberships/${membershipId}`;
+    stub(provider, (url) => {
+      if (url === '/api/v1/tenants') {
+        return json({ tenants: [tenant], next: null });
+      }
+      if (url === base) {
+        return json(
+          { type: 'https://problems.scnehaux.com/not-found', status: 404, detail: 'not found' },
+          404,
+        );
+      }
+      return undefined;
+    });
+    const user = userEvent.setup();
+    render(<App />);
+    const row = (await screen.findByText('Acme')).closest('li') as HTMLElement;
+    const section = await openAndRead(user, row);
+    expect(
+      await within(section).findByText(`No Membership ${membershipId} is in Acme`, { exact: false }),
+    ).toBeInTheDocument();
+    expect(
+      within(section).queryByRole('button', { name: /Suspend membership|Revoke membership/ }),
+    ).toBeNull();
   });
 
   it('shows a stale version as a conflict, and sends nothing again', async () => {
@@ -304,6 +409,9 @@ describe('a provider withdraws one Membership', () => {
     const fetchMock = stub(provider, (url, init) => {
       if (url === '/api/v1/tenants') {
         return json({ tenants: [tenant], next: null });
+      }
+      if (url === base) {
+        return json(record('active', 2));
       }
       if (url === `${base}/suspend` && init?.method === 'POST') {
         return json(
@@ -316,16 +424,19 @@ describe('a provider withdraws one Membership', () => {
     const user = userEvent.setup();
     render(<App />);
     const row = (await screen.findByText('Acme')).closest('li') as HTMLElement;
-    await user.click(within(row).getByRole('button', { name: 'Withdraw a Membership' }));
-    await user.type(within(row).getByLabelText('Membership identifier'), membershipId);
-    await user.type(within(row).getByLabelText('Version you act on'), '2');
-    await user.click(within(row).getByRole('button', { name: 'Suspend membership' }));
-    const form = within(row).getByRole('form', { name: 'Suspend membership' });
+    const section = await openAndRead(user, row);
+    const shown = await within(section).findByRole('group', { name: `Membership ${membershipId}` });
+    await user.click(within(shown).getByRole('button', { name: 'Suspend membership' }));
+    const form = within(shown).getByRole('form', { name: 'Suspend membership' });
     expect(form).toHaveTextContent('The Tenant administrator restores it');
+    await user.clear(within(form).getByLabelText('Reason'));
     await user.type(within(form).getByLabelText('Reason'), 'Contain the incident');
     await user.click(within(form).getByRole('button', { name: 'Suspend membership' }));
     expect(await within(form).findByRole('alert')).toHaveTextContent(/changed since/i);
-    expect(sent(fetchMock, `${base}/suspend`)).toHaveLength(1);
+    const posted = sent(fetchMock, `${base}/suspend`);
+    expect(posted).toHaveLength(1);
+    expect(bodyOf(posted[0])).toEqual({ expected_version: 2 });
+    expect(headersOf(posted[0])['x-administrative-reason']).toBe('Contain the incident');
   });
 });
 

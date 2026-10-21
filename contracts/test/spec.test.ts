@@ -5,8 +5,10 @@ import { organizationControl as contract } from '../src/load.ts';
 // The checker itself: it finds the operations, and it refuses what Organization Control refuses.
 describe('the Organization Control contract', () => {
   it('reads the pinned specification', () => {
-    expect(contract.version).toBe('1.0.0');
+    expect(contract.version).toBe('1.1.0');
     expect(contract.paths).toContain('/v1/reporters');
+    // 1.1.0 adds the provider's read of one Membership (organization-control ROADMAP item 61).
+    expect(contract.paths).toContain('/v1/tenants/{tenant_id}/memberships/{membership_id}');
   });
 
   it('prefers a literal path to a template that also matches it', () => {

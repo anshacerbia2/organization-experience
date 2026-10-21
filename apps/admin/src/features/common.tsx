@@ -196,6 +196,9 @@ export interface ActionProps<T> {
   // startOpen opens the confirmation at once, for an action whose control already asked, such as one
   // that read its record again first.
   readonly startOpen?: boolean;
+  // initialReason fills the reason field with one the page already collected, such as the reason a
+  // provider read the record with; the operator may change it (TDD-organization-experience-002 1.12.0).
+  readonly initialReason?: string;
 }
 
 // Refusal says what the API refused, in the page's words where it gave some, then in the API's.
@@ -236,13 +239,14 @@ export function Action<T>({
   problem: blocked = null,
   refusal,
   startOpen = false,
+  initialReason = '',
 }: ActionProps<T>): ReactElement {
   const session = useSignedIn();
   const client = useQueryClient();
   const keys = useIdempotencyKey();
   const ids = { reason: useId(), confirm: useId() };
   const [open, setOpen] = useState(startOpen);
-  const [reason, setReason] = useState('');
+  const [reason, setReason] = useState(initialReason);
   const [typed, setTyped] = useState('');
   const [submitted, setSubmitted] = useState(false);
   const mutation = useMutation({
