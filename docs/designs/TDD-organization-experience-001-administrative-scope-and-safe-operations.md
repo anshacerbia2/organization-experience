@@ -3,7 +3,7 @@ doc_meta:
   id: TDD-organization-experience-001
   title: Administrative Scope, Provider Mode, and Safe Bulk Operations
   owner: Core Platform Team
-  version: 1.13.0
+  version: 1.14.0
   status: approved
   classification: restricted
   review_cycle_days: 90
@@ -624,8 +624,9 @@ README §API specification), and leaves this test to this repository.
   one property `§5.1` asks for: what the client sends and reads is what the specification says. It
   is the smaller change.
 - **The specification is vendored and pinned.** `contracts/organization-control/openapi.yaml` is the
-  file at the commit `contracts/organization-control/pin.json` names, organization-control `6a36b8d`,
-  its `info.version` 1.0.0. `pnpm check:api-contract` fetches the file at that commit from the public
+  file at the commit `contracts/organization-control/pin.json` names, organization-control `b69a102`,
+  its `info.version` 1.1.0 (1.14.0: it adds the provider's read of one Membership; `6a36b8d` and 1.0.0
+  before). `pnpm check:api-contract` fetches the file at that commit from the public
   repository and fails on one differing byte, as `check:bff-conformance` does for the BFF. Moving the
   pin is a reviewed change to both files.
 - **What the test holds** (`contracts/test`, run by `pnpm test` in CI). The OpenAPI 3.1 Schema Object

@@ -607,15 +607,23 @@ export const messages = {
     `This stops workload ${principal} reporting ${reports}: its reports are refused from its next request, and it is never registered again.`,
   reporterRegistered: (reports: string): string => `Registered: it reports ${reports}.`,
 
-  // A provider withdraws one Membership in a Tenant (TDD-organization-experience-002 1.10.0, ADR-ORG-003 §5.6).
+  // A provider withdraws one Membership in a Tenant (TDD-organization-experience-002 1.12.0, ADR-ORG-003 §5.6).
   withdrawMembership: 'Withdraw a Membership',
   hideWithdrawMembership: 'Close Withdraw a Membership',
   withdrawMembershipOf: (tenant: string): string => `Withdraw a Membership in ${tenant}`,
   withdrawLead:
-    'Suspend or revoke one Membership in this Tenant, to contain an incident. Organization Control serves providers no read of a Tenant’s Memberships, so enter the identifier and the version from the incident record, the reconciliation finding or the Tenant administrator. A provider never grants or restores a Membership.',
+    'Suspend or revoke one Membership in this Tenant, to contain an incident. Enter its identifier, from the incident record, the reconciliation finding or the Tenant administrator, and why you read it. The console reads it as a provider, recorded for this Tenant, and shows its state and version before you act. A provider never grants or restores a Membership.',
   membershipIdentifier: 'Membership identifier',
-  membershipVersion: 'Version you act on',
-  withdrawEnter: 'Enter the Membership’s identifier and version to withdraw it.',
+  membershipIdentifierProblem: 'Enter the Membership identifier as Organization Control writes it: a UUID.',
+  readReason: 'Why you read it',
+  readReasonHint:
+    'Recorded with the read, which the Tenant’s administrators see, and offered again when you withdraw it.',
+  readMembership: 'Read the Membership',
+  membershipRead: (membership: string): string => `Membership ${membership}`,
+  withdrawNotFound: (membership: string, tenant: string): string =>
+    `No Membership ${membership} is in ${tenant}. A Membership of another Tenant is not shown here.`,
+  withdrawAlreadyRevoked:
+    'This Membership is revoked. Nothing is left to withdraw: the Tenant administrator grants a new one if access is due again.',
   suspendMembership: 'Suspend membership',
   revokeMembership: 'Revoke membership',
   withdrawSuspendWill: (membership: string, tenant: string): string =>

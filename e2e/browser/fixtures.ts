@@ -548,6 +548,13 @@ for (const tenant of tenants) {
   (answers as Record<string, () => unknown>)[`/v1/tenants/${tenant.tenant_id}`] = () => tenantDetail(tenant);
 }
 
+// A provider reads one Membership through the Tenant the path names (organization-control item 61).
+for (const membership of memberships) {
+  (answers as Record<string, () => unknown>)[
+    `/v1/tenants/${tenantId}/memberships/${membership.membership_id}`
+  ] = () => membership;
+}
+
 // answer is the body for an API path, or undefined: the stand-in answers 404 then, as the API does for
 // a path it does not serve.
 export function answer(path: string): unknown {

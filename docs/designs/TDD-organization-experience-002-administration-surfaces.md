@@ -3,7 +3,7 @@ doc_meta:
   id: TDD-organization-experience-002
   title: Organization, Tenant, Workspace, and Membership Administration Surfaces
   owner: Core Platform Team
-  version: 1.11.0
+  version: 1.12.0
   status: approved
   classification: restricted
   review_cycle_days: 90
@@ -548,22 +548,34 @@ procedure sends the interval with the rest of the owner's declaration.
   and has not run since. Until the consumers' schedulers exist the restore runbook runs it as a
   provider; the console offers no run, as before.
 
-**A provider withdraws one Membership (`ADR-ORG-003 §5.6`, `TDD-organization-control-002` 1.16.0
-§A Provider Withdraws One Membership).** A provider in force may suspend or revoke one Membership
+**A provider withdraws one Membership (`ADR-ORG-003 §5.6`, amended 2026-10-21;
+`TDD-organization-control-002` 1.19.0 §A Provider Withdraws One Membership).** A provider in force may suspend or revoke one Membership
 inside a Tenant, to contain a withdrawal a restore lost or a compromised member.
 
 - **Where.** On the Tenants page, each `active`, `suspended` or `offboarding` Tenant's row offers
-  Withdraw a Membership. It opens in the row a form for the Membership's identifier and the version
-  the operator acts on. The other states hold no Membership a provider could withdraw.
-- **Why the version is typed.** Organization Control serves no provider read of a Tenant's
-  Memberships, so the console cannot show the record first. The identifier and version come from where
-  the incident found them: a reconciliation finding, the Tenant administrator, or the runbook's record.
-  A stale version is answered `409 version-conflict`, shown as one, and nothing is retried.
-- **Suspend membership** and **Revoke membership** are drawn only once both fields hold a Membership
-  identifier and a version, never disabled (§Operator Transitions, [R1]). Each is in the danger
-  variant, confirms in the row, names the Tenant and the Membership, requires a reason, and sends the
-  `Idempotency-Key` and the `expected_version`, with the window's correlation. Revoke says it cannot
-  be undone.
+  Withdraw a Membership. It opens in the row a form for the Membership's identifier and a reason.
+  The other states hold no Membership a provider could withdraw.
+- **The record is read first (1.12.0).** Until 1.12.0 the identifier and the version were typed,
+  because Organization Control served a provider no read of a Tenant's Memberships. It now serves
+  `GET /v1/tenants/{tenant_id}/memberships/{membership_id}` (`ADR-ORG-003 §5.6`, amended 2026-10-21,
+  organization-control ROADMAP item 61), with the authority of the two withdrawals and no more.
+  **Read the Membership** is always drawn; on submit it says what is missing, a UUID identifier or a
+  reason as the reason field asks, and sends nothing until both are given (§Operator Transitions, [R1]).
+  The read carries the operator's reason in `X-Administrative-Reason`, not the window's, because it is
+  recorded as privileged access naming the Tenant, which its administrators read. It sends no
+  `Idempotency-Key`: it is a safe `GET`. The identifier still comes from where the incident found it:
+  a reconciliation finding, the Tenant administrator, or the runbook's record.
+- **What the read shows.** The Principal, subject type, status, version and Workspace, as the Tenant's
+  own Memberships page shows them. A `404`, for a Membership absent or in another Tenant, says no such
+  Membership is in this Tenant beside the API's sentence, and offers nothing. Changing the identifier
+  or the reason drops the record.
+- **Suspend membership** and **Revoke membership** are drawn only as the record's state allows:
+  both on an active Membership, Revoke alone on a suspended one, neither on a revoked one, which says
+  nothing is left to withdraw. Each is in the danger variant, confirms in the row, names the Tenant
+  and the Membership, requires a reason, offered filled with the one the read was made with and
+  editable, and sends the `Idempotency-Key` and the `expected_version` the read returned, or the one
+  the last withdrawal answered, with the window's correlation. Revoke says it cannot be undone. A
+  stale version is answered `409 version-conflict`, shown as one, and nothing is retried.
 - **Never grant or restore.** The API offers a provider neither, and the console offers no provider
   control for either. The confirmation says that the Tenant administrator restores a suspended
   Membership, once the incident allows.
@@ -992,12 +1004,14 @@ An `extra` reconciliation finding renders as a security finding, matching how
   reason and the reports value typed. Neither is offered where the API would refuse it.
 - Projection health shows each consumer's interval, marks it overdue past one interval and critically
   past two, and shows `reconciliation_requested_at` when set and nothing when null.
-- On an `active`, `suspended` or `offboarding` Tenant, Withdraw a Membership draws Suspend membership and
-  Revoke membership only once an identifier and a version are entered, each confirming in the row with
-  the Tenant named and a required reason, and sends `POST
-  /api/v1/tenants/{tenant_id}/memberships/{id}/suspend|revoke` with `expected_version`, the reason and
-  an `Idempotency-Key`; it then follows the provider enforcement read. No provider control grants or
-  restores a Membership.
+- On an `active`, `suspended` or `offboarding` Tenant, Withdraw a Membership reads nothing until a UUID
+  and a reason are given, then sends `GET /api/v1/tenants/{tenant_id}/memberships/{id}` with that
+  reason and no `Idempotency-Key`, and asks for no version (1.12.0). It draws Suspend membership and
+  Revoke membership on an active Membership, Revoke alone on a suspended one, and neither on a revoked
+  one or after a `404`. Each confirms in the row with the Tenant named and the read's reason offered,
+  and sends `POST /api/v1/tenants/{tenant_id}/memberships/{id}/suspend|revoke` with the
+  `expected_version` read, the reason and an `Idempotency-Key`; it then follows the provider
+  enforcement read. No provider control grants or restores a Membership (`decisions.test.tsx`).
 - The acceptance page shows the refused-invitation sentence for the `invitation-not-acceptable` type,
   and forgets the token; a `404` of another type keeps it and shows the API's refusal.
 - An issue answered `201` without `token` shows the invitation as already issued, and no link. Issuing
@@ -1081,6 +1095,8 @@ investigation.
 | Governed by | ADR-ORG-001 §5.7 — the consumer reconciles itself on its declared interval (1.10.0) |
 | Depends on | `TDD-organization-control-002` 1.16.0 §Reconciliation Interval, §After a Restore to an Older Point, §A Provider Withdraws One Membership (1.10.0) |
 | Governed by | ADR-ORG-003 §5.6 — a provider suspends or revokes one Membership, never grants or restores (1.10.0) |
+| Governed by | ADR-ORG-003 §5.6 (amended 2026-10-21) — the provider reads the one Membership first, with a reason (1.12.0) |
+| Depends on | `TDD-organization-control-002` 1.19.0 §A Provider Withdraws One Membership — `GET /v1/tenants/{tenant_id}/memberships/{membership_id}` (1.12.0) |
 | Depends on | `TDD-organization-control-004` 1.15.0 — the refusal type and the issue answer without its token (1.10.0) |
 | Conforms to | RFC 9457 §3.1.1 — a client branches on the problem type (1.10.0) |
 | Governed by | ADR-IAM-011 §5.1, §5.6 — the acceptance page's **I do not have an account**, accepted 2026-10-20, planned (1.10.0); §5.7 as amended 2026-10-21: waits on identity-control ROADMAP item 17 and organization-control item 56 (1.11.0) |

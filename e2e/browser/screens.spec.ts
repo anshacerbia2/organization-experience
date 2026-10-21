@@ -332,7 +332,8 @@ const screens: readonly Screen[] = [
     ready: (page) => page.getByText('Stale: past its budget', { exact: false }),
   },
   // TDD-organization-experience-002 1.10.0: the reporter registry, with Register reporter open; a
-  // Tenant's Withdraw a Membership, with Revoke membership open; and an issue answered as a replay.
+  // Tenant's Withdraw a Membership, read first and with Revoke membership open (1.12.0); and an issue
+  // answered as a replay.
   // Projection health above shows a consumer past one interval, one past two, and a reconciliation a
   // restore requested.
   {
@@ -366,7 +367,9 @@ const screens: readonly Screen[] = [
       const row = page.getByRole('listitem').filter({ hasText: 'Acme Retail' });
       await row.getByRole('button', { name: 'Withdraw a Membership' }).click();
       await row.getByLabel('Membership identifier').fill('0192f0e0-dddd-7000-8000-00000000d001');
-      await row.getByLabel('Version you act on').fill('3');
+      await row.getByLabel('Why you read it').fill('INC-4471 a compromised member');
+      await row.getByRole('button', { name: 'Read the Membership' }).click();
+      await row.getByText('version 3').waitFor();
       await row.getByRole('button', { name: 'Revoke membership' }).click();
       await row.getByRole('form', { name: 'Revoke membership' }).waitFor();
     },
