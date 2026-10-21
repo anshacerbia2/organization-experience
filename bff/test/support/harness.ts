@@ -57,6 +57,7 @@ export function testConfig(overrides: Partial<Config> & Pick<Config, 'oidc' | 'd
     logLevel: 'fatal',
     session: { idleMs: minutes(30), absoluteMs: minutes(8 * 60), refreshSkewMs: 30_000, key: sessionKey },
     organizationControlBaseUrl: 'http://127.0.0.1:9',
+    identityExperienceOrigin: 'https://identity.example.com',
     upstreamTimeoutMs: 5_000,
     tenantSignIn: false,
     provider: { maxDurationMs: minutes(60), defaultDurationMs: minutes(15), stepUpAgeMs: minutes(5) },

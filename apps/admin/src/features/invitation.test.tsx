@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { App } from '../App';
+import { enrolmentLink } from '../invitationLink';
 import { navigation } from '../session';
 import { checkWcag } from '../test/a11y';
 import { headersOf, json, me, providerScope, sent, signedInto, stub, visit, type Handler } from '../test/bff';
@@ -373,5 +374,77 @@ describe('the acceptance page', () => {
     await waitFor(() => {
       expect(screen.getByText('Not signed in')).toBeInTheDocument();
     });
+  });
+});
+
+// TDD-organization-experience-002 1.13.0 (ADR-IAM-011 §5.1): a person without an account is handed to
+// identity-experience's enrolment page, with the token in the fragment alone (RFC 3986 §3.5).
+describe('I do not have an account', () => {
+  const identityOrigin = 'https://identity.example.com';
+  const originAnswer: Handler = (url) =>
+    url === '/auth/identity-experience' ? json({ origin: identityOrigin }) : undefined;
+
+  it('links to identity-experience’s enrolment page with the token in the fragment, and sends it nowhere', async () => {
+    visit(`/invitations/accept#${token}`);
+    const fetchMock = stub(signedOut, originAnswer);
+    const { container } = render(<App />);
+
+    const link = await screen.findByRole('link', { name: 'I do not have an account' });
+    const href = link.getAttribute('href') ?? '';
+    expect(href).toBe(`${identityOrigin}/account/enrol#${token}`);
+    const parsed = new URL(href);
+    expect(parsed.origin).toBe(identityOrigin);
+    expect(parsed.pathname).toBe('/account/enrol');
+    expect(parsed.search).toBe('');
+    expect(decodeURIComponent(parsed.hash.slice(1))).toBe(token);
+    // Sign in stays the page's first way, and the token still waits in the tab.
+    expect(screen.getByRole('button', { name: 'Sign in to accept' })).toBeInTheDocument();
+    expect(screen.getByText(/prove the address with a code/)).toBeInTheDocument();
+    expect(window.sessionStorage.getItem(storageKey)).toBe(token);
+    expect(sent(fetchMock, '/auth/identity-experience')).toHaveLength(1);
+    noTokenInAnyUrl(fetchMock);
+    for (const init of fetchMock.mock.calls.map(([, init]) => init)) {
+      expect(bodyOf(init)).not.toContain(token);
+    }
+    expect(await checkWcag(container)).toHaveNoViolations();
+  });
+
+  it('percent-encodes the token in the fragment', () => {
+    expect(enrolmentLink(identityOrigin, 'a b#c%d/e')).toBe(
+      `${identityOrigin}/account/enrol#a%20b%23c%25d%2Fe`,
+    );
+  });
+
+  it('offers no link when the origin is not answered, and never a guessed one', async () => {
+    visit(`/invitations/accept#${token}`);
+    const fetchMock = stub(signedOut);
+    render(<App />);
+    expect(await screen.findByRole('button', { name: 'Sign in to accept' })).toBeInTheDocument();
+    await waitFor(() => {
+      expect(sent(fetchMock, '/auth/identity-experience')).toHaveLength(1);
+    });
+    expect(screen.queryByRole('link', { name: 'I do not have an account' })).not.toBeInTheDocument();
+  });
+
+  it('offers no link when the answer is not an origin', async () => {
+    visit(`/invitations/accept#${token}`);
+    const fetchMock = stub(signedOut, (url) =>
+      url === '/auth/identity-experience' ? json({ origin: `${identityOrigin}/elsewhere` }) : undefined,
+    );
+    render(<App />);
+    expect(await screen.findByRole('button', { name: 'Sign in to accept' })).toBeInTheDocument();
+    await waitFor(() => {
+      expect(sent(fetchMock, '/auth/identity-experience')).toHaveLength(1);
+    });
+    expect(screen.queryByRole('link', { name: 'I do not have an account' })).not.toBeInTheDocument();
+  });
+
+  it('is not offered to a person signed in', async () => {
+    visit(`/invitations/accept#${token}`);
+    const fetchMock = stub(noTenant, originAnswer);
+    render(<App />);
+    expect(await screen.findByRole('button', { name: 'Accept invitation' })).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'I do not have an account' })).not.toBeInTheDocument();
+    expect(sent(fetchMock, '/auth/identity-experience')).toHaveLength(0);
   });
 });

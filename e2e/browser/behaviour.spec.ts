@@ -3,7 +3,7 @@
 // a link is underlined at rest, and a destructive action is drawn apart from the others.
 import { expect, test, type Page } from '@playwright/test';
 
-import { invitationToken, type Persona } from './fixtures.ts';
+import { identityExperienceOrigin, invitationToken, type Persona } from './fixtures.ts';
 
 const themes = ['light', 'dark'] as const;
 
@@ -220,4 +220,38 @@ test('the invitation token is sent only in the acceptance body, never in a URL',
   }
   // A refusal the same token would get again leaves nothing waiting in the tab.
   expect(Number(await page.evaluate('window.sessionStorage.length'))).toBe(0);
+});
+
+// TDD-organization-experience-002 1.13.0 (ADR-IAM-011 §5.1): in Chromium, I do not have an account hands
+// the token to identity-experience's enrolment page in the fragment, which the browser keeps from the
+// server it asks (RFC 3986 §3.5): identity-experience's origin is asked for /account/enrol alone.
+test('I do not have an account hands the token over in the fragment, which no server receives', async ({
+  page,
+}) => {
+  const urls: string[] = [];
+  page.on('request', (request) => {
+    urls.push(request.url());
+  });
+  const asked: string[] = [];
+  await page.route(`${identityExperienceOrigin}/**`, async (route) => {
+    asked.push(route.request().url());
+    await route.fulfill({
+      status: 200,
+      contentType: 'text/html; charset=utf-8',
+      body: '<!doctype html><title>enrolment</title><p>the enrolment page</p>',
+    });
+  });
+  await page.goto(`/invitations/accept#${invitationToken}`);
+  const link = page.getByRole('link', { name: 'I do not have an account' });
+  await expect(link).toHaveAttribute(
+    'href',
+    `${identityExperienceOrigin}/account/enrol#${encodeURIComponent(invitationToken)}`,
+  );
+  await link.click();
+  await page.waitForURL(`${identityExperienceOrigin}/account/enrol#*`);
+  expect(asked).toEqual([`${identityExperienceOrigin}/account/enrol`]);
+  expect(decodeURIComponent(new URL(page.url()).hash.slice(1))).toBe(invitationToken);
+  for (const url of urls) {
+    expect(url).not.toContain(invitationToken);
+  }
 });

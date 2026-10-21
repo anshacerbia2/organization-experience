@@ -209,6 +209,16 @@ describe('the one application', () => {
     expect(response.headers['referrer-policy']).toBe('no-referrer');
     expect(response.headers['cache-control']).toBe('no-store');
   });
+
+  // TDD-organization-experience-001 1.15.0: identity-experience's origin, for the acceptance page's
+  // link to its enrolment page (ADR-IAM-011 §5.1). Anonymous, so no session is read, and never cached.
+  it('answers identity-experience’s origin to anyone, never cached, and sets no cookie', async () => {
+    const response = await app.inject({ method: 'GET', url: '/auth/identity-experience' });
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toEqual({ origin: 'https://identity.example.com' });
+    expect(response.headers['cache-control']).toBe('no-store');
+    expect(response.headers['set-cookie']).toBeUndefined();
+  });
 });
 
 describe('configuration', () => {
@@ -240,8 +250,23 @@ describe('configuration', () => {
     ORGANIZATION_EXPERIENCE_REDIRECT_URI: 'https://id.example.com/auth/callback',
     ORGANIZATION_EXPERIENCE_SESSION_KEY: Buffer.alloc(32, 1).toString('base64'),
     ORGANIZATION_EXPERIENCE_ORGANIZATION_CONTROL_URL: 'http://organization-control:8080/',
+    ORGANIZATION_EXPERIENCE_IDENTITY_EXPERIENCE_ORIGIN: 'https://identity.example.com',
     ORGANIZATION_EXPERIENCE_DATABASE_URL: 'postgres://bff@db/organization_experience',
   };
+
+  // TDD-organization-experience-001 1.15.0: identity-experience's origin, for the acceptance page's
+  // link to its enrolment page (ADR-IAM-011 §5.1), is required and an exact origin.
+  it('requires identity-experience’s origin, exactly, and keeps it as given', () => {
+    expect(loadConfig(complete).identityExperienceOrigin).toBe('https://identity.example.com');
+    const { ORGANIZATION_EXPERIENCE_IDENTITY_EXPERIENCE_ORIGIN: _unset, ...without } = complete;
+    expect(() => loadConfig(without)).toThrow(/IDENTITY_EXPERIENCE_ORIGIN is required/);
+    expect(() =>
+      loadConfig({
+        ...complete,
+        ORGANIZATION_EXPERIENCE_IDENTITY_EXPERIENCE_ORIGIN: 'https://identity.example.com/account',
+      }),
+    ).toThrow(/IDENTITY_EXPERIENCE_ORIGIN must be an exact origin/);
+  });
 
   it('refuses an origin with a path or trailing slash', () => {
     expect(() =>

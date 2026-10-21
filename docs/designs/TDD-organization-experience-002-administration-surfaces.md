@@ -3,7 +3,7 @@ doc_meta:
   id: TDD-organization-experience-002
   title: Organization, Tenant, Workspace, and Membership Administration Surfaces
   owner: Core Platform Team
-  version: 1.12.0
+  version: 1.13.0
   status: approved
   classification: restricted
   review_cycle_days: 90
@@ -467,20 +467,33 @@ POST  /api/v1/invitations/accept   {"token"}                                    
     and a test holds it on this page.
   - **The account application is named in words.** This application holds no link to
     identity-experience's account application, so the `404` sentence names it and links nothing.
-  - **Planned, not built: a person without an account.** `ADR-IAM-011` was accepted on 2026-10-20
-    (1.10.0). Its §5.6 gives this page one change: offer a person who is not signed in **I do not have
-    an account**, which hands the token, in the fragment, to identity-experience's enrolment page. The
-    enrolment itself is identity-control's (`POST /v1/enrolments`, `:verify`) through Organization
-    Control's `POST /v1/invitations/resolve`, and the page is identity-experience's. None is served yet,
-    and the enrolment page's address is not decided, so the page offers no such path and a provider
-    creates the person first (`ADR-ORG-007 §5.7`). It is built once those three are.
-    `ADR-IAM-011` §5.7 (amended 2026-10-21, 1.11.0) fixes the producer terms this link waits on:
-    identity-control's workload is admitted to `POST /v1/invitations/resolve` from a registry row, "a
-    new `invitation:resolve` entry beside the reporter's", and the route answers one `404` with the
-    same body for an unknown, expired, revoked or accepted token. So **I do not have an account**
-    depends on identity-control ROADMAP item 17 (registers that workload and calls the route) and
-    organization-control ROADMAP item 56 (serves the route), as well as `POST /v1/enrolments` and
-    identity-experience's enrolment page. This page calls neither route: its only act is the link.
+  - **A person without an account (1.13.0, built; planned in 1.10.0).** `ADR-IAM-011` §5.1 and §5.6
+    give this page one change: offer a person who is not signed in **I do not have an account**,
+    which hands the token, in the fragment, to identity-experience's enrolment page. The page's address
+    is decided by identity-experience (`TDD-identity-experience-001` 1.24.0 §Enrolment From an
+    Invitation): `<identity-experience origin>/account/enrol#<token>`.
+    - **The link.** Beside Sign in to accept, the signed-out page shows a link **I do not have an
+      account**, with one sentence: the account is created with the address the invitation was sent
+      to, proven with a code, and the person then opens the invitation link again and accepts. Its
+      target is `<origin>/account/enrol#<encodeURIComponent(token)>`. The token is in the fragment
+      alone, never the query: "the fragment identifier is separated from the rest of the URI prior to
+      a dereference" [R3], so neither identity-experience's BFF nor any server receives it when the
+      link is followed. The page sends nothing itself: it calls neither `POST /v1/enrolments` nor
+      Organization Control's resolve route. Its only act is the link. The token stays in this tab's
+      session storage, as before a sign-in, so opening the invitation link again resumes here.
+    - **The origin is configuration.** identity-experience's origin differs per deployment, so it is
+      not in the code or the build: "An app's config is everything that is likely to vary between
+      deploys", and "the release stage takes the build produced by the build stage and combines it
+      with the deploy's current config" [R9]. The BFF reads
+      `ORGANIZATION_EXPERIENCE_IDENTITY_EXPERIENCE_ORIGIN` (`TDD-organization-experience-001` 1.15.0
+      §Configuration) and serves it at `GET /auth/identity-experience`, anonymous, `no-store`, with no
+      session read (`TDD-organization-experience-001` 1.15.0 §API / Interface). The page asks for it
+      when it shows the signed-out form. While that answer is pending, or if it fails, the page offers
+      Sign in to accept alone and never a link to a guessed address.
+    - **The producers.** identity-control serves the enrolment (`POST /v1/enrolments`, `:verify`;
+      identity-control ROADMAP item 17), through Organization Control's `POST /v1/invitations/resolve`
+      (organization-control ROADMAP item 56), and identity-experience serves the page and its BFF
+      routes. None of their interfaces is called from here, so no contract of theirs is vendored.
 - **The invitation states.** `identity_verified` is gone (`ADR-ORG-007 §5.4`). An invitation is
   `pending`, `accepted`, `expired` or `revoked`. The filter and the labels lose it, and a pending
   invitation reads "nothing is granted until the invited person accepts, signed in as themselves".
@@ -628,6 +641,7 @@ Organization Control records the issue command's answer without `token`, so a re
 | R6 | MDN, *History: replaceState() method*, <https://developer.mozilla.org/en-US/docs/Web/API/History/replaceState>, accessed 2026-10-19: "The replaceState() method of the History interface modifies the current history entry, replacing it with the state object and URL passed in the method parameters."; "The new URL must be of the same origin as the current URL" (1.8.0) |
 | R7 | IETF, RFC 9457, *Problem Details for HTTP APIs*, §3.1.1 "type" and §3.1.4 "detail", <https://www.rfc-editor.org/rfc/rfc9457.html>, accessed 2026-10-21: "Consumers MUST use the "type" URI (after resolution, if necessary) as the problem type's primary identifier."; "Consumers SHOULD NOT parse the "detail" member for information" (1.10.0) |
 | R8 | IETF HTTPAPI Working Group, *The Idempotency-Key HTTP Header Field*, draft-ietf-httpapi-idempotency-key-header-07, §2 and §2.2, <https://datatracker.ietf.org/doc/html/draft-ietf-httpapi-idempotency-key-header-07>, accessed 2026-10-21 (as `STD-GLB-001` [R10] cites it): "An idempotency key is a unique value generated by the client which the resource uses to recognize subsequent retries of the same request."; "The idempotency key MUST be unique and MUST NOT be reused with another request with a different request payload." (1.10.0) |
+| R9 | *The Twelve-Factor App*, §III Config, <https://12factor.net/config>, and §V Build, release, run, <https://12factor.net/build-release-run>, accessed 2026-10-21: "An app's config is everything that is likely to vary between deploys (staging, production, developer environments, etc)."; "The twelve-factor app stores config in environment variables"; "The release stage takes the build produced by the build stage and combines it with the deploy's current config." (1.13.0) |
 
 ## Algorithms / Logic
 
@@ -954,6 +968,17 @@ An `extra` reconciliation finding renders as a security finding, matching how
   and `400` each render their own sentence; the token is forgotten after `200`, `404`, `409` and
   `400` and kept after `503` (1.8.0).
 - The page response carries `Referrer-Policy: no-referrer` (1.8.0).
+- Signed out, the page offers **I do not have an account**, a link to
+  `<identity-experience origin>/account/enrol#<encodeURIComponent(token)>` with the origin from
+  `GET /auth/identity-experience`; the token is in the fragment and never the query; no request the page
+  makes carries it; without that answer the page offers no such link (1.13.0).
+- In Chromium, following the link sends identity-experience's origin a request for `/account/enrol`
+  with no token in it, and the browser holds the token in the fragment alone (1.13.0).
+- The signed-out page with the link is in the browser screens and the layout widths, 320 CSS px
+  included, with a screenshot and axe-core's WCAG 2.2 A and AA rules (1.13.0).
+- The stack proof enrols a person invited with no account: identity-control's `POST /v1/enrolments`
+  from a registered enrolment caller with `Forwarded`, the code read from the mail catcher, `:verify`
+  answering the temporary password, then the new person's sign-in and acceptance here (1.13.0).
 - The fixture-backed browser tests show the issued link, and the page accepted, refused and
   unavailable, in both themes, with a screenshot and axe-core's WCAG 2.2 A and AA rules (1.8.0).
 
@@ -1100,4 +1125,7 @@ investigation.
 | Depends on | `TDD-organization-control-004` 1.15.0 — the refusal type and the issue answer without its token (1.10.0) |
 | Conforms to | RFC 9457 §3.1.1 — a client branches on the problem type (1.10.0) |
 | Governed by | ADR-IAM-011 §5.1, §5.6 — the acceptance page's **I do not have an account**, accepted 2026-10-20, planned (1.10.0); §5.7 as amended 2026-10-21: waits on identity-control ROADMAP item 17 and organization-control item 56 (1.11.0) |
+| Governed by | ADR-IAM-011 §5.1, §5.6 — **I do not have an account**, built: the token handed in the fragment to identity-experience's enrolment page (1.13.0) |
+| Depends on | `TDD-identity-experience-001` 1.24.0 §Enrolment From an Invitation — the enrolment page at `/account/enrol#<token>` (1.13.0) |
+| Conforms to | RFC 3986 §3.5 — the fragment is not sent on a dereference (1.13.0) |
 | Conforms to | draft-ietf-httpapi-idempotency-key-header-07 §2, §2.2; STD-GLB-001 1.7.0 — a key per request, new after an answer (1.10.0) |

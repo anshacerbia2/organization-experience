@@ -3,7 +3,7 @@ doc_meta:
   id: TDD-organization-experience-001
   title: Administrative Scope, Provider Mode, and Safe Bulk Operations
   owner: Core Platform Team
-  version: 1.14.0
+  version: 1.15.0
   status: approved
   classification: restricted
   review_cycle_days: 90
@@ -561,6 +561,21 @@ POST  /auth/scope/provider         {"reason", "duration_minutes", "tenants": "al
 POST  /auth/scope/provider/end     ends the window and its activation
 ```
 
+**The enrolment page's origin (1.15.0).** One more own endpoint, anonymous:
+
+```text
+GET   /auth/identity-experience    {"origin": "<identity-experience origin>"}, Cache-Control: no-store
+```
+
+It reads no session and no cookie, and answers the configured
+`ORGANIZATION_EXPERIENCE_IDENTITY_EXPERIENCE_ORIGIN` alone. The invitation acceptance page reads it to
+build **I do not have an account**, the link to identity-experience's enrolment page with the
+invitation token in the fragment (`ADR-IAM-011 §5.1`, `TDD-organization-experience-002` 1.13.0
+§Invitation). The origin is configuration because it differs per deployment, and the build stays one
+artifact for every deployment (`TDD-organization-experience-002` 1.13.0 [R9]). The endpoint is under
+`/auth/`, so the scope guard, which runs on `/api/*` alone, never sees it. It is this application's
+own and is listed as adapted in `bff/conformance.json`.
+
 The scope guard runs in the proxy before a request leaves the BFF, and answers `403` with a problem
 document naming the scope.
 
@@ -776,6 +791,7 @@ presented as a single irreversible button, because it is neither single nor imme
 | `ORGANIZATION_EXPERIENCE_BULK_PREVIEW_LIMIT` | `500` | Items per preview page |
 | `ORGANIZATION_EXPERIENCE_PROVIDER_STEP_UP_AGE` | `5m` | How recent the provider sign-in's `auth_time` must be to request a window (1.2.0) |
 | `ORGANIZATION_EXPERIENCE_ORGANIZATION_CONTROL_URL` | none, required | Organization Control API, under this application's prefix like every other setting (1.1.0) |
+| `ORGANIZATION_EXPERIENCE_IDENTITY_EXPERIENCE_ORIGIN` | none, required | identity-experience's public origin, scheme, host and port with no path, as its BFF's `IDENTITY_EXPERIENCE_PUBLIC_ORIGIN` states it. The acceptance page links to `<origin>/account/enrol#<token>` (`ADR-IAM-011 §5.1`; 1.15.0) |
 
 Session, cookie, refresh, and client credential settings are inherited unchanged from
 `TDD-identity-experience-001`.
@@ -939,6 +955,11 @@ every stack the journeys need. The proof brings up:
   passwords are set through the kernel's administrator, as identity-control's `bootstrap.sh` sets the
   bootstrap operator's. This is the development seed, in a stack the job throws away, and no production
   default changes for it.
+- where the checked-out identity-control serves `POST /v1/enrolments` (1.15.0): an inviter, a third
+  administrator of the Tenant, and an enrolment caller, a workload with its own key registered by
+  `POST /v1/enrolment-callers`, standing in for identity-experience's BFF (`ADR-IAM-011 §5.8`).
+  identity-control's notifications go to its development mail catcher (`ADR-IAM-011 §5.5`), as
+  organization-control's `deploy-dev` sets it.
 
 `e2e/` drives Chromium with Playwright, one worker, no retry (STD-GLB-FE-008 §3.4), through the
 kernel's own pages:
@@ -968,6 +989,17 @@ kernel's own pages:
    request is served after the revocation is accepted. Their idle tab's first request after it is
    refused, and a request after its token expired finds the session gone. The page then asks for a
    sign-in. The figures go to the `stack-evidence` artifact.
+7. **A person without an account enrols, then accepts (1.15.0, `ADR-IAM-011 §5.1` to §5.4).** The
+   inviter issues an invitation in this console to an address no account holds. Signed out, the
+   acceptance page offers **I do not have an account**, whose target is identity-experience's
+   `/account/enrol#<token>`. The enrolment caller asks `POST /v1/enrolments` with the token and
+   `Forwarded: for=<address>`, and identity-control resolves it through Organization Control. The code
+   is read from the mail catcher, and `:verify` answers the temporary password once, with `no-store`;
+   the same code again is refused. The new person signs in through the kernel's hosted login, chooses a
+   password, enrolls a TOTP, and accepts on the acceptance page, which names the Tenant joined. It is
+   skipped, and the run says so, where identity-control serves no enrolment. It stands in for
+   identity-experience's BFF rather than driving its enrolment page, which identity-experience's own
+   journeys prove.
 
 **What it found (1.7.0).** The Tenant sign-in form submitted itself to `/auth/login`, which redirects
 to the kernel, and Chromium checked that redirect against the BFF's `form-action 'self'` and refused it.
@@ -1082,6 +1114,7 @@ when its session store does not answer (1.5.0); the operator's steps are identit
 | Conforms to | `ADR-GLB-010` §5.1 (amended 2026-10-20) — the hand-written client contract-tested in CI against organization-control's `api/openapi.yaml` at a pinned commit (1.12.0) |
 | Conforms to | `STD-IAM-001` 3.0.0 §3.4 — the session record is deleted by an expiry on the record; the store is excluded from backup and restore and is not an authority; this BFF's store is identity-experience's (1.13.0) |
 | Governed by | `ADR-ORG-008` — the local components under `apps/admin/src/ui/`, an exception that expires 2027-04-20 (1.12.0) |
+| Governed by | `ADR-IAM-011` §5.1, §5.6 — `GET /auth/identity-experience` and `ORGANIZATION_EXPERIENCE_IDENTITY_EXPERIENCE_ORIGIN`, for the acceptance page's **I do not have an account** (1.15.0) |
 
 ### Standalone Operation
 

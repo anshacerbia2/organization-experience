@@ -34,7 +34,8 @@ const route = (persona: Persona, path: string, ready: string): Main => ({
 });
 
 const routes: readonly Main[] = [
-  route('signed-out', `/invitations/accept#${invitationToken}`, 'You have been invited to join a Tenant.'),
+  // TDD-organization-experience-002 1.13.0: measured once I do not have an account is shown.
+  route('signed-out', `/invitations/accept#${invitationToken}`, 'I do not have an account'),
   route('tenant', '/workspaces', 'Legacy ERP'),
   route('tenant', '/invitations', '0192f0e0-eeee-7000-8000-00000000e004'),
   route('tenant', '/provider-access', 'Incident 4471'),

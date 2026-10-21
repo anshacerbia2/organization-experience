@@ -1,5 +1,6 @@
 // Every main route in Chromium, signed in, with data, in the scope that serves it, in the light and
-// the dark theme, at desktop and tablet width (TDD-organization-experience-001 §Visual Language). Each
+// the dark theme, at desktop and tablet width, and some at 320 CSS px (TDD-organization-experience-001
+// §Visual Language; TDD-organization-experience-002 1.13.0). Each
 // is kept as a screenshot, the CI artifact `browser-screens`, and checked with axe-core's WCAG 2.0,
 // 2.1 and 2.2 A and AA rules, which here run with layout and computed style, as jsdom cannot.
 //
@@ -32,6 +33,8 @@ interface Screen {
   // act, when set, opens what the page shows only on request: a confirmation, a review.
   readonly act?: (page: Page) => Promise<void>;
   readonly tablet?: boolean;
+  // phone, when set, adds a screenshot and axe at 320 CSS px, the width WCAG 2.2 SC 1.4.10 names.
+  readonly phone?: boolean;
   // commands, when set, are what the page's commands are answered with. The stand-in takes no command
   // (serve.ts), so a screen that shows a command's outcome answers it here, in the browser.
   readonly commands?: readonly Command[];
@@ -193,7 +196,11 @@ const screens: readonly Screen[] = [
     name: 'invitation-accept-signed-out',
     persona: 'signed-out',
     path: `/invitations/accept#${invitationToken}`,
-    ready: (page) => page.getByRole('button', { name: 'Sign in to accept' }),
+    // TDD-organization-experience-002 1.13.0 (ADR-IAM-011 §5.1): with I do not have an account, at 320
+    // CSS px too.
+    ready: (page) => page.getByRole('link', { name: 'I do not have an account' }),
+    tablet: true,
+    phone: true,
   },
   acceptance('invitation-accepted', 200, acceptedInvitation, 'You joined Beta Logistics.'),
   acceptance(
@@ -487,6 +494,7 @@ const themes = ['light', 'dark'] as const;
 const viewports = {
   desktop: { width: 1440, height: 960 },
   tablet: { width: 820, height: 1180 },
+  phone: { width: 320, height: 900 },
 } as const;
 const overflowWidths = [1440, 1024, 820, 768, 390, 320] as const;
 
@@ -547,9 +555,11 @@ async function open(
 
 for (const theme of themes) {
   for (const screen of screens) {
-    for (const viewport of screen.tablet === true
-      ? (['desktop', 'tablet'] as const)
-      : (['desktop'] as const)) {
+    for (const viewport of [
+      'desktop' as const,
+      ...(screen.tablet === true ? (['tablet'] as const) : []),
+      ...(screen.phone === true ? (['phone'] as const) : []),
+    ]) {
       test(`${screen.name}, ${theme}, ${viewport}`, async ({ page, baseURL }) => {
         await page.setViewportSize(viewports[viewport]);
         await open(page, baseURL ?? '', screen, theme);

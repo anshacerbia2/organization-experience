@@ -26,6 +26,11 @@ export interface Config {
 
   // organizationControlBaseUrl is the Organization Control API the proxy forwards to.
   readonly organizationControlBaseUrl: string;
+
+  // identityExperienceOrigin is identity-experience's public origin, where the invitation acceptance
+  // page sends a person without an account to enrol: <origin>/account/enrol#<token> (ADR-IAM-011
+  // §5.1; TDD-organization-experience-001 1.15.0 §Configuration). Served at GET /auth/identity-experience.
+  readonly identityExperienceOrigin: string;
   readonly upstreamTimeoutMs: number;
 
   // tenantSignIn lets a sign-in ask for one Tenant (ADR-IAM-008): this BFF's client is registered
@@ -151,7 +156,10 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
   // clientKeyFrom reads the client's private key from the file the environment names. The path is
   // configuration; the key is not, so it is read from a file the secret manager mounts and never
   // from a variable. No message carries the key.
-  const clientKeyFrom = (path: string): ClientKey | undefined => {
+  const clientKeyFrom = (
+    path: string,
+    name = 'ORGANIZATION_EXPERIENCE_CLIENT_KEY_FILE',
+  ): ClientKey | undefined => {
     if (path === '') {
       return undefined;
     }
@@ -159,7 +167,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
       return parseClientKey(readFileSync(path, 'utf8'));
     } catch (error) {
       problems.push(
-        `ORGANIZATION_EXPERIENCE_CLIENT_KEY_FILE: ${error instanceof ClientKeyError ? error.message : `${path} could not be read`}`,
+        `${name}: ${error instanceof ClientKeyError ? error.message : `${path} could not be read`}`,
       );
       return undefined;
     }
@@ -228,6 +236,9 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
   url('ORGANIZATION_EXPERIENCE_ORGANIZATION_CONTROL_URL', organizationControlBaseUrl);
   const upstreamTimeoutMs = duration('ORGANIZATION_EXPERIENCE_UPSTREAM_TIMEOUT', '10s');
 
+  const identityExperienceOrigin = required('ORGANIZATION_EXPERIENCE_IDENTITY_EXPERIENCE_ORIGIN');
+  origin('ORGANIZATION_EXPERIENCE_IDENTITY_EXPERIENCE_ORIGIN', identityExperienceOrigin);
+
   const maxDurationMs = duration('ORGANIZATION_EXPERIENCE_PROVIDER_MAX_DURATION', '60m');
   const defaultDurationMs = duration('ORGANIZATION_EXPERIENCE_PROVIDER_DEFAULT_DURATION', '15m');
   const stepUpAgeMs = duration('ORGANIZATION_EXPERIENCE_PROVIDER_STEP_UP_AGE', '5m');
@@ -261,6 +272,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     oidc: { issuer, internalBaseUrl, clientId, clientKey: clientKey as ClientKey, redirectUri },
     session: { idleMs, absoluteMs, refreshSkewMs, key },
     organizationControlBaseUrl: organizationControlBaseUrl.replace(/\/+$/, ''),
+    identityExperienceOrigin,
     upstreamTimeoutMs,
     tenantSignIn: true,
     provider: { maxDurationMs, defaultDurationMs, stepUpAgeMs },

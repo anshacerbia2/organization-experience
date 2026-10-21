@@ -1,6 +1,7 @@
 // The server the browser tests run against: the built application, served as the BFF serves it, with
 // the BFF's own security headers (bff/src/http/security-headers.ts), and a stand-in for everything the
 // application reads through the BFF. The stand-in answers /auth/session and /auth/scope for the persona
+// (and /auth/identity-experience, the same for every persona)
 // the test names in a cookie, and every /api read from fixtures.ts. Every command is refused, as the
 // API refuses one it cannot take, so no test passes on a command the stand-in pretended to apply.
 //
@@ -13,7 +14,7 @@ import { createServer, type ServerResponse } from 'node:http';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { answer, personaOf, scopeOf, sessionOf } from './fixtures.ts';
+import { answer, identityExperienceOrigin, personaOf, scopeOf, sessionOf } from './fixtures.ts';
 import { securityHeaders } from '../../bff/src/http/security-headers.ts';
 
 const port = Number(process.env['E2E_BROWSER_PORT'] ?? '18491');
@@ -49,6 +50,10 @@ const server = createServer((request, response) => {
   }
   if (url.pathname === '/auth/session' && request.method === 'GET') {
     send(response, 200, sessionOf(persona), 'application/json');
+    return;
+  }
+  if (url.pathname === '/auth/identity-experience' && request.method === 'GET') {
+    send(response, 200, { origin: identityExperienceOrigin }, 'application/json');
     return;
   }
   if (url.pathname === '/auth/scope' && request.method === 'GET') {
