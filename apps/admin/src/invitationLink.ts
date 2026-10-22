@@ -14,6 +14,16 @@ const storageKey = 'scnx-org-invitation';
 export const invitationLink = (origin: string, token: string): string =>
   `${origin}${acceptancePath}#${encodeURIComponent(token)}`;
 
+// identity-experience's enrolment page, for a person without an account (ADR-IAM-011 §5.1;
+// TDD-identity-experience-001 1.24.0 §Enrolment From an Invitation; TDD-organization-experience-002
+// 1.13.0 §Invitation). The token goes in the fragment alone, as it came here, never the query: a
+// browser keeps the fragment from every server, identity-experience's BFF included (RFC 3986 §3.5).
+// The origin is the deployment's, which the BFF answers at GET /auth/identity-experience.
+export const enrolmentPath = '/account/enrol';
+
+export const enrolmentLink = (identityExperienceOrigin: string, token: string): string =>
+  `${identityExperienceOrigin}${enrolmentPath}#${encodeURIComponent(token)}`;
+
 function decoded(fragment: string): string {
   try {
     return decodeURIComponent(fragment);

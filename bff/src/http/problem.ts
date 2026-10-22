@@ -25,6 +25,11 @@ export const problemTypes = {
     title: 'The requested resource was not found',
     status: 404,
   },
+  rateLimited: {
+    uri: 'https://problems.scnehaux.com/rate-limited',
+    title: 'The request rate is too high',
+    status: 429,
+  },
   dependencyUnavailable: {
     uri: 'https://problems.scnehaux.com/dependency-unavailable',
     title: 'A required dependency is unavailable',

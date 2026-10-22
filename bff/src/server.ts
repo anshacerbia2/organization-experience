@@ -13,6 +13,7 @@ import type { Config } from './config.js';
 import { registerCanonicalHost } from './http/canonical-host.js';
 import { sendProblem } from './http/problem.js';
 import { registerSecurityHeaders } from './http/security-headers.js';
+import { identityExperienceRoute } from './links/identity-experience.js';
 import { OrganizationControl } from './scope/control.js';
 import { endWindowOnSignOut, scopeRoutes } from './scope/routes.js';
 import { ProviderWindows } from './scope/windows.js';
@@ -23,6 +24,9 @@ import { SessionStore, SessionStoreUnavailable } from './session/store.js';
 export interface ServerDependencies {
   // now is the clock sessions expire by. A test moves it; nothing else does.
   readonly now?: () => Date;
+  // logStream is where log lines go instead of standard output. A test reads them, to prove a secret
+  // passing through the proxy is never written there (TDD-identity-experience-003 1.28.0).
+  readonly logStream?: { write(line: string): void };
 }
 
 // How often rows past their expiry are removed. They are refused when presented whether or not
@@ -43,7 +47,10 @@ export async function buildServer(
 ): Promise<FastifyInstance> {
   const now = dependencies.now ?? (() => new Date());
   const app = Fastify({
-    logger: { level: config.logLevel },
+    logger: {
+      level: config.logLevel,
+      ...(dependencies.logStream === undefined ? {} : { stream: dependencies.logStream }),
+    },
     // The correlation identifier every problem document and log line carries. Generated, never
     // taken from the request: a caller-chosen identifier could collide with, or impersonate,
     // another request's trail.
@@ -94,6 +101,11 @@ export async function buildServer(
     now,
     tenantSignIn: config.tenantSignIn,
   });
+  // identity-experience's origin, for the acceptance page's link to its enrolment page. Anonymous, and
+  // this application's own (TDD-organization-experience-001 1.15.0). The enrolment page and its routes
+  // are identity-experience's, so this BFF serves none of them (ADR-IAM-011 §5.6).
+  await app.register(identityExperienceRoute, { origin: config.identityExperienceOrigin });
+
   await app.register(scopeRoutes, {
     publicOrigin: config.publicOrigin,
     sessions,

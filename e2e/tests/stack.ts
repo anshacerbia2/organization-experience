@@ -3,7 +3,7 @@
 // session stores read for the instants a bound is computed from, the kernel's administrator for the
 // instants the kernel applied a change, and the evidence the run leaves (STD-GLB-009 §Stack-Level
 // Proofs, rules 5 and 6).
-import { createHash, createHmac } from 'node:crypto';
+import { createHash, createHmac, randomBytes } from 'node:crypto';
 import { appendFileSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 
@@ -41,6 +41,14 @@ export interface Seed {
   readonly provider: Person;
   readonly administrator: Person;
   readonly device: Person;
+  // The enrolment journey's inviter and enrolment caller, where the checked-out identity-control
+  // serves enrolment (ADR-IAM-011); null where it does not, and the journey is skipped (e2e/seed.ps1
+  // step 5).
+  readonly enrolment: {
+    readonly inviter: Person;
+    readonly callerClientId: string;
+    readonly callerKeyFile: string;
+  } | null;
 }
 
 // seed reads what e2e/seed.ps1 made. The operator's password is identity-control's
@@ -122,7 +130,7 @@ export class FileCodes extends Codes {
 
 // --- the kernel's hosted login ------------------------------------------------------------------
 
-export type Surface = 'password' | 'otp' | 'configure-totp' | 'recovery-codes';
+export type Surface = 'password' | 'update-password' | 'otp' | 'configure-totp' | 'recovery-codes';
 
 export interface Credentials {
   readonly person: Person;
@@ -134,6 +142,7 @@ async function surface(page: Page): Promise<Surface> {
   if (await present('#kcRecoveryCodesConfirmationCheck')) return 'recovery-codes';
   if (await present('#totpSecret')) return 'configure-totp';
   if (await present('input[name=otp]')) return 'otp';
+  if (await present('input[name=password-new]')) return 'update-password';
   if (await present('#password')) return 'password';
   throw new Error(`an unexpected page at ${page.url()}: ${await page.title()}`);
 }
@@ -171,6 +180,15 @@ export async function signIn(page: Page, bff: string, credentials: Credentials):
         await page.locator('#password').fill(credentials.person.password);
         await submits(page, () => page.locator('#password').press('Enter'));
         break;
+      // A temporary password, as an enrolment issues one (ADR-IAM-011 §5.3), is replaced at the first
+      // sign-in by one the person chooses, which the journey makes and never writes anywhere.
+      case 'update-password': {
+        const chosen = `Stack-${randomBytes(12).toString('hex')}!`;
+        await page.locator('input[name=password-new]').fill(chosen);
+        await page.locator('input[name=password-confirm]').fill(chosen);
+        await submits(page, () => page.locator('input[name=password-confirm]').press('Enter'));
+        break;
+      }
       case 'configure-totp': {
         credentials.codes = new EnrolledCodes(await page.locator('#totpSecret').inputValue());
         await page.locator('#totp').fill(await credentials.codes.next(page));

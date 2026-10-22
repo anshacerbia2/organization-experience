@@ -5,7 +5,7 @@ import { ApiError, apiCommand, apiGet, listPath, type Page } from '../api/client
 import { useIdempotencyKey } from '../api/idempotency';
 import { sessionQueryKey } from '../api/query';
 import { Gate } from '../Gate';
-import { acceptancePath, forgetInvitationToken, takeInvitationToken } from '../invitationLink';
+import { acceptancePath, enrolmentLink, forgetInvitationToken, takeInvitationToken } from '../invitationLink';
 import { messages } from '../messages';
 import { navigation, signInHref, signInOutcome, tenantSignInHref } from '../session';
 import { useSessionQuery } from '../SessionContext';
@@ -171,6 +171,47 @@ function Refused({
   return <ApiErrorMessage error={error} />;
 }
 
+// identity-experience's origin, the deployment's, for the link to its enrolment page
+// (TDD-organization-experience-001 1.15.0 §API / Interface). Anything but an origin in the answer
+// leaves the link out: the page never links to a guessed address.
+async function identityExperienceOrigin(): Promise<string> {
+  const response = await fetch('/auth/identity-experience', {
+    credentials: 'same-origin',
+    headers: { accept: 'application/json' },
+  });
+  if (!response.ok) {
+    throw new Error(`GET /auth/identity-experience answered ${String(response.status)}`);
+  }
+  const body = (await response.json()) as { origin?: unknown };
+  if (typeof body.origin !== 'string' || new URL(body.origin).origin !== body.origin) {
+    throw new Error('GET /auth/identity-experience answered no origin');
+  }
+  return body.origin;
+}
+
+// NoAccount is the signed-out page's way for a person who holds no account yet (ADR-IAM-011 §5.1):
+// a link to identity-experience's enrolment page with the token in the fragment. The page sends
+// nothing itself; the enrolment is identity-experience's and identity-control's.
+function NoAccount({ token }: { readonly token: string }): ReactElement | null {
+  const origin = useQuery({
+    queryKey: ['identity-experience-origin'],
+    queryFn: identityExperienceOrigin,
+    staleTime: Infinity,
+    retry: false,
+  });
+  if (origin.data === undefined) {
+    return null;
+  }
+  return (
+    <>
+      <p>{messages.acceptNoAccountWhy}</p>
+      <div className={layout.actions}>
+        <a href={enrolmentLink(origin.data, token)}>{messages.acceptNoAccount}</a>
+      </div>
+    </>
+  );
+}
+
 export function AcceptInvitationPage(): ReactElement {
   // First, before anything reads the location: the token leaves the address bar.
   const [token] = useState(takeInvitationToken);
@@ -252,6 +293,7 @@ export function AcceptInvitationPage(): ReactElement {
             {messages.acceptSignIn}
           </Button>
         </div>
+        <NoAccount token={token} />
       </div>
     );
   } else if (accept.isError && final(accept.error)) {

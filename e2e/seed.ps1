@@ -16,6 +16,12 @@
 #   4. an Organization and an active Tenant, with the bootstrap operator and the Tenant administrator
 #      as its administrators (ADR-ORG-003), waited on until both are members of the Tenant's
 #      Organization in the kernel.
+#   5. where the checked-out identity-control serves enrolment (ADR-IAM-011, its api/openapi.yaml names
+#      POST /v1/enrolments): an inviter, a third administrator of the Tenant, for the enrolment journey;
+#      and an enrolment caller, a workload made with its own key in -Out's directory and registered by
+#      POST /v1/enrolment-callers, as identity-control deploy/dev/README.md §Enrolment from an
+#      invitation registers identity-experience's BFF. It stands in for that BFF in the journey.
+#      Otherwise the seed says so, and the journey is skipped.
 #
 # Every request goes as the bootstrap operator, through dev-wire.ps1's dev-provider-caller, whose
 # token names both APIs; Organization Control authorizes it by the operator's emergency grant.
@@ -184,6 +190,9 @@ function New-Person([string] $role) {
 $provider = New-Person "provider"
 $administrator = New-Person "administrator"
 $device = New-Person "device"
+$servesEnrolment = [bool](Select-String -Quiet -SimpleMatch -Pattern '"/v1/enrolments":' `
+        -Path (Join-Path $IdentityRepo "api/openapi.yaml"))
+$inviter = if ($servesEnrolment) { New-Person "inviter" } else { $null }
 
 Write-Host "3. the second provider's eligible grant"
 $null = Require "an eligible provider:organization-control grant" (Call "POST" "$organizationApi/v1/provider-grants" @{
@@ -203,22 +212,53 @@ $null = Require "its provisioning realized" (Call "POST" "$organizationApi/v1/pr
 $current = Require "the Tenant read" (Call "GET" "$organizationApi/v1/tenants/$tenantId" $null $null) 200
 $null = Require "the Tenant activated" (Call "POST" "$organizationApi/v1/tenants/$tenantId/activate" @{
         expected_version = $current.version } "stack-activate") 200
-foreach ($principal in @($wiring.operator_principal_id, $administrator.principalId)) {
+$administrators = @($wiring.operator_principal_id, $administrator.principalId)
+if ($null -ne $inviter) { $administrators += $inviter.principalId }
+foreach ($principal in $administrators) {
     $null = Require "$principal made an administrator of the Tenant" (Call "POST" "$organizationApi/v1/tenants/$tenantId/administrators" @{
             principal_id = $principal } "stack-administrator-$principal") 201
 }
 $operatorUser = (Kernel-User $wiring.operator_principal_id).id
-$administratorUser = (Kernel-User $administrator.principalId).id
-Wait-For "both administrators are members of the Tenant's Organization in the kernel" 120 {
+$administratorUsers = @($administrators | Where-Object { $_ -ne $wiring.operator_principal_id } |
+        ForEach-Object { (Kernel-User $_).id }) + @($operatorUser)
+Wait-For "the administrators are members of the Tenant's Organization in the kernel" 120 {
     $members = @(Organization-Members $tenantId)
-    ($members -contains $operatorUser) -and ($members -contains $administratorUser)
+    @($administratorUsers | Where-Object { $members -notcontains $_ }).Count -eq 0
+}
+
+Write-Host "5. the enrolment caller"
+$enrolment = $null
+if (-not $servesEnrolment) {
+    Write-Host "  SKIP  this identity-control serves no POST /v1/enrolments (ADR-IAM-011); the enrolment journey is skipped"
+} else {
+    . (Join-Path $IdentityRepo "scripts/client-assertion.ps1")
+    $callerName = "stack-enrolment-caller-$run"
+    $callerKey = Join-Path (Split-Path -Parent ([System.IO.Path]::GetFullPath($Out))) "$callerName.pem"
+    $rsa = [System.Security.Cryptography.RSA]::Create(3072)
+    try {
+        $pem = "-----BEGIN PRIVATE KEY-----`n" +
+            [Convert]::ToBase64String($rsa.ExportPkcs8PrivateKey(), [Base64FormattingOptions]::InsertLineBreaks) +
+            "`n-----END PRIVATE KEY-----`n"
+        [System.IO.File]::WriteAllText($callerKey, $pem)
+        if ($IsLinux -or $IsMacOS) { chmod 600 $callerKey }
+        $public = $rsa.ExportParameters($false)
+        $callerJwk = @{ kty = "RSA"; n = (ConvertTo-Base64Url $public.Modulus); e = (ConvertTo-Base64Url $public.Exponent) }
+    } finally { $rsa.Dispose() }
+    $workload = Require "the enrolment caller's workload made" (Call "POST" "$identityApi/v1/workloads" @{
+            display_name = "Stack proof enrolment caller"
+            purpose = "Stands in for identity-experience's BFF in the stack proof's enrolment journey"
+            workload_type = "service"; owner_principal_id = $wiring.operator_principal_id; client_key = $callerName
+            application_ref = "stack-proof"; audience = @("identity-control-api"); public_key = $callerJwk } "stack-enrolment-workload") 201
+    $null = Require "and registered as an enrolment caller" (Call "POST" "$identityApi/v1/enrolment-callers" @{
+            principal_id = $workload.principal_id; purpose = "the stack proof's enrolment journey" } "stack-enrolment-caller") 201
+    $enrolment = [ordered]@{ inviter = $inviter; callerClientId = $callerName; callerKeyFile = $callerKey }
 }
 
 [ordered]@{
     run = $run; tenantId = $tenantId; tenantName = $tenantName
     operator = [ordered]@{ username = "bootstrap-operator"; principalId = $wiring.operator_principal_id }
-    provider = $provider; administrator = $administrator; device = $device
-} | ConvertTo-Json -Depth 4 | Set-Content -NoNewline $Out
+    provider = $provider; administrator = $administrator; device = $device; enrolment = $enrolment
+} | ConvertTo-Json -Depth 5 | Set-Content -NoNewline $Out
 if ($IsLinux -or $IsMacOS) { chmod 600 $Out }
 Write-Host ""
 Write-Host "seeded: Tenant $tenantId, the people in $Out"

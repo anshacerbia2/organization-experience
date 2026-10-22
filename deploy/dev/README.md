@@ -149,6 +149,10 @@ The BFF joins no Docker network. It reaches the server over HTTPS and the dev tu
 - **The kernel**, at `ORGANIZATION_EXPERIENCE_ISSUER`, through the tunnel's anonymous port 8080.
 - **organization-control**, at `ORGANIZATION_EXPERIENCE_ORGANIZATION_CONTROL_URL`, for every `/api/*`
   call. Sign-in works without it; the proxied calls answer 503 until it runs.
+- **identity-experience**, at `ORGANIZATION_EXPERIENCE_IDENTITY_EXPERIENCE_ORIGIN`, which the BFF never
+  calls. The invitation acceptance page links a person without an account to its enrolment page,
+  `<origin>/account/enrol#<token>` (ADR-IAM-011 §5.1). On the laptop it is the identity BFF's
+  `http://127.0.0.1:8090`, as `.env.example` sets it. The BFF refuses to start without it.
 
 ### Before running both BFFs at once
 

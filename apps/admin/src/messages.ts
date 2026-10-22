@@ -193,6 +193,10 @@ export const messages = {
   acceptSignIn: 'Sign in to accept',
   acceptSignInWhy:
     'Sign in as yourself, without choosing a Tenant: you are not a member yet. This page continues after you sign in.',
+  // A person without an account (ADR-IAM-011 §5.1, TDD-organization-experience-002 1.13.0).
+  acceptNoAccount: 'I do not have an account',
+  acceptNoAccountWhy:
+    'No account yet? Create one with the email address this invitation was sent to: you prove the address with a code, then sign in and open this invitation link again to accept.',
   acceptAction: 'Accept invitation',
   accepting: 'Accepting',
   acceptNoToken:

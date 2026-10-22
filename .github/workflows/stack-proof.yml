@@ -16,7 +16,8 @@ name: stack-proof
 #     step-up and reason, a second provider's approval, a Membership granted and revoked, the window's
 #     end and the revocation reaching the browser (TDD-organization-experience-001 §End to End), and
 #     the measured time from a revocation to the session's end against its L0 bound
-#     (TDD-identity-experience-001 §Revocation).
+#     (TDD-identity-experience-001 §Revocation), and, where identity-control serves it, a person
+#     invited with no account enrolling and accepting (ADR-IAM-011, e2e/tests/enrolment.spec.ts).
 #
 # Its evidence is the stack-evidence artifact: one JSON file per measurement, with its bound.
 #
@@ -162,6 +163,9 @@ jobs:
             echo "KC_BOOTSTRAP_ADMIN_PASSWORD=$kernel_password"
             echo "KERNEL_DEPLOY_DIR=$GITHUB_WORKSPACE/.kernel/deploy/dev"
             echo "KEYS_OWNER=$(id -u):$(id -g)"
+            # The development mail catcher, as organization-control's deploy-dev sets it, so the
+            # enrolment journey reads its code there (ADR-IAM-011 §5.5).
+            if grep -q mailpit compose.yaml; then echo "IDENTITY_NOTIFICATION_DELIVERY=smtp-catcher"; fi
           } > .env
           bash ./create-kernel-clients.sh >> .env
           bash ./create-registration-client.sh >> .env
@@ -316,6 +320,7 @@ jobs:
           ORGANIZATION_EXPERIENCE_CLIENT_KEY_FILE="$GITHUB_WORKSPACE/keys/organization-experience-bff.pem" \
           ORGANIZATION_EXPERIENCE_DATABASE_URL="postgres://organization_experience_bff:organization_experience_bff@127.0.0.1:55432/bff" \
           ORGANIZATION_EXPERIENCE_ORGANIZATION_CONTROL_URL=http://127.0.0.1:8083 \
+          ORGANIZATION_EXPERIENCE_IDENTITY_EXPERIENCE_ORIGIN=http://127.0.0.1:8090 \
           ORGANIZATION_EXPERIENCE_SESSION_KEY="$(openssl rand -base64 32)" \
             nohup node bff/dist/main.js > "$RUNNER_TEMP/bff/organization-experience.log" 2>&1 &
           IDENTITY_EXPERIENCE_PUBLIC_ORIGIN=http://127.0.0.1:8090 \

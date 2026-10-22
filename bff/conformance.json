@@ -1,6 +1,6 @@
 {
   "source": "anshacerbia2/identity-experience",
-  "commit": "9899e2571c6dd8edbd61c59c748b5bb18f355df9",
+  "commit": "4c2a4b1a4500803df5586f1251afd97805b3452f",
   "identical": [
     "bff/migrations/0001_sessions.sql",
     "bff/migrations/0002_login_max_age.sql",
@@ -49,11 +49,15 @@
     },
     {
       "path": "bff/src/config.ts",
-      "why": "Environment prefix ORGANIZATION_EXPERIENCE_*; upstream organizationControlBaseUrl from ORGANIZATION_EXPERIENCE_ORGANIZATION_CONTROL_URL; one application, so no developerWebRoot or accountWebRoot. tenantSignIn is true: the client is registered for the per-sign-in form (ADR-IAM-008). Adds the provider mode bounds ORGANIZATION_EXPERIENCE_PROVIDER_MAX_DURATION, _DEFAULT_DURATION and _STEP_UP_AGE."
+      "why": "Environment prefix ORGANIZATION_EXPERIENCE_*; upstream organizationControlBaseUrl from ORGANIZATION_EXPERIENCE_ORGANIZATION_CONTROL_URL; one application, so no developerWebRoot or accountWebRoot. tenantSignIn is true: the client is registered for the per-sign-in form (ADR-IAM-008). Adds the provider mode bounds ORGANIZATION_EXPERIENCE_PROVIDER_MAX_DURATION, _DEFAULT_DURATION and _STEP_UP_AGE. Adds ORGANIZATION_EXPERIENCE_IDENTITY_EXPERIENCE_ORIGIN, required and an exact origin, for the acceptance page's link to identity-experience's enrolment page (TDD-organization-experience-001 1.15.0). No enrolment workload and no trusted ingress: the enrolment routes are identity-experience's, and this BFF serves none (ADR-IAM-011 §5.6)."
     },
     {
       "path": "bff/src/http/applications.ts",
       "why": "One application at the root: applicationRoot returns '/' for every path, so routes.ts stays identical and every sign-in asks for aal2. No /developer/ or /account/ prefixes."
+    },
+    {
+      "path": "bff/src/links/identity-experience.ts",
+      "why": "Target-only: GET /auth/identity-experience, identity-experience's origin for the invitation acceptance page's I do not have an account (ADR-IAM-011 §5.1, TDD-organization-experience-001 1.15.0)."
     },
     {
       "path": "bff/src/main.ts",
@@ -81,7 +85,7 @@
     },
     {
       "path": "bff/src/server.ts",
-      "why": "Serves one application at / and no Developer Console or account experience; passes organizationControlBaseUrl to the proxy. Registers the scope endpoints and the sign-out hook that ends a provider window's activation, and gives the proxy the provider windows. Maps SessionStoreUnavailable to 503 in its error handler, as the source's does."
+      "why": "Serves one application at / and no Developer Console or account experience; passes organizationControlBaseUrl to the proxy. Registers the scope endpoints and the sign-out hook that ends a provider window's activation, and gives the proxy the provider windows. Maps SessionStoreUnavailable to 503 in its error handler, as the source's does. Registers GET /auth/identity-experience (bff/src/links/identity-experience.ts), and no enrolment routes, which are identity-experience's (ADR-IAM-011 §5.6)."
     },
     {
       "path": "bff/test/auth.test.ts",
@@ -97,11 +101,11 @@
     },
     {
       "path": "bff/test/server.test.ts",
-      "why": "Developer Console and account experience suites replaced by one test that their paths get this application's shell; configuration tests use the ORGANIZATION_EXPERIENCE_* names and organizationControlBaseUrl. The defaults test asserts tenantSignIn, the scope guard on, and the provider mode bounds. It also asserts the invitation acceptance page's shell carries Referrer-Policy: no-referrer (TDD-organization-experience-002 1.8.0)."
+      "why": "Developer Console and account experience suites replaced by one test that their paths get this application's shell; configuration tests use the ORGANIZATION_EXPERIENCE_* names and organizationControlBaseUrl. The defaults test asserts tenantSignIn, the scope guard on, and the provider mode bounds. It also asserts the invitation acceptance page's shell carries Referrer-Policy: no-referrer (TDD-organization-experience-002 1.8.0). Configuration tests require ORGANIZATION_EXPERIENCE_IDENTITY_EXPERIENCE_ORIGIN as an exact origin, and GET /auth/identity-experience answers it anonymously with no-store (TDD-organization-experience-001 1.15.0)."
     },
     {
       "path": "bff/test/support/harness.ts",
-      "why": "testConfig and startHarness set organizationControlBaseUrl and no developer or account web roots, following Config. startHarness takes Config overrides and signIn a Tenant, as identity-experience's does; testConfig carries the provider mode bounds. The scope guard is off by default, so the pattern's suites test the proxy as the pattern defines it; scope.test.ts turns it on."
+      "why": "testConfig and startHarness set organizationControlBaseUrl and no developer or account web roots, following Config. startHarness takes Config overrides and signIn a Tenant, as identity-experience's does; testConfig carries the provider mode bounds. The scope guard is off by default, so the pattern's suites test the proxy as the pattern defines it; scope.test.ts turns it on. testConfig carries identityExperienceOrigin, and no enrolment workload or trusted ingress, following Config."
     }
   ]
 }
