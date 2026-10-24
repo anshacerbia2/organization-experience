@@ -222,7 +222,7 @@ from the console stayed `requested` ("Awaiting provisioning") and could never be
     Tenant administrator issues an invitation to a person who already holds an account, that person
     proves the address in the account application with a code from the mail catcher, signs in with no
     Tenant, accepts on the acceptance page, and finds the Tenant in Your Tenants. The seed gained an
-    invitee (`e2e/seed.ps1` step 2). It runs in the `stack` job and is skipped where identity-control
+    invitee and an acceptor, its inviter (`e2e/seed.ps1` steps 2 and 5). It runs in the `stack` job and is skipped where identity-control
     serves no enrolment. Not run locally: only CI's stack proof runs it.
   - ✅ **A person without an account** (2026-10-21, `ADR-IAM-011 §5.1`, §5.6;
     TDD-organization-experience-002 1.13.0, TDD-organization-experience-001 1.15.0). Signed out, the

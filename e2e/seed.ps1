@@ -17,7 +17,8 @@
 #      as its administrators (ADR-ORG-003), waited on until both are members of the Tenant's
 #      Organization in the kernel.
 #   5. where the checked-out identity-control serves enrolment (ADR-IAM-011, its api/openapi.yaml names
-#      POST /v1/enrolments): an inviter, a third administrator of the Tenant, for the enrolment journey;
+#      POST /v1/enrolments): an inviter, a third administrator of the Tenant, for the enrolment journey, and an acceptor, a fourth,
+#      for the acceptance journey (each journey enrolls its own TOTP, so they cannot share one person);
 #      and an enrolment caller, a workload made with its own key in -Out's directory and registered by
 #      POST /v1/enrolment-callers, as identity-control deploy/dev/README.md §Enrolment from an
 #      invitation registers identity-experience's BFF. It stands in for that BFF in the journey.
@@ -194,6 +195,7 @@ $invitee = New-Person "invitee"
 $servesEnrolment = [bool](Select-String -Quiet -SimpleMatch -Pattern '"/v1/enrolments":' `
         -Path (Join-Path $IdentityRepo "api/openapi.yaml"))
 $inviter = if ($servesEnrolment) { New-Person "inviter" } else { $null }
+$acceptor = if ($servesEnrolment) { New-Person "acceptor" } else { $null }
 
 Write-Host "3. the second provider's eligible grant"
 $null = Require "an eligible provider:organization-control grant" (Call "POST" "$organizationApi/v1/provider-grants" @{
@@ -214,7 +216,7 @@ $current = Require "the Tenant read" (Call "GET" "$organizationApi/v1/tenants/$t
 $null = Require "the Tenant activated" (Call "POST" "$organizationApi/v1/tenants/$tenantId/activate" @{
         expected_version = $current.version } "stack-activate") 200
 $administrators = @($wiring.operator_principal_id, $administrator.principalId)
-if ($null -ne $inviter) { $administrators += $inviter.principalId }
+if ($null -ne $inviter) { $administrators += $inviter.principalId; $administrators += $acceptor.principalId }
 foreach ($principal in $administrators) {
     $null = Require "$principal made an administrator of the Tenant" (Call "POST" "$organizationApi/v1/tenants/$tenantId/administrators" @{
             principal_id = $principal } "stack-administrator-$principal") 201
@@ -258,7 +260,7 @@ if (-not $servesEnrolment) {
 [ordered]@{
     run = $run; tenantId = $tenantId; tenantName = $tenantName
     operator = [ordered]@{ username = "bootstrap-operator"; principalId = $wiring.operator_principal_id }
-    provider = $provider; administrator = $administrator; device = $device; invitee = $invitee; enrolment = $enrolment
+    provider = $provider; administrator = $administrator; device = $device; invitee = $invitee; acceptor = $acceptor; enrolment = $enrolment
 } | ConvertTo-Json -Depth 5 | Set-Content -NoNewline $Out
 if ($IsLinux -or $IsMacOS) { chmod 600 $Out }
 Write-Host ""

@@ -44,6 +44,9 @@ export interface Seed {
   // The acceptance journey's invitee: a person who holds an account, signed in with a password, whose
   // creation address (<username>@scnehaux.local) the journey proves in the account application.
   readonly invitee: Person;
+  // The acceptance journey's inviter, a fourth administrator of the Tenant; null where the enrolment's
+  // inviter is (e2e/seed.ps1 step 5). Each journey enrolls its own TOTP, so none shares a person.
+  readonly acceptor: Person | null;
   // The enrolment journey's inviter and enrolment caller, where the checked-out identity-control
   // serves enrolment (ADR-IAM-011); null where it does not, and the journey is skipped (e2e/seed.ps1
   // step 5).

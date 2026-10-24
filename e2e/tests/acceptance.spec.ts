@@ -11,8 +11,8 @@
 //      acceptance page, which names the Tenant joined;
 //   4. the Tenant then appears in Your Tenants.
 //
-// Skipped, and said so, where the checked-out identity-control serves no enrolment: the inviter is the
-// enrolment journey's seeded administrator (e2e/seed.ps1 step 5), a person who has never signed in.
+// Skipped, and said so, where the checked-out identity-control serves no enrolment: the inviter is a
+// seeded administrator who has never signed in (e2e/seed.ps1 step 5).
 import { expect, test } from '@playwright/test';
 
 import {
@@ -38,11 +38,11 @@ test('a person who holds an account proves the address, accepts, and finds the T
   browser,
 }) => {
   test.skip(
-    s.enrolment === null,
+    s.enrolment === null || s.acceptor === null,
     'the checked-out identity-control serves no POST /v1/enrolments, so the seed made no inviter (e2e/seed.ps1 step 5)',
   );
-  const enrolment = s.enrolment;
-  if (enrolment === null) {
+  const acceptor = s.acceptor;
+  if (s.enrolment === null || acceptor === null) {
     return;
   }
   const address = `${s.invitee.username}@scnehaux.local`;
@@ -51,7 +51,7 @@ test('a person who holds an account proves the address, accepts, and finds the T
   try {
     // 1. The invitation, issued in this console by a Tenant administrator.
     const inviter = await inviterContext.newPage();
-    const inviterCredentials: Credentials = { person: enrolment.inviter, codes: null };
+    const inviterCredentials: Credentials = { person: acceptor, codes: null };
     await inviter.goto(`${bff}/`);
     await submits(inviter, () => inviter.getByRole('link', { name: 'Sign in', exact: true }).click());
     await signIn(inviter, bff, inviterCredentials);
