@@ -5,7 +5,7 @@ import { organizationControl as contract } from '../src/load.ts';
 // The checker itself: it finds the operations, and it refuses what Organization Control refuses.
 describe('the Organization Control contract', () => {
   it('reads the pinned specification', () => {
-    expect(contract.version).toBe('1.1.0');
+    expect(contract.version).toBe('1.3.0');
     expect(contract.paths).toContain('/v1/reporters');
     // 1.1.0 adds the provider's read of one Membership (organization-control ROADMAP item 61).
     expect(contract.paths).toContain('/v1/tenants/{tenant_id}/memberships/{membership_id}');
@@ -70,5 +70,28 @@ describe('the Organization Control contract', () => {
       /must have required property/,
     );
     expect(contract.checkResponse('GET', '/v1/reporters', 418, {}).join('\n')).toMatch(/declares no 418/);
+  });
+
+  // 1.3.0 writes a Membership's absent Workspace and end as null, still required (STD-GLB-001 2.0.0,
+  // ADR-GLB-021; organization-control ROADMAP item 67).
+  it('accepts null for an absent Workspace and end, and still requires both members', () => {
+    const membership = {
+      membership_id: '0199a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a01',
+      principal_id: '0199a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a02',
+      tenant_id: '0199a1b2-c3d4-7e5f-8a9b-0c1d2e3f4a03',
+      workspace_id: null,
+      subject_type: 'human',
+      status: 'active',
+      version: 1,
+      valid_from: '2026-10-01T00:00:00Z',
+      valid_until: null,
+      provenance: 'console',
+    };
+    const path = `/v1/memberships/${membership.membership_id}`;
+    expect(contract.checkResponse('GET', path, 200, membership, { closed: true })).toEqual([]);
+    const { workspace_id: _workspace, valid_until: _until, ...missing } = membership;
+    expect(contract.checkResponse('GET', path, 200, missing).join('\n')).toMatch(
+      /must have required property 'workspace_id'/,
+    );
   });
 });

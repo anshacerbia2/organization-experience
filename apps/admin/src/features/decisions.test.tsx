@@ -344,6 +344,46 @@ describe('a provider withdraws one Membership', () => {
     expect(await checkWcag(container)).toHaveNoViolations();
   });
 
+  // organization-control 1.3.0 writes an absent Workspace and end as null, not the nil UUID or
+  // 0001-01-01T00:00:00Z (STD-GLB-001 2.0.0, ADR-GLB-021): the read names no Workspace for null, and
+  // names the Workspace when there is one.
+  it('reads a null Workspace and end as none', async () => {
+    visit('/tenants');
+    const base = `/api/v1/tenants/${tenantId}/memberships/${membershipId}`;
+    const workspaceId = '0199a1b2-c3d4-7e5f-8a9b-0c1d2e3f4b31';
+    let scoped = false;
+    stub(provider, (url) => {
+      if (url === '/api/v1/tenants') {
+        return json({ tenants: [tenant], next: null });
+      }
+      if (url === base) {
+        return json(
+          scoped
+            ? { ...record('active', 7), workspace_id: workspaceId, valid_until: '2027-09-01T00:00:00Z' }
+            : record('active', 7),
+        );
+      }
+      return undefined;
+    });
+    const user = userEvent.setup();
+    render(<App />);
+    const row = (await screen.findByText('Acme')).closest('li') as HTMLElement;
+    const section = await openAndRead(user, row);
+    const shown = await within(section).findByRole('group', { name: `Membership ${membershipId}` });
+    expect(shown).toHaveTextContent('version 7');
+    expect(shown).not.toHaveTextContent(/workspace/i);
+    expect(shown).not.toHaveTextContent('null');
+
+    scoped = true;
+    await user.type(within(section).getByLabelText('Why you read it'), ' again');
+    await user.click(within(section).getByRole('button', { name: 'Read the Membership' }));
+    await waitFor(() => {
+      expect(within(section).getByRole('group', { name: `Membership ${membershipId}` })).toHaveTextContent(
+        `workspace ${workspaceId}`,
+      );
+    });
+  });
+
   it('offers revoke alone on a suspended Membership, and nothing on a revoked one', async () => {
     visit('/tenants');
     const base = `/api/v1/tenants/${tenantId}/memberships/${membershipId}`;
