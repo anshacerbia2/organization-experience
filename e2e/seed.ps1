@@ -6,8 +6,8 @@
 #   1. identity-experience-bff registered in identity-control, as identity-experience's
 #      deploy/dev/README.md §First start step 2 declares a new server's client, with the back-channel
 #      logout URI where the kernel reaches it when -IdentityExperienceBackChannelUri names one;
-#   2. three people, created through identity-control's POST /v1/principals as any Principal is:
-#      a second provider, a Tenant administrator, and a person with two devices. Each is given a
+#   2. four people, created through identity-control's POST /v1/principals as any Principal is:
+#      a second provider, a Tenant administrator, a person with two devices, and an invitee. Each is given a
 #      password through the kernel's administrator and its pending action cleared. DEVELOPMENT ONLY,
 #      the same step identity-control's deploy/dev/bootstrap.sh takes for the bootstrap operator: the
 #      production path leaves a credential to the person, through the kernel's own flow;
@@ -190,6 +190,7 @@ function New-Person([string] $role) {
 $provider = New-Person "provider"
 $administrator = New-Person "administrator"
 $device = New-Person "device"
+$invitee = New-Person "invitee"
 $servesEnrolment = [bool](Select-String -Quiet -SimpleMatch -Pattern '"/v1/enrolments":' `
         -Path (Join-Path $IdentityRepo "api/openapi.yaml"))
 $inviter = if ($servesEnrolment) { New-Person "inviter" } else { $null }
@@ -257,7 +258,7 @@ if (-not $servesEnrolment) {
 [ordered]@{
     run = $run; tenantId = $tenantId; tenantName = $tenantName
     operator = [ordered]@{ username = "bootstrap-operator"; principalId = $wiring.operator_principal_id }
-    provider = $provider; administrator = $administrator; device = $device; enrolment = $enrolment
+    provider = $provider; administrator = $administrator; device = $device; invitee = $invitee; enrolment = $enrolment
 } | ConvertTo-Json -Depth 5 | Set-Content -NoNewline $Out
 if ($IsLinux -or $IsMacOS) { chmod 600 $Out }
 Write-Host ""

@@ -217,12 +217,13 @@ from the console stayed `requested` ("Awaiting provisioning") and could never be
     command (organization-control ROADMAP item 47) and identity-control serves the address match,
     `POST /v1/principals/{principal_id}/identifiers:match` (identity-control #114), as
     `ADR-ORG-007 §5.8` asks. This line said both were still awaited.
-  - ⏳ **A stack-proof journey for the acceptance: planned** (recorded 2026-10-21, `ADR-ORG-007 §5.8`).
-    `e2e/tests/organization-experience.spec.ts` issues no invitation and accepts none yet. The journey
-    issues one as the Tenant administrator, accepts it as the invited person signed in without a
-    Tenant, and finds the Tenant in Your Tenants. Nothing it needs is unbuilt. Since 2026-10-21 the
-    enrolment journey (below) issues and accepts one for a person who had no account; a person who
-    already holds one, and Your Tenants after it, are still this item's.
+  - ✅ **A stack-proof journey for the acceptance** (done 2026-10-24, `ADR-ORG-007 §5.3` and `§5.8`;
+    `TDD-organization-experience-001` 1.17.0 §End to End, step 8). `e2e/tests/acceptance.spec.ts`: the
+    Tenant administrator issues an invitation to a person who already holds an account, that person
+    proves the address in the account application with a code from the mail catcher, signs in with no
+    Tenant, accepts on the acceptance page, and finds the Tenant in Your Tenants. The seed gained an
+    invitee (`e2e/seed.ps1` step 2). It runs in the `stack` job and is skipped where identity-control
+    serves no enrolment. Not run locally: only CI's stack proof runs it.
   - ✅ **A person without an account** (2026-10-21, `ADR-IAM-011 §5.1`, §5.6;
     TDD-organization-experience-002 1.13.0, TDD-organization-experience-001 1.15.0). Signed out, the
     acceptance page offers **I do not have an account**, a link to identity-experience's
