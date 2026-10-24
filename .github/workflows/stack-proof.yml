@@ -17,7 +17,8 @@ name: stack-proof
 #     end and the revocation reaching the browser (TDD-organization-experience-001 §End to End), and
 #     the measured time from a revocation to the session's end against its L0 bound
 #     (TDD-identity-experience-001 §Revocation), and, where identity-control serves it, a person
-#     invited with no account enrolling and accepting (ADR-IAM-011, e2e/tests/enrolment.spec.ts).
+#     invited with no account enrolling and accepting (ADR-IAM-011, e2e/tests/enrolment.spec.ts), and
+#     a person with an account proving the address and accepting (e2e/tests/acceptance.spec.ts).
 #
 # Its evidence is the stack-evidence artifact: one JSON file per measurement, with its bound.
 #

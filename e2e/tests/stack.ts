@@ -41,6 +41,12 @@ export interface Seed {
   readonly provider: Person;
   readonly administrator: Person;
   readonly device: Person;
+  // The acceptance journey's invitee: a person who holds an account, signed in with a password, whose
+  // creation address (<username>@scnehaux.local) the journey proves in the account application.
+  readonly invitee: Person;
+  // The acceptance journey's inviter, a fourth administrator of the Tenant; null where the enrolment's
+  // inviter is (e2e/seed.ps1 step 5). Each journey enrolls its own TOTP, so none shares a person.
+  readonly acceptor: Person | null;
   // The enrolment journey's inviter and enrolment caller, where the checked-out identity-control
   // serves enrolment (ADR-IAM-011); null where it does not, and the journey is skipped (e2e/seed.ps1
   // step 5).
@@ -390,6 +396,36 @@ export async function fetchIn(page: Page, path: string): Promise<{ status: numbe
     });
     return { status: response.status, body: await response.text() };
   }, path);
+}
+
+const mailpit = (process.env['MAILPIT_URL'] ?? 'http://127.0.0.1:8025').replace(/\/+$/, '');
+
+// codeFor reads the newest enrolment code the mail catcher holds for the address, sent after the
+// instant given (identity-control deploy/dev/README.md §Reading a code in the mail catcher). Neither
+// the code nor the address is printed.
+export async function codeFor(address: string, after: number): Promise<string> {
+  const deadline = Date.now() + 120_000;
+  while (Date.now() < deadline) {
+    const listed = (await (await fetch(`${mailpit}/api/v1/messages?limit=100`)).json()) as {
+      messages: { ID: string; Created: string; To: { Address: string }[] }[];
+    };
+    for (const message of listed.messages) {
+      if (
+        message.To.some((to) => to.Address.toLowerCase() === address) &&
+        Date.parse(message.Created) >= after
+      ) {
+        const read = (await (await fetch(`${mailpit}/api/v1/message/${message.ID}`)).json()) as {
+          Text: string;
+        };
+        const code = /Your code is (\d{8})/.exec(read.Text)?.[1];
+        if (code !== undefined) {
+          return code;
+        }
+      }
+    }
+    await new Promise((resolve) => setTimeout(resolve, 3_000));
+  }
+  throw new Error('the mail catcher held no enrolment code for the invited address within 120 s');
 }
 
 // --- an active tab ----------------------------------------------------------------------------

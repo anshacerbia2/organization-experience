@@ -28,6 +28,7 @@ import { readFileSync } from 'node:fs';
 import { expect, test } from '@playwright/test';
 
 import {
+  codeFor,
   identityExperience,
   iso,
   organizationExperience as bff,
@@ -41,7 +42,6 @@ import {
 } from './stack';
 
 const identityApi = (process.env['IDENTITY_API_URL'] ?? 'http://127.0.0.1:8082').replace(/\/+$/, '');
-const mailpit = (process.env['MAILPIT_URL'] ?? 'http://127.0.0.1:8025').replace(/\/+$/, '');
 const kernel = required('KC_ADMIN_URL').replace(/\/+$/, '');
 const realm = 'scnehaux';
 
@@ -92,34 +92,6 @@ async function callerToken(clientId: string, keyFile: string): Promise<string> {
     throw new Error(`the enrolment caller's token was refused: ${String(response.status)}`);
   }
   return ((await response.json()) as { access_token: string }).access_token;
-}
-
-// codeFor reads the newest enrolment code the mail catcher holds for the address, sent after the
-// instant given (identity-control deploy/dev/README.md §Reading a code in the mail catcher). Neither
-// the code nor the address is printed.
-async function codeFor(address: string, after: number): Promise<string> {
-  const deadline = Date.now() + 120_000;
-  while (Date.now() < deadline) {
-    const listed = (await (await fetch(`${mailpit}/api/v1/messages?limit=100`)).json()) as {
-      messages: { ID: string; Created: string; To: { Address: string }[] }[];
-    };
-    for (const message of listed.messages) {
-      if (
-        message.To.some((to) => to.Address.toLowerCase() === address) &&
-        Date.parse(message.Created) >= after
-      ) {
-        const read = (await (await fetch(`${mailpit}/api/v1/message/${message.ID}`)).json()) as {
-          Text: string;
-        };
-        const code = /Your code is (\d{8})/.exec(read.Text)?.[1];
-        if (code !== undefined) {
-          return code;
-        }
-      }
-    }
-    await new Promise((resolve) => setTimeout(resolve, 3_000));
-  }
-  throw new Error('the mail catcher held no enrolment code for the invited address within 120 s');
 }
 
 test('a person invited with no account enrols, signs in and accepts', async ({ browser }) => {

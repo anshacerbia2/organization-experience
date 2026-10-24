@@ -3,7 +3,7 @@ doc_meta:
   id: TDD-organization-experience-001
   title: Administrative Scope, Provider Mode, and Safe Bulk Operations
   owner: Core Platform Team
-  version: 1.16.0
+  version: 1.17.0
   status: approved
   classification: restricted
   review_cycle_days: 90
@@ -960,12 +960,12 @@ every stack the journeys need. The proof brings up:
 - this BFF, with its client registered by `scripts/dev-register-bff.ps1`, the operator's script;
 - identity-experience's BFF and applications at `identity_experience_ref`;
 - the people, grants and Tenant of `e2e/seed.ps1`: a second provider with an eligible grant, a Tenant
-  administrator, a person with two devices, and an active Tenant with two administrators. Their
+  administrator, a person with two devices, an invitee (1.17.0), and an active Tenant with two administrators. Their
   passwords are set through the kernel's administrator, as identity-control's `bootstrap.sh` sets the
   bootstrap operator's. This is the development seed, in a stack the job throws away, and no production
   default changes for it.
 - where the checked-out identity-control serves `POST /v1/enrolments` (1.15.0): an inviter, a third
-  administrator of the Tenant, and an enrolment caller, a workload with its own key registered by
+  administrator of the Tenant, an acceptor, a fourth (1.17.0, for the acceptance journey; each journey enrolls its own TOTP), and an enrolment caller, a workload with its own key registered by
   `POST /v1/enrolment-callers`, standing in for identity-experience's BFF (`ADR-IAM-011 §5.8`).
   identity-control's notifications go to its development mail catcher (`ADR-IAM-011 §5.5`), as
   organization-control's `deploy-dev` sets it.
@@ -1009,6 +1009,13 @@ kernel's own pages:
    skipped, and the run says so, where identity-control serves no enrolment. It stands in for
    identity-experience's BFF rather than driving its enrolment page, which identity-experience's own
    journeys prove.
+8. **A person who holds an account accepts (1.17.0, `ADR-ORG-007 §5.3` and `§5.8`).** The inviter
+   issues an invitation in this console, as the seeded acceptor, to the address the seeded invitee holds. The invitee signs in
+   to the account application and proves that address: **Send a code**, the code read from the mail
+   catcher, **Confirm**. Organization Control counts a proven address alone. The same person opens the
+   link, signs in to this console with no Tenant, and accepts on the acceptance page, which names the
+   Tenant joined. The Tenant then appears in **Your Tenants**. It is skipped, and the run says so,
+   where identity-control serves no enrolment, since the acceptor is seeded with the enrolment's inviter. `e2e/tests/acceptance.spec.ts`.
 
 **What it found (1.7.0).** The Tenant sign-in form submitted itself to `/auth/login`, which redirects
 to the kernel, and Chromium checked that redirect against the BFF's `form-action 'self'` and refused it.
