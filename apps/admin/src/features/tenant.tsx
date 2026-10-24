@@ -42,6 +42,8 @@ export interface Workspace {
 export interface Membership {
   readonly membership_id: string;
   readonly principal_id: string;
+  // null, or missing, is none: organization-control 1.3.0 writes an absent Workspace and end as null,
+  // never a sentinel (STD-GLB-001 2.0.0, ADR-GLB-021).
   readonly workspace_id?: string | null;
   readonly subject_type: 'human' | 'workload';
   readonly status: 'active' | 'suspended' | 'revoked';

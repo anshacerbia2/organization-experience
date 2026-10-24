@@ -3,12 +3,12 @@ doc_meta:
   id: TDD-organization-experience-001
   title: Administrative Scope, Provider Mode, and Safe Bulk Operations
   owner: Core Platform Team
-  version: 1.15.0
+  version: 1.16.0
   status: approved
   classification: restricted
   review_cycle_days: 90
   created_date: 2026-08-11
-  last_reviewed: 2026-10-21
+  last_reviewed: 2026-10-24
   parent_sad: SAD-012
 ---
 
@@ -639,9 +639,9 @@ README §API specification), and leaves this test to this repository.
   one property `§5.1` asks for: what the client sends and reads is what the specification says. It
   is the smaller change.
 - **The specification is vendored and pinned.** `contracts/organization-control/openapi.yaml` is the
-  file at the commit `contracts/organization-control/pin.json` names, organization-control `b69a102`,
-  its `info.version` 1.1.0 (1.14.0: it adds the provider's read of one Membership; `6a36b8d` and 1.0.0
-  before). `pnpm check:api-contract` fetches the file at that commit from the public
+  file at the commit `contracts/organization-control/pin.json` names, organization-control `a7e6b5e`
+  (its #82), its `info.version` 1.3.0 (1.16.0: an absent value is `null`, below; `b69a102` and 1.1.0
+  from 1.14.0, which added the provider's read of one Membership; `6a36b8d` and 1.0.0 before). `pnpm check:api-contract` fetches the file at that commit from the public
   repository and fails on one differing byte, as `check:bff-conformance` does for the BFF. Moving the
   pin is a reviewed change to both files.
 - **What the test holds** (`contracts/test`, run by `pnpm test` in CI). The OpenAPI 3.1 Schema Object
@@ -657,6 +657,15 @@ README §API specification), and leaves this test to this repository.
     response schemas accept, sends what the operation declares and reads what it answers;
   - every answer `e2e/browser/fixtures.ts` gives, which every browser test renders, is accepted by the
     response schema of the read it stands in for.
+- **An absent value is `null` (1.16.0).** `STD-GLB-001` 2.0.0, authorized by `ADR-GLB-021`: a response
+  writes a member with no value as `null`, never a sentinel, and "A client reads a missing member and a
+  `null` member as the same \"none\"." organization-control 1.3.0 writes a Membership's absent
+  Workspace and end as `null`, still required; before, they were the nil UUID and
+  `0001-01-01T00:00:00Z`, which the console showed as a Workspace. The `Membership` type declares both
+  `string | null`, a missing member read the same. The Tenant administrator's Membership list and the
+  provider's read before a withdrawal name no Workspace for either, and name the Workspace when there
+  is one (`administration.test.tsx`, `decisions.test.tsx`). No screen shows the end. The contract test
+  accepts `null` for both and still requires the two members (`contracts/test/spec.test.ts`).
 - **What it does not hold.** That Organization Control's handlers answer what its specification says is
   organization-control's own later item (its README §API specification); the stack proof covers the
   path through the real service.
@@ -1108,6 +1117,7 @@ when its session store does not answer (1.5.0); the operator's steps are identit
 | Governed by | ADR-ORG-007 §5.6 — the acceptance page's sign-in without a Tenant is the entry's (1.11.0) |
 | Follows | Auth0 Organization Picker, Slack, the Azure portal's directory switch, GitHub's dashboard context — the context chosen after the sign-in (1.11.0) |
 | Follows | WCAG 2.2 SC 3.2.5 — one listed Tenant is not entered by itself (1.11.0) |
+| Conforms to | STD-GLB-001 2.0.0 §A Response Writes an Absent Optional Value as `null`, `ADR-GLB-021` — a `null` or missing Workspace and end read as none; the contract pinned at organization-control 1.3.0 (1.16.0) |
 | Follows | `TDD-identity-experience-003` 1.29.0 and 1.30.0 §Layout — a panel without size containment, a button label that wraps, and the layout check down to 320 CSS px (1.11.0) |
 | Conforms to | `STD-GLB-FE-005` 2.1.0 §3.10 — intrinsic sizing and reflow, the layout test at 320 CSS px included (proposed in scnehaux-architecture #100) (1.11.0) |
 | Conforms to | `STD-GLB-FE-005` 2.3.0 §3.10 (1.13.0: `60rem` wide or `30rem` tall, the full banner may wrap above both, the tab check runs above both), after 2.2.0 and `SAD-012` 1.4.0 §8.4 — one sticky scope line on a small viewport, `scroll-padding-top`, and the layout test at 320 by 256 with backward tabbing (1.12.0) |

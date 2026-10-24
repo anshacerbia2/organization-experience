@@ -220,6 +220,31 @@ describe('memberships', () => {
   };
   const revokePath = `/api/v1/memberships/${membership.membership_id}/revoke`;
 
+  // organization-control 1.3.0 writes an absent Workspace and end as null, not the nil UUID or
+  // 0001-01-01T00:00:00Z (STD-GLB-001 2.0.0, ADR-GLB-021): the row of a Tenant-wide Membership names no
+  // Workspace, and a scoped one names its Workspace.
+  it('reads a null Workspace and end as none', async () => {
+    visit('/memberships');
+    const wide = { ...membership, tenant_id: tenantA, workspace_id: null, valid_until: null };
+    const scoped = {
+      ...wide,
+      membership_id: '0199a1b2-c3d4-7e5f-8a9b-0c1d2e3f4c03',
+      principal_id: '0199a1b2-c3d4-7e5f-8a9b-0c1d2e3f4c04',
+      workspace_id: '0199a1b2-c3d4-7e5f-8a9b-0c1d2e3f4b01',
+      valid_until: '2027-10-01T00:00:00Z',
+    };
+    stub(signedInto(tenantA, { scope: 'tenant', tenantId: tenantA }), (url) =>
+      url === '/api/v1/memberships' ? json({ memberships: [wide, scoped], next: null }) : undefined,
+    );
+    render(<App />);
+    const wideRow = (await screen.findByText(wide.principal_id)).closest('li') as HTMLElement;
+    expect(wideRow).toHaveTextContent('version 7');
+    expect(wideRow).not.toHaveTextContent(/workspace/i);
+    expect(wideRow).not.toHaveTextContent('null');
+    const scopedRow = screen.getByText(scoped.principal_id).closest('li') as HTMLElement;
+    expect(scopedRow).toHaveTextContent(`workspace ${scoped.workspace_id}`);
+  });
+
   it('cannot revoke without a reason, names the Tenant, and shows the revocation by its evidence', async () => {
     visit('/memberships');
     let reads = 0;
