@@ -334,7 +334,7 @@ what O1, O2 and O4 call. Each line names its status and the decision it comes fr
 | O7  | **The refused invitation is known by its type**, `invitation-not-acceptable`, not by `404`; a `404` of another type keeps the token                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        | ✅ 2026-10-21                            | `ADR-ORG-007 §5.4`, RFC 9457 §3.1.1                                                         |
 | I4  | **One client per developer device.** `dev-register-bff.ps1 -ClientKey` registers a device's own client, `.env.example` names the device's client id, and `deploy/dev/README.md` §Several devices is the procedure (TDD-organization-experience-001 1.12.0 §Configuration)                                                                                                                                                                                                                                                                                                                                                  | ✅ 2026-10-21                            | `STD-GLB-009` rule 15, `ADR-IAM-001 §5.12`                                                  |
 | I6  | **One sticky scope line on a small viewport.** Below 60rem wide or 30rem tall only the scope line is sticky, never wrapping; the bar and the full banner scroll with the page; `scroll-padding-top` follows the sticky region. Above both the full banner may wrap. `layout.spec.ts` checks 320×256, 320×844 and 1440×256, and tabs backwards with nothing hidden under the line, and since 2026-10-21 at 1440×900 too, under the bar and banner (TDD-001 1.13.0)                                                                                                                                                          | ✅ 2026-10-21                            | `STD-GLB-FE-005` 2.3.0 §3.10, `SAD-012` 1.4.0 §8.4                                          |
-| P2  | **The UI Platform exception** is `ADR-ORG-008`, expiring 2027-04-20, cited in the README, here and in `apps/admin/src/ui/index.ts`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         | ✅ 2026-10-21                            | `ADR-ORG-008`                                                                               |
+| P2  | **The UI Platform exception** is `ADR-ORG-008`, expiring 2027-04-20; its exit is met by pinned CI tarballs since 2026-10-30, and its status change is proposed (Visual language, below)                                                                                                                                                                                                                                                                                                                                                                                                                                    | ✅ 2026-10-21                            | `ADR-ORG-008`                                                                               |
 | P5  | **The Organization Control client is contract-tested**, not generated: the smaller change, no call site moves. `contracts/organization-control/openapi.yaml` is organization-control's at `6a36b8d` (at `b69a102`, 1.1.0, since O4a; at `a7e6b5e`, 1.3.0, since 2026-10-24), proved byte for byte by `pnpm check:api-contract`. The tests hold every request the unit tests send, every path the source and `bff/src/scope/control.ts` write, `control.ts`'s calls, and every browser fixture. They found fixtures short of required fields and with invented identifiers; fixed                                           | ✅ 2026-10-21                            | `ADR-GLB-010 §5.1`                                                                          |
 | P6  | **Backups.** `deploy/dev/README.md` §Backups states why rule 9 asks nothing of this application: it owns no database on the server, and the laptop's session store is disposable and never backed up or restored (S1)                                                                                                                                                                                                                                                                                                                                                                                                      | ✅ 2026-10-21                            | `STD-GLB-009` rule 9                                                                        |
 | S1  | **The session record ends with its session.** Found compliant: the store is identity-experience's (`bff/conformance.json`), with `idle_expires_at` and `absolute_expires_at` on the record, `purgeExpired` every five minutes in `bff/src/server.ts`, `destroy` and `destroyForLogout`; no backup script or restore drill includes it. A test covers the purge of a never-presented row (`bff/test/auth.test.ts`; TDD-001 1.13.0). No conformance-set file changed                                                                                                                                                         | ✅ 2026-10-21                            | `STD-IAM-001` 3.0.0 §3.4, `STD-GLB-002` 3.4.0                                               |
@@ -342,38 +342,59 @@ what O1, O2 and O4 call. Each line names its status and the decision it comes fr
 | —   | **Stack proof witness.** identity-control's ceremony runs with a witness distinct from the operator (#21), recorded in TDD-organization-experience-001 1.12.0 §End to End                                                                                                                                                                                                                                                                                                                                                                                                                                                  | ✅ 2026-10-20                            | `STD-IAM-001 §3.10`                                                                         |
 | —   | **An absent value is `null`.** organization-control 1.3.0 (its #82, ROADMAP item 67) writes a Membership's absent Workspace and end as `null`, not the nil UUID and `0001-01-01T00:00:00Z`. The contract moves to `a7e6b5e`; the `Membership` type reads `null` or missing as none; the Membership list and the provider's withdrawal read name no Workspace for it, tested; the contract test accepts `null` and still requires both members. Proved by `stack-proof` with `organization_ref=absent-as-null` (TDD-organization-experience-001 1.16.0 §API / Interface)                                                    | ✅ 2026-10-24                            | `STD-GLB-001` 2.0.0, `ADR-GLB-021`                                                          |
 
-## Visual language (TDD-organization-experience-001 1.9.0)
+## Visual language (TDD-organization-experience-001 1.9.0, 1.18.0)
 
-The console takes identity-experience's visual language, by copy, from its commit
-`c723e417c0eee97db6b1d5b6dab608fe6a406ac2` (its pull request #54). The UI Platform stays deferred, so
-the components are local, under `apps/admin/src/ui/`, behind one entry point.
+**✅ The UI Platform's packages are taken in (2026-10-30); the exit of `ADR-ORG-008` is proposed.**
+`ADR-ORG-008` (accepted 2026-10-20, expiring 2027-04-20) is the exception under which the console kept
+a copy of identity-experience's stand-in, from its commit `c723e417c0eee97db6b1d5b6dab608fe6a406ac2`
+(its pull request #54), under `apps/admin/src/ui/`. Its exit is `apps/admin/src/ui/index.ts`
+re-exporting `@scnx/system` and `@scnx/core-ui`, and the copies deleted (§5.1, §5.4).
 
-- ✅ **Tokens and foundations:** every `--ds-*` token, same names and values, both schemes; the canvas,
-  focus as an outline, links underlined, reduced motion, forced colours. No token departs.
-- ✅ **Components ported:** ButtonBase, Button, Icon, Panel, StatusPill, Table, the field styles, the
-  frame with its rail and bar, the theme toggle, and the notice. Their tests came with them.
-- ✅ **The contrast test ported,** its 40 pairs unchanged, with this application's pairs added: the scope
-  banner in each scope, the rows, the confirmation, the stages. All meet WCAG 2.2 AA in both themes.
+- ✅ **The packages:** `@scnx/system` and `@scnx/core-ui` 2.0.0-beta.0 in the `scnx-platform` theme,
+  re-exported by `apps/admin/src/ui/index.ts`. They are the tarballs of ui-platform's CI run on `main`
+  at `2113337`, the same files and the same `vendor/ui-platform/pin.json` as identity-experience (its
+  pull request #66), verified for SLSA provenance by CI's `ui-platform` job. The owner chose pinned
+  tarballs over waiting for the npm release (2026-10-30). ESLint refuses an `@scnx/*` import outside
+  `src/ui/`.
+- ✅ **The copies are deleted:** the stand-in's tokens (`_ds-temporary.scss`) and `ButtonBase`. Every
+  `--ds-*` name is the package's. The auroras, the grid, the glass, the glows and JetBrains Mono are
+  gone; IBM Plex Mono is served from this origin.
+- ✅ **The component map is identity-experience's:** `Button`, `Panel`, `StatusPill` and `Table` are
+  the platform's components with identity-experience's compositions; `Icon` is local. This application
+  keeps four of its own, each recorded with its reason (TDD-001 §Visual Language): the field classes,
+  drawn as the platform's text field; `Notice`, drawn as its Alert, which is always a live region; the
+  theme root, which follows the system until the viewer chooses; and the frame, the page and the rows.
+- ✅ **The contrast test reads the package:** identity-experience's pairs unchanged, then this
+  application's, 69 a mode. All meet WCAG 2.2 AA in both modes.
+- **Next:** the frame, the gate, the scope banner and every page redrawn in the brand book's drawing,
+  after identity-experience's own redraw, with a not-found route and an error boundary.
+- **Proposed for the owner to relay to scnehaux-architecture:** `ADR-ORG-008` moves to `deprecated`
+  (`GDC-010 §2.4.3`, scenario A) with the note "exit met on 2026-10-30 by pinned CI tarballs, the same
+  as identity-experience's; `Icon`, the field classes and `Notice` remain local until ui-platform
+  publishes an icon set, a select and a multi-line field, and an alert without a live role". If the
+  owner holds that the exit needs the npm release, the waiver instead narrows to those local components
+  and to the vendored intake, with the same expiry.
+
+### Visual language, 1.9.0 (the copy, before the packages)
+
+The console took identity-experience's visual language by copy, with its tokens. Recorded as built:
+
 - ✅ **Information design:** records drawn as dense rows with status pills and row actions; destructive
   actions in the danger variant, confirmed in place with the scope named; loading, empty and error
   states in words; the scope banner sticky under the bar with its countdown; tablet width.
 - ✅ **Fixture-backed browser tests** (`e2e/browser`, the `browser` job of `ci.yml`): 48 screenshots
   of every main route, signed in, with data, Tenant scope and provider mode, light and dark, desktop and
-  tablet, as the `browser-screens` artifact; axe with layout on each, no violation; colour contrast
-  recorded as "needs review"; the banner, focus, links and destructive actions checked.
-- ✅ **The UI Platform exception is `ADR-ORG-008`**, accepted 2026-10-20, expiring **2027-04-20**. When
-  `@scnx/system` and `@scnx/core-ui` ship, `apps/admin/src/ui/index.ts` re-exports them and the copies go
-  (§5.4). If they have not shipped by then, a new exception supersedes it, or the waiver check blocks the
-  repository. The entry point's header cites it.
+  tablet, as the `browser-screens` artifact; axe with layout on each, no violation; the banner, focus,
+  links and destructive actions checked.
 
 ## Depends on
 
-| Repository             | What this needs from it                                                                                                      |
-| :--------------------- | :--------------------------------------------------------------------------------------------------------------------------- |
-| `identity-experience`  | The BFF pattern, as a normative reference and a test suite                                                                   |
-| `organization-control` | The Organization Control API, which reauthorizes every command                                                               |
-| `identity-kernel`      | Hosted login and step-up `acr` values                                                                                        |
-| `scnehaux-ui-platform` | Design system packages, build-time only, once UI Platform ships them (SAD-012 §7.3; until then `ADR-ORG-008`, to 2027-04-20) |
+| Repository             | What this needs from it                                                                                            |
+| :--------------------- | :----------------------------------------------------------------------------------------------------------------- |
+| `identity-experience`  | The BFF pattern, as a normative reference and a test suite                                                         |
+| `organization-control` | The Organization Control API, which reauthorizes every command                                                     |
+| `identity-kernel`      | Hosted login and step-up `acr` values                                                                              |
+| `scnehaux-ui-platform` | `@scnx/system` and `@scnx/core-ui`, build-time only, as pinned CI tarballs in `vendor/ui-platform/` (SAD-012 §7.3) |
 
 Nothing here waits on the Keycloak proof-of-concept.
 

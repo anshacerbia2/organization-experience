@@ -498,7 +498,8 @@ const viewports = {
 } as const;
 const overflowWidths = [1440, 1024, 820, 768, 390, 320] as const;
 
-// The theme is the viewer's stored choice, and without one the system's (apps/admin/src/ui/theme.ts).
+// The theme is the viewer's stored choice, and without one the system's (apps/admin/src/ui/preferences/
+// ThemeRoot.tsx).
 // Both are set, so the page opens in the theme under test whichever it reads.
 async function open(
   page: Page,

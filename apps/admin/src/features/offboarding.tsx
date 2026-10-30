@@ -496,7 +496,7 @@ export function OffboardingDetail(): ReactElement {
           ) : null}
           {offboarding.legal_hold || open.length > 0 ? (
             <div className={layout.actions}>
-              <Button variant="danger" size="sm" disabled>
+              <Button variant="danger" size="small" disabled>
                 {messages.release}
               </Button>
             </div>
@@ -550,7 +550,7 @@ export function OffboardingDetail(): ReactElement {
           ) : null}
           {offboarding.legal_hold || !realized || tenant.data === undefined ? (
             <div className={layout.actions}>
-              <Button variant="danger" size="sm" disabled>
+              <Button variant="danger" size="small" disabled>
                 {messages.retire}
               </Button>
             </div>
@@ -619,7 +619,7 @@ export function BeginOffboarding({ tenantId }: { readonly tenantId: string }): R
     return (
       <Button
         variant="danger"
-        size="sm"
+        size="small"
         onClick={() => {
           setOpen(true);
         }}

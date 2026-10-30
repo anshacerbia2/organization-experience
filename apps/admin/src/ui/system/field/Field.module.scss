@@ -1,73 +1,91 @@
-// Ported from identity-experience at c723e417c0eee97db6b1d5b6dab608fe6a406ac2, packages/ui/src/system/field/Field.module.scss
+@use '../../styles/roles' as *;
+
+// The platform TextField's drawing (@scnx/system/specs/text-field.json), token for token, as
+// identity-experience's SelectField and TextAreaField draw it (its packages/ui/src/system/field), so
+// this application's inputs, selects and multi-line fields read as the platform's text field. They are
+// classes, not the platform's component: the forms here own their ids, hints and errors
 // (TDD-organization-experience-001 §Visual Language).
 @layer components {
   .field {
     display: flex;
     flex-direction: column;
-    gap: var(--ds-spacing-2xs);
+    gap: var(--ds-dimension-spacing-stack-compact);
     inline-size: 100%;
     min-inline-size: 0;
   }
 
   .label {
-    font-size: var(--ds-font-size-sm);
-    font-weight: var(--ds-font-weight-medium);
-    color: var(--ds-color-neutral-text-strong-default);
+    font-family: var(--ds-typography-label-default-font-family);
+    font-size: var(--ds-typography-label-default-font-size);
+    font-weight: var(--ds-typography-weight-medium);
+    line-height: var(--ds-typography-label-default-line-height);
+    color: var(--ds-color-neutral-text-default-default);
   }
 
-  .control {
-    inline-size: 100%;
-    min-block-size: var(--ds-size-control-md);
-    padding: var(--ds-spacing-xs) var(--ds-spacing-sm);
-
-    // A field is identified by its edge alone, so the edge meets 3:1 against the panel and against
-    // its own fill (WCAG 2.2 SC 1.4.11).
-    border: var(--ds-stroke-thin) solid var(--ds-color-neutral-border-strong-default);
-    border-radius: var(--ds-radius-md);
-    font: inherit;
-    font-size: var(--ds-font-size-sm);
-    color: var(--ds-color-neutral-text-strong-default);
-    background: var(--ds-color-neutral-surface-sunken-default);
-    transition:
-      border-color var(--ds-duration-fast) var(--ds-easing-standard),
-      box-shadow var(--ds-duration-fast) var(--ds-easing-standard);
-
-    &:hover {
-      border-color: var(--ds-color-neutral-border-strong-hover);
-    }
-
-    // Focus is the outline every focusable element takes (foundations/_base.scss), with the dark
-    // theme's glow added to it, never in its place (STD-GLB-FE-005 §3.9).
-    &:focus-visible {
-      border-color: var(--ds-color-neutral-border-default-focus);
-      box-shadow: var(--ds-shadow-focus);
-    }
-
-    &[aria-invalid='true'] {
-      border-color: var(--ds-color-danger-solid-default-default);
-    }
-  }
-
-  .area {
-    min-block-size: 6rem;
-    resize: vertical;
-    line-height: var(--ds-line-height-relaxed);
-  }
-
-  .select {
-    cursor: pointer;
+  .hint,
+  .error {
+    margin: 0;
+    font-size: var(--ds-typography-body-small-font-size);
+    line-height: var(--ds-typography-body-small-line-height);
   }
 
   .hint {
-    font-size: var(--ds-font-size-xs);
     color: var(--ds-color-neutral-text-subtle-default);
   }
 
   // The error reads as an error by its words as well as its colour: the message says what is wrong.
   .error {
-    font-size: var(--ds-font-size-xs);
-    font-weight: var(--ds-font-weight-medium);
+    font-weight: var(--ds-typography-weight-medium);
     color: var(--ds-color-danger-text-default-default);
+  }
+
+  .control {
+    inline-size: 100%;
+    min-block-size: var(--ds-dimension-size-control-default);
+    padding-inline: var(--ds-dimension-spacing-control-default);
+
+    // A field is identified by its edge alone, so the edge meets 3:1 against what it sits on and
+    // against its own fill (WCAG 2.2 SC 1.4.11; src/ui/styles/contrast.test.ts).
+    border: var(--ds-dimension-border-width-default) solid var(--ds-color-neutral-border-strong-default);
+    border-radius: var(--ds-dimension-radius-control);
+    font-family: var(--ds-typography-body-default-font-family);
+    font-size: var(--ds-typography-body-default-font-size);
+    line-height: var(--ds-typography-body-default-line-height);
+    color: var(--ds-color-neutral-text-default-default);
+    background: var(--ds-color-neutral-surface-raised-default);
+    transition-property: border-color;
+    transition-duration: var(--ds-motion-feedback-duration);
+    transition-timing-function: var(--ds-motion-feedback-easing);
+
+    // Focus is the outline the platform's base draws on every focusable element; the edge also
+    // turns the focus colour.
+    &:focus-visible {
+      border-color: var(--ds-color-primary-border-default-focus);
+    }
+
+    &:disabled {
+      color: var(--ds-color-neutral-text-default-disabled);
+      border-color: var(--ds-color-neutral-border-default-disabled);
+      background: var(--ds-color-neutral-surface-default-disabled);
+      cursor: not-allowed;
+    }
+
+    // The platform's own invalid edge, danger.border.strong.default, is 2.38:1 against the field in
+    // light; the danger edge in its selected state is 4.55:1 in light and 3.85:1 in dark, as
+    // identity-experience's TextField draws it through the platform's hook.
+    &[aria-invalid='true'] {
+      border-color: var(--ds-color-danger-border-strong-selected);
+    }
+  }
+
+  .area {
+    min-block-size: 6rem;
+    padding-block: var(--ds-dimension-spacing-inset-compact);
+    resize: vertical;
+  }
+
+  .select {
+    cursor: pointer;
   }
 
   @media (forced-colors: active) {
@@ -83,7 +101,7 @@
   .fieldset {
     display: flex;
     flex-direction: column;
-    gap: var(--ds-spacing-xs);
+    gap: var(--ds-dimension-spacing-stack-default);
     min-inline-size: 0;
     padding: 0;
     border: 0;
@@ -91,27 +109,29 @@
 
   .legend {
     padding: 0;
-    margin-block-end: var(--ds-spacing-2xs);
-    font-size: var(--ds-font-size-sm);
-    font-weight: var(--ds-font-weight-medium);
-    color: var(--ds-color-neutral-text-strong-default);
+    margin-block-end: var(--ds-dimension-spacing-stack-compact);
+    font-family: var(--ds-typography-label-default-font-family);
+    font-size: var(--ds-typography-label-default-font-size);
+    font-weight: var(--ds-typography-weight-medium);
+    line-height: var(--ds-typography-label-default-line-height);
+    color: var(--ds-color-neutral-text-default-default);
   }
 
   .choice {
     display: inline-flex;
     align-items: center;
-    gap: var(--ds-spacing-xs);
-    min-block-size: var(--ds-size-control-sm);
-    font-size: var(--ds-font-size-sm);
+    gap: var(--ds-dimension-spacing-inline-default);
+    min-block-size: var(--ds-dimension-size-control-compact);
+    font-size: var(--ds-typography-body-small-font-size);
     color: var(--ds-color-neutral-text-default-default);
     cursor: pointer;
   }
 
   .choiceInput {
-    inline-size: var(--ds-size-icon-md);
-    block-size: var(--ds-size-icon-md);
+    inline-size: $icon-nav;
+    block-size: $icon-nav;
     margin: 0;
-    accent-color: var(--ds-color-primary-solid-default-default);
+    accent-color: var(--ds-color-primary-surface-solid-default);
     cursor: pointer;
   }
 }

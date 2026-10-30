@@ -1,0 +1,30 @@
+// Ported from identity-experience at f5424f0ea78dae6db7096f457b54c8894e275c67 (its pull request
+// #66), packages/ui/src/styles/_roles.scss. TDD-organization-experience-001 §Visual Language
+// records the copy; `$icon-large` is this repository's.
+// Roles the applications' stylesheets read beyond a single token: Sass values only, no CSS output
+// besides the layer order (layers). Every value is a platform token, a mix of one, or a local value
+// with its purpose stated (STD-UIP-TKN-002 §3.1, STD-GLB-FE-005 §3.2); the brand book names the roles
+// (scnehaux-design scnx-platform/Brand-Book.html).
+@forward 'layers';
+
+// The HUD voice: IBM Plex Mono, served from this origin (foundations/fonts), before the platform's
+// code face. Identifiers and figures in a table use it (Table's `mono`).
+$font-mono: 'IBM Plex Mono', var(--ds-typography-code-default-font-family);
+
+// The HUD voice's tracking: upper case, spaced out. The platform has no tracking token for it (its
+// widest, label.small, is 0.025em); the brand book's value, local to this expression.
+$hud-tracking: 0.15em;
+
+// Icon sizes, the brand's: 16px in text and controls, 20px in navigation; 12px for the glyph in a
+// status. The platform publishes no icon size tokens. 24px is this application's addition, for a
+// glyph that stands alone: an empty state's, a stage's marker, the mark in the gate.
+$icon-glyph: 0.75rem;
+$icon-text: 1rem;
+$icon-nav: 1.25rem;
+$icon-large: 1.5rem;
+
+// The frame's local geometry, values with no reusable semantic role: the rail's width, the bar's
+// height and the widest a page's column runs.
+$layout-rail: 16.5rem;
+$layout-bar: 3.75rem;
+$layout-page: 80rem;

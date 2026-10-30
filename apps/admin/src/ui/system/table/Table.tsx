@@ -1,17 +1,23 @@
-// Ported from identity-experience at c723e417c0eee97db6b1d5b6dab608fe6a406ac2, packages/ui/src/system/table/Table.tsx
-// (TDD-organization-experience-001 §Visual Language).
+// Ported from identity-experience at f5424f0ea78dae6db7096f457b54c8894e275c67 (its pull request
+// #66), packages/ui/src/system/table/Table.tsx. TDD-organization-experience-001 §Visual Language
+// records the copy; the hidden caption takes `scnx-org-visually-hidden`.
+import { Table as SystemTable, type TableCellProps } from '@scnx/system/components/table';
 import { useId, type ComponentPropsWithRef, type ReactElement, type ReactNode } from 'react';
 
 import styles from './Table.module.scss';
 
-// Table is a data table: a real <table>, with a caption that names it, header cells scoped to their
-// column, and a container that scrolls sideways on a narrow screen rather than squeezing columns.
-// A compound component (STD-GLB-FE-006): Table.Root holds Table.Head and Table.Body, which hold
-// Table.Row, which holds Table.HeaderCell and Table.Cell.
+// Table is the platform's Table, composed into a named, keyboard-reachable region. A compound
+// component (STD-GLB-FE-006): Table.Root holds Table.Head and Table.Body, which hold Table.Row, which
+// holds Table.HeaderCell and Table.Cell. The platform's parts are used as they ship, with two
+// compositions:
+//
+// - Root requires a caption and wraps the table in a region that scrolls a table wider than the
+//   screen, takes focus and is named by the caption. A region that scrolls must be reachable by
+//   keyboard (WCAG 2.1.1); the platform's frame scrolls but takes no focus and no name.
+// - Cell takes `mono`, which sets an identifier or a figure in the mono face on one line, so it
+//   aligns and reads as one value.
 
-const join = (...names: readonly (string | undefined)[]): string => names.filter(Boolean).join(' ');
-
-type Align = 'start' | 'end';
+const join = (...names: readonly (string | false | undefined)[]): string => names.filter(Boolean).join(' ');
 
 function Root({
   caption,
@@ -29,65 +35,43 @@ function Root({
 }): ReactElement {
   const captionId = useId();
   return (
-    // The container scrolls when the table is wider than the screen. A region that scrolls must be
-    // reachable by keyboard (WCAG 2.1.1), so it takes focus and is named by the caption.
     // eslint-disable-next-line jsx-a11y/no-noninteractive-tabindex -- a scrollable region must be keyboard-focusable
     <div className={styles['scroll']} role="region" aria-labelledby={captionId} tabIndex={0}>
-      <table {...rest} className={join(styles['table'], className)}>
-        <caption id={captionId} className={captionHidden ? 'scnx-org-visually-hidden' : styles['caption']}>
+      <SystemTable {...rest} className={className}>
+        <SystemTable.Caption
+          id={captionId}
+          className={captionHidden ? 'scnx-org-visually-hidden' : undefined}
+        >
           {caption}
-        </caption>
+        </SystemTable.Caption>
         {children}
-      </table>
+      </SystemTable>
     </div>
-  );
-}
-
-function Head({ className, ...rest }: ComponentPropsWithRef<'thead'>): ReactElement {
-  return <thead {...rest} className={join(styles['head'], className)} />;
-}
-
-function Body({ className, ...rest }: ComponentPropsWithRef<'tbody'>): ReactElement {
-  return <tbody {...rest} className={join(styles['body'], className)} />;
-}
-
-function Row({ className, ...rest }: ComponentPropsWithRef<'tr'>): ReactElement {
-  return <tr {...rest} className={join(styles['row'], className)} />;
-}
-
-function HeaderCell({
-  className,
-  align = 'start',
-  children,
-  ...rest
-}: Omit<ComponentPropsWithRef<'th'>, 'align'> & { readonly align?: Align }): ReactElement {
-  return (
-    <th scope="col" {...rest} className={join(styles['headerCell'], className)} data-align={align}>
-      {children}
-    </th>
   );
 }
 
 function Cell({
   className,
-  align = 'start',
   mono = false,
   ...rest
-}: Omit<ComponentPropsWithRef<'td'>, 'align'> & {
-  // align replaces HTML's obsolete align attribute with a logical one: end is right in English and
-  // left in a right-to-left language.
-  readonly align?: Align;
-  // mono sets identifiers and figures in the monospace face, so they align and read unambiguously.
+}: TableCellProps & {
+  // mono sets identifiers and figures in the mono face, so they align and read unambiguously.
   readonly mono?: boolean;
 }): ReactElement {
   return (
-    <td
+    <SystemTable.Cell
       {...rest}
-      className={join(styles['cell'], className)}
-      data-align={align}
+      className={join(mono && styles['mono'], className)}
       data-mono={mono || undefined}
     />
   );
 }
 
-export const Table = { Root, Head, Body, Row, HeaderCell, Cell };
+export const Table = {
+  Root,
+  Head: SystemTable.Head,
+  Body: SystemTable.Body,
+  Row: SystemTable.Row,
+  HeaderCell: SystemTable.HeaderCell,
+  Cell,
+};

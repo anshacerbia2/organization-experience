@@ -62,7 +62,7 @@ export function LoadMore({
     <div className={layout.actions}>
       <Button
         variant="secondary"
-        size="sm"
+        size="small"
         disabled={query.isFetchingNextPage}
         onClick={() => {
           void query.fetchNextPage();
@@ -283,7 +283,7 @@ export function Action<T>({
       <span className={rowClasses.action}>
         <Button
           variant={tone}
-          size="sm"
+          size="small"
           disabled={mutation.isPending}
           onClick={() => {
             if (needsForm) {
@@ -362,14 +362,14 @@ export function Action<T>({
         <Button
           type="submit"
           variant={tone === 'secondary' ? 'primary' : tone}
-          size="sm"
+          size="small"
           disabled={mutation.isPending}
         >
           {label}
         </Button>{' '}
         <Button
           variant="ghost"
-          size="sm"
+          size="small"
           onClick={() => {
             setOpen(false);
           }}

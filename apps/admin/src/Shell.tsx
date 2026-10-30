@@ -26,7 +26,6 @@ import {
   Panel,
   StatusPill,
   ThemeToggle,
-  useTheme,
   type IconName,
 } from './ui';
 
@@ -51,8 +50,7 @@ export function Shell(): ReactElement {
   const [signingOut, setSigningOut] = useState(false);
   const [signOutFailed, setSignOutFailed] = useState(false);
   const outcome = signInOutcome(window.location.search);
-  const { theme, choose } = useTheme();
-  const themeToggle = <ThemeToggle theme={theme} onChoose={choose} />;
+  const themeToggle = <ThemeToggle />;
   // A token waiting in this tab: a sign-in for an invitation that landed somewhere else, such as a
   // failed one, which lands at the root.
   const [invitationWaiting] = useState(() => waitingInvitationToken() !== null);
@@ -138,13 +136,8 @@ export function Shell(): ReactElement {
               <StatusPill tone="success">
                 {signedIn.displayName ?? signedIn.principalId ?? messages.signedIn}
               </StatusPill>{' '}
-              <Button
-                variant="ghost"
-                size="sm"
-                icon={<Icon name="logout" />}
-                disabled={signingOut}
-                onClick={onSignOut}
-              >
+              <Button variant="ghost" size="small" disabled={signingOut} onClick={onSignOut}>
+                <Icon name="logout" />
                 {messages.signOut}
               </Button>
               {themeToggle}
@@ -290,7 +283,8 @@ export function Home(): ReactElement | null {
       <div className={layout.cards}>
         <ContextSwitcher returnTo={here()} current={null} />
         <ProviderAdministration>
-          <Button variant="secondary" href={providerModePath} icon={<Icon name="shield" />}>
+          <Button variant="secondary" href={providerModePath}>
+            <Icon name="shield" />
             {messages.goToProviderMode}
           </Button>
         </ProviderAdministration>
@@ -369,7 +363,8 @@ export function RequireScope({
   } else if (scope === 'provider-mode') {
     way = (
       <div className={layout.actions}>
-        <Button variant="secondary" href={providerModePath} icon={<Icon name="shield" />}>
+        <Button variant="secondary" href={providerModePath}>
+          <Icon name="shield" />
           {messages.goToProviderMode}
         </Button>
       </div>

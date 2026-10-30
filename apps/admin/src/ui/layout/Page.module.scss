@@ -1,3 +1,5 @@
+@use '../styles/roles' as *;
+
 // This repository's page layout, in identity-experience's tokens: a page heading, the panels under it,
 // a form's fields in a grid, a toolbar of filters. identity-experience lays its pages out in each
 // page's own module; this application's surfaces share one shape, so they share these.
@@ -5,41 +7,41 @@
   .page {
     display: flex;
     flex-direction: column;
-    gap: var(--ds-spacing-lg);
+    gap: var(--ds-dimension-spacing-page);
     min-inline-size: 0;
   }
 
   .header {
     display: flex;
     flex-direction: column;
-    gap: var(--ds-spacing-xs);
+    gap: var(--ds-dimension-spacing-stack-default);
   }
 
   .title {
-    font-size: var(--ds-font-size-xl);
-    font-weight: var(--ds-font-weight-semibold);
-    line-height: var(--ds-line-height-tight);
-    letter-spacing: var(--ds-letter-spacing-tight);
+    font-size: var(--ds-typography-heading-medium-font-size);
+    font-weight: var(--ds-typography-weight-semibold);
+    line-height: var(--ds-typography-heading-large-line-height);
+    letter-spacing: var(--ds-typography-heading-large-letter-spacing);
     color: var(--ds-color-neutral-text-strong-default);
   }
 
   .lead {
     max-inline-size: 72ch;
-    font-size: var(--ds-font-size-sm);
+    font-size: var(--ds-typography-body-small-font-size);
     color: var(--ds-color-neutral-text-subtle-default);
   }
 
   .subtitle {
-    font-size: var(--ds-font-size-md);
-    font-weight: var(--ds-font-weight-semibold);
-    letter-spacing: var(--ds-letter-spacing-tight);
+    font-size: var(--ds-typography-body-default-font-size);
+    font-weight: var(--ds-typography-weight-semibold);
+    letter-spacing: var(--ds-typography-heading-large-letter-spacing);
     color: var(--ds-color-neutral-text-strong-default);
   }
 
   .stack {
     display: flex;
     flex-direction: column;
-    gap: var(--ds-spacing-md);
+    gap: var(--ds-dimension-spacing-stack-comfortable);
     min-inline-size: 0;
   }
 
@@ -47,7 +49,7 @@
   .cards {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(min(100%, 22rem), 1fr));
-    gap: var(--ds-spacing-lg);
+    gap: var(--ds-dimension-spacing-page);
     align-items: start;
   }
 
@@ -55,7 +57,7 @@
   .form {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(min(100%, 14rem), 1fr));
-    gap: var(--ds-spacing-md);
+    gap: var(--ds-dimension-spacing-stack-comfortable);
     align-items: start;
   }
 
@@ -68,7 +70,7 @@
   .column {
     display: flex;
     flex-direction: column;
-    gap: var(--ds-spacing-md);
+    gap: var(--ds-dimension-spacing-stack-comfortable);
     max-inline-size: 40rem;
   }
 
@@ -76,7 +78,7 @@
   .toolbar {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(min(100%, 13rem), 16rem));
-    gap: var(--ds-spacing-sm) var(--ds-spacing-md);
+    gap: var(--ds-dimension-spacing-control-default) var(--ds-dimension-spacing-stack-comfortable);
     align-items: start;
   }
 
@@ -84,15 +86,15 @@
     display: flex;
     flex-wrap: wrap;
     align-items: center;
-    gap: var(--ds-spacing-xs);
+    gap: var(--ds-dimension-spacing-stack-default);
   }
 
   .token {
-    padding: var(--ds-spacing-xs) var(--ds-spacing-sm);
-    border: var(--ds-stroke-thin) solid var(--ds-color-neutral-border-default-default);
-    border-radius: var(--ds-radius-md);
-    font-family: var(--ds-font-family-mono);
-    font-size: var(--ds-font-size-xs);
+    padding: var(--ds-dimension-spacing-inset-compact) var(--ds-dimension-spacing-control-default);
+    border: var(--ds-dimension-border-width-default) solid var(--ds-color-neutral-border-default-default);
+    border-radius: var(--ds-dimension-radius-control);
+    font-family: $font-mono;
+    font-size: var(--ds-typography-label-small-font-size);
     overflow-wrap: anywhere;
     color: var(--ds-color-neutral-text-strong-default);
     background: var(--ds-color-neutral-surface-sunken-default);
@@ -106,15 +108,15 @@
   .confirm {
     display: flex;
     flex-direction: column;
-    gap: var(--ds-spacing-sm);
-    padding: var(--ds-spacing-md);
-    border: var(--ds-stroke-thin) solid var(--ds-color-neutral-border-default-default);
-    border-radius: var(--ds-radius-md);
+    gap: var(--ds-dimension-spacing-control-default);
+    padding: var(--ds-dimension-spacing-inset-default);
+    border: var(--ds-dimension-border-width-default) solid var(--ds-color-neutral-border-default-default);
+    border-radius: var(--ds-dimension-radius-control);
     background: var(--ds-color-neutral-surface-sunken-default);
   }
 
   .confirm[data-tone='danger'] {
     border-color: var(--ds-color-danger-border-default-default);
-    border-inline-start: 3px solid var(--ds-color-danger-solid-default-default);
+    border-inline-start: 3px solid var(--ds-color-danger-border-strong-default);
   }
 }

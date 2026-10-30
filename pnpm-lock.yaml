@@ -41,12 +41,12 @@ importers:
 
   apps/admin:
     dependencies:
-      '@fontsource-variable/inter':
-        specifier: 5.3.0
-        version: 5.3.0
-      '@fontsource-variable/jetbrains-mono':
-        specifier: 5.3.0
-        version: 5.3.0
+      '@scnx/core-ui':
+        specifier: file:../../vendor/ui-platform/scnx-core-ui-2.0.0-beta.0.tgz
+        version: file:vendor/ui-platform/scnx-core-ui-2.0.0-beta.0.tgz(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
+      '@scnx/system':
+        specifier: file:../../vendor/ui-platform/scnx-system-2.0.0-beta.0.tgz
+        version: file:vendor/ui-platform/scnx-system-2.0.0-beta.0.tgz(@scnx/core-ui@file:vendor/ui-platform/scnx-core-ui-2.0.0-beta.0.tgz(react-dom@19.3.0(react@19.3.0))(react@19.3.0))(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
       '@tanstack/react-query':
         specifier: 5.104.0
         version: 5.104.0(react@19.3.0)
@@ -588,12 +588,6 @@ packages:
   '@fastify/static@10.1.5':
     resolution: {integrity: sha512-3r0ZFXo82nKlPzySOUYhwWVfPZStfiwjmyevkX7cJWL2yXmEzl0Rpxv+L6L1R4OxqvlDGqf3g8OdBzILKgqe6w==}
 
-  '@fontsource-variable/inter@5.3.0':
-    resolution: {integrity: sha512-OupL48va4JNofb97w6NYeF9S7W/kHNKM0Er8Dem5nqi4jeOLrVJDoE8tZEpnMJmtkvNbB1EIPPwHcdkF6b1oUA==}
-
-  '@fontsource-variable/jetbrains-mono@5.3.0':
-    resolution: {integrity: sha512-F32xpS2NsGYoQi2ADSkKTgpJj7ozajsGgDJ8woTnqjmIB+dxDIqImjl4pXZVEExu8UFZ2ndhmX18EBS/hdz3Lw==}
-
   '@humanfs/core@0.19.2':
     resolution: {integrity: sha512-UhXNm+CFMWcbChXywFwkmhqjs3PRCmcSa/hfBgLIb7oQ5HNb1wS0icWsGtSAUNgefHeI+eBrA8I1fxmbHsGdvA==}
     engines: {node: '>=18.18.0'}
@@ -841,6 +835,21 @@ packages:
 
   '@rolldown/pluginutils@1.0.1':
     resolution: {integrity: sha512-2j9bGt5Jh8hj+vPtgzPtl72j0yRxHAyumoo6TNfAjsLB04UtpSvPbPcDcBMxz7n+9CYB0c1GxQFxYRg2jimqGw==}
+
+  '@scnx/core-ui@file:vendor/ui-platform/scnx-core-ui-2.0.0-beta.0.tgz':
+    resolution: {integrity: sha512-cMZj+0I7q3iYvp3/RTV8VLw7cg5ujnRRby6ZwbUZ6Pwpmzn5dFMx5f64khacdsotNvVxkZpqQeZ/UYiPnDk7rQ==, tarball: file:vendor/ui-platform/scnx-core-ui-2.0.0-beta.0.tgz}
+    version: 2.0.0-beta.0
+    peerDependencies:
+      react: ^19.0.0
+      react-dom: ^19.0.0
+
+  '@scnx/system@file:vendor/ui-platform/scnx-system-2.0.0-beta.0.tgz':
+    resolution: {integrity: sha512-X/7VN4Kss9cdZ1tu1rsGYtClMl7+Nbt+MrLC2AMlSUVW+sgS75n7A62muve1SWm8bbGDA4Tng31h+LybgxfDbQ==, tarball: file:vendor/ui-platform/scnx-system-2.0.0-beta.0.tgz}
+    version: 2.0.0-beta.0
+    peerDependencies:
+      '@scnx/core-ui': ^2.0.0-beta.0
+      react: ^19.0.0
+      react-dom: ^19.0.0
 
   '@sindresorhus/merge-streams@4.0.0':
     resolution: {integrity: sha512-tlqY9xq5ukxTUZBmoOp+m61cqwQD5pHJtFY3Mn8CA8ps6yghLH/Hw8UPdqg4OLmFW3IFlcXnQNmo/dh8HzXYIQ==}
@@ -3656,10 +3665,6 @@ snapshots:
       fastq: 1.20.3
       glob: 13.0.6
 
-  '@fontsource-variable/inter@5.3.0': {}
-
-  '@fontsource-variable/jetbrains-mono@5.3.0': {}
-
   '@humanfs/core@0.19.2':
     dependencies:
       '@humanfs/types': 0.15.0
@@ -3835,6 +3840,17 @@ snapshots:
     optional: true
 
   '@rolldown/pluginutils@1.0.1': {}
+
+  '@scnx/core-ui@file:vendor/ui-platform/scnx-core-ui-2.0.0-beta.0.tgz(react-dom@19.3.0(react@19.3.0))(react@19.3.0)':
+    dependencies:
+      react: 19.3.0
+      react-dom: 19.3.0(react@19.3.0)
+
+  '@scnx/system@file:vendor/ui-platform/scnx-system-2.0.0-beta.0.tgz(@scnx/core-ui@file:vendor/ui-platform/scnx-core-ui-2.0.0-beta.0.tgz(react-dom@19.3.0(react@19.3.0))(react@19.3.0))(react-dom@19.3.0(react@19.3.0))(react@19.3.0)':
+    dependencies:
+      '@scnx/core-ui': file:vendor/ui-platform/scnx-core-ui-2.0.0-beta.0.tgz(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
+      react: 19.3.0
+      react-dom: 19.3.0(react@19.3.0)
 
   '@sindresorhus/merge-streams@4.0.0': {}
 

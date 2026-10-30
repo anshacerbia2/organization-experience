@@ -43,7 +43,7 @@ export function TenantAdministrators({
     return (
       <Button
         variant="secondary"
-        size="sm"
+        size="small"
         onClick={() => {
           setOpen(true);
         }}
@@ -56,7 +56,7 @@ export function TenantAdministrators({
     <>
       <Button
         variant="secondary"
-        size="sm"
+        size="small"
         pressed
         onClick={() => {
           setOpen(false);

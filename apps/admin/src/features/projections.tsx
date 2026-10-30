@@ -204,7 +204,7 @@ function DeadLetters({
     <>
       <Button
         variant="secondary"
-        size="sm"
+        size="small"
         pressed={open}
         onClick={() => {
           setOpen(!open);

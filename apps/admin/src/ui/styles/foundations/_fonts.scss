@@ -1,0 +1,29 @@
+// Copied from identity-experience at f5424f0ea78dae6db7096f457b54c8894e275c67 (its pull request
+// #66), packages/ui/src/styles/foundations/_fonts.scss. TDD-organization-experience-001 §Visual
+// Language records the copy.
+// IBM Plex Mono, the HUD voice (scnehaux-design scnx-platform/Brand-Book.html, Type), served from this
+// origin under the BFF's `font-src 'self'` (TDD-identity-experience-001, which this application's BFF serves as is). SIL Open Font License 1.1:
+// fonts/ibm-plex-mono-ofl.txt. Inter, the content voice, comes with @scnx/system's theme stylesheet.
+@font-face {
+  font-family: 'IBM Plex Mono';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('../fonts/ibm-plex-mono-400.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'IBM Plex Mono';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url('../fonts/ibm-plex-mono-500.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'IBM Plex Mono';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url('../fonts/ibm-plex-mono-600.woff2') format('woff2');
+}

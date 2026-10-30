@@ -1,10 +1,13 @@
-// Ported from identity-experience at c723e417c0eee97db6b1d5b6dab608fe6a406ac2, packages/ui/src/system/icon/Icon.tsx
-// (TDD-organization-experience-001 §Visual Language). The paths after `arrow` are this repository's.
+// Ported from identity-experience at f5424f0ea78dae6db7096f457b54c8894e275c67 (its pull request
+// #66), packages/ui/src/system/icon/Icon.tsx. TDD-organization-experience-001 §Visual Language
+// records the copy; the paths after `arrow` are this repository's.
 import type { ReactElement } from 'react';
 
-// Icon renders one of a small, fixed set of line icons as inline SVG. Inline, so nothing is
-// fetched and the content security policy needs no image source; fixed, so an icon name is a
-// type, not a string someone mistypes.
+// Icon renders one of a small, fixed set of line icons as inline SVG, in the brand's icon grammar:
+// a 24-unit grid, a 1.8 stroke, round caps and joins, currentColor (scnehaux-design brand/Brand.html,
+// Icons). The platform publishes no icon set yet, so this one is local (TDD-organization-experience-001
+// §Visual Language). Inline, so nothing is fetched and the content security policy needs no image
+// source; fixed, so an icon name is a type, not a string someone mistypes.
 //
 // Icons are decorative by default and hidden from assistive technology. The label that sits
 // beside an icon carries its meaning, which is what STD-GLB-FE-009 asks of anything that conveys
@@ -49,7 +52,7 @@ export function Icon({ name, label }: { readonly name: IconName; readonly label?
       height="1em"
       fill="none"
       stroke="currentColor"
-      strokeWidth={1.7}
+      strokeWidth={1.8}
       strokeLinecap="round"
       strokeLinejoin="round"
       focusable="false"

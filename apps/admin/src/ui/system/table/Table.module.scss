@@ -1,90 +1,33 @@
-// Ported from identity-experience at c723e417c0eee97db6b1d5b6dab608fe6a406ac2, packages/ui/src/system/table/Table.module.scss
-// (TDD-organization-experience-001 §Visual Language).
+// Copied from identity-experience at f5424f0ea78dae6db7096f457b54c8894e275c67 (its pull request
+// #66), packages/ui/src/system/table/Table.module.scss. TDD-organization-experience-001 §Visual
+// Language records the copy.
+@use '../../styles/roles' as *;
+
 @layer components {
+  // The region that scrolls a table too wide for the screen. Its one column is at least the table's
+  // min-content width and otherwise the region's own, so the platform's frame inside it grows with
+  // the table rather than scrolling itself, and the region, which takes focus, is what scrolls.
   .scroll {
+    display: grid;
+    grid-template-columns: minmax(min-content, 100%);
     inline-size: 100%;
     overflow-x: auto;
-    border: var(--ds-stroke-thin) solid var(--ds-color-neutral-border-subtle-default);
-    border-radius: var(--ds-radius-lg);
-    background: var(--ds-color-neutral-surface-raised-default);
-    backdrop-filter: blur(18px) saturate(140%);
 
     // A column narrows to its widest word, not to one character: a table too wide for the screen
     // scrolls here rather than squeezing its text, whatever wrapping the panel around it sets
-    // (identity-experience#57).
+    // (STD-GLB-FE-005 §3.10).
     &,
     :is(p, h2, h3, h4, dd, li, label) {
       overflow-wrap: normal;
     }
-
-    &:focus-visible {
-      outline: var(--ds-stroke-default) solid var(--ds-color-neutral-border-default-focus);
-      outline-offset: 2px;
-    }
   }
+}
 
-  .table {
-    inline-size: 100%;
-    border-collapse: collapse;
-    font-size: var(--ds-font-size-sm);
-    font-variant-numeric: tabular-nums;
-  }
-
-  .caption {
-    padding: var(--ds-spacing-md) var(--ds-spacing-md) var(--ds-spacing-xs);
-    font-size: var(--ds-font-size-sm);
-    font-weight: var(--ds-font-weight-semibold);
-    text-align: start;
-    color: var(--ds-color-neutral-text-strong-default);
-  }
-
-  .headerCell {
-    padding: var(--ds-spacing-xs) var(--ds-spacing-md);
-    border-block-end: var(--ds-stroke-thin) solid var(--ds-color-neutral-border-subtle-default);
-    font-size: var(--ds-font-size-xs);
-    font-weight: var(--ds-font-weight-medium);
-    letter-spacing: var(--ds-letter-spacing-wide);
-    text-align: start;
-    text-transform: uppercase;
-    white-space: nowrap;
-    color: var(--ds-color-neutral-text-subtle-default);
-  }
-
-  .cell {
-    padding: var(--ds-spacing-sm) var(--ds-spacing-md);
-    border-block-end: var(--ds-stroke-thin) solid var(--ds-color-neutral-border-subtle-default);
-    vertical-align: middle;
-    color: var(--ds-color-neutral-text-default-default);
-  }
-
-  .headerCell[data-align='end'],
-  .cell[data-align='end'] {
-    text-align: end;
-  }
-
+// In `overrides` (STD-GLB-FE-005 §3.4): a cell's face is the platform's until a composition sets it.
+@layer overrides {
   // An identifier broken across lines at its hyphens reads as two values.
-  .cell[data-mono] {
-    font-family: var(--ds-font-family-mono);
-    font-size: var(--ds-font-size-xs);
+  .mono {
+    font-family: $font-mono;
     white-space: nowrap;
-  }
-
-  .row {
-    transition: background-color var(--ds-duration-fast) var(--ds-easing-standard);
-
-    &:hover {
-      background: var(--ds-color-neutral-surface-default-hover);
-    }
-
-    &:last-child > .cell {
-      border-block-end: 0;
-    }
-  }
-
-  @media (forced-colors: active) {
-    .scroll {
-      border-color: CanvasText;
-      backdrop-filter: none;
-    }
   }
 }

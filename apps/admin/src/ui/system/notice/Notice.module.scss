@@ -1,63 +1,48 @@
-// identity-experience's SignInNotice.module.scss and MutationError.module.scss (packages/app-core, at
-// c723e417c0eee97db6b1d5b6dab608fe6a406ac2), with a tone for each scheme rather than danger alone.
+@use '../../styles/roles' as *;
+
+// The platform Alert's drawing (@scnx/system/specs/alert.json), token for token: the root, the icon
+// and the content, in each scheme. Notice stays this application's own because the platform's Alert is
+// always a live region (`status` or `alert`), and a Notice that states standing guidance has no role
+// (TDD-organization-experience-001 §Visual Language).
 @layer components {
   .root {
-    --notice-text: var(--ds-color-neutral-text-default-default);
-    --notice-surface: var(--ds-color-neutral-surface-subtle-default);
-    --notice-border: var(--ds-color-neutral-border-default-default);
-    --notice-icon: var(--ds-color-neutral-icon-default-default);
-
     display: flex;
     align-items: flex-start;
-    gap: var(--ds-spacing-sm);
-    padding: var(--ds-spacing-sm) var(--ds-spacing-md);
-    border: var(--ds-stroke-thin) solid var(--notice-border);
-    border-radius: var(--ds-radius-md);
-    font-size: var(--ds-font-size-sm);
-    color: var(--notice-text);
-    background: var(--notice-surface);
+    gap: var(--ds-dimension-spacing-inline-default);
+    padding: var(--ds-dimension-spacing-inset-default);
+    border: var(--ds-dimension-border-width-default) solid;
+    border-radius: var(--ds-dimension-radius-container);
+    font-family: var(--ds-typography-body-small-font-family);
+    font-size: var(--ds-typography-body-small-font-size);
+    font-weight: var(--ds-typography-body-small-font-weight);
+    line-height: var(--ds-typography-body-small-line-height);
+    letter-spacing: var(--ds-typography-body-small-letter-spacing);
   }
 
-  .root[data-tone='info'] {
-    --notice-text: var(--ds-color-info-text-default-default);
-    --notice-surface: var(--ds-color-info-surface-subtle-default);
-    --notice-border: var(--ds-color-info-border-default-default);
-    --notice-icon: var(--ds-color-info-icon-default-default);
-  }
+  // One scheme per tone, as the Alert binds it.
+  @each $tone in neutral, info, success, warning, danger {
+    .root[data-tone='#{$tone}'] {
+      border-color: var(--ds-color-#{$tone}-border-subtle-default);
+      color: var(--ds-color-#{$tone}-text-subtle-default);
+      background-color: var(--ds-color-#{$tone}-surface-subtle-default);
 
-  .root[data-tone='success'] {
-    --notice-text: var(--ds-color-success-text-default-default);
-    --notice-surface: var(--ds-color-success-surface-subtle-default);
-    --notice-border: var(--ds-color-success-border-default-default);
-    --notice-icon: var(--ds-color-success-icon-default-default);
-  }
-
-  .root[data-tone='warning'] {
-    --notice-text: var(--ds-color-warning-text-default-default);
-    --notice-surface: var(--ds-color-warning-surface-subtle-default);
-    --notice-border: var(--ds-color-warning-border-default-default);
-    --notice-icon: var(--ds-color-warning-icon-default-default);
-  }
-
-  .root[data-tone='danger'] {
-    --notice-text: var(--ds-color-danger-text-default-default);
-    --notice-surface: var(--ds-color-danger-surface-subtle-default);
-    --notice-border: var(--ds-color-danger-border-default-default);
-    --notice-icon: var(--ds-color-danger-icon-default-default);
+      .glyph {
+        color: var(--ds-color-#{$tone}-icon-subtle-default);
+      }
+    }
   }
 
   .glyph {
     display: inline-flex;
     flex: none;
     padding-block-start: 0.15em;
-    font-size: var(--ds-size-icon-sm);
-    color: var(--notice-icon);
+    font-size: $icon-text;
   }
 
   .text {
     display: flex;
     flex-direction: column;
-    gap: var(--ds-spacing-2xs);
+    gap: var(--ds-dimension-spacing-stack-compact);
     min-inline-size: 0;
     overflow-wrap: anywhere;
   }

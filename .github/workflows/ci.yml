@@ -9,6 +9,26 @@ permissions:
   contents: read
 
 jobs:
+  # The UI Platform's packages are vendored tarballs of one ui-platform CI run on main
+  # (vendor/ui-platform/pin.json, TDD-organization-experience-001 §Visual Language "Intake"), the same
+  # pin identity-experience builds on. Their digests match the pin, and each carries SLSA provenance
+  # signed by ui-platform's CI workflow from the pinned commit on main.
+  ui-platform:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      attestations: read
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '24'
+
+      - name: verify the vendored ui-platform tarballs
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node scripts/ui-platform.mjs verify
   verify:
     runs-on: ubuntu-latest
 
@@ -75,7 +95,7 @@ jobs:
         run: pnpm lint
 
       - name: test
-        run: pnpm test
+        run: pnpm test:scripts && pnpm test
 
       # The build ends with scripts/check-dist.mjs: no inline script or style, no data: stylesheet
       # or font, and no credential-shaped string in the bundle.
