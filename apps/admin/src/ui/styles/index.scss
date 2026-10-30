@@ -1,10 +1,11 @@
-// Copied from identity-experience at c723e417c0eee97db6b1d5b6dab608fe6a406ac2 (its pull request #54),
-// packages/ui/src/styles/index.scss. The same names and values; TDD-organization-experience-001 §Visual Language
-// records the copy and any departure.
-// Global foundations. Component styles are CSS Modules beside their components and declare
-// themselves in the `components` layer; nothing here styles a component.
+// Copied from identity-experience at f5424f0ea78dae6db7096f457b54c8894e275c67 (its pull request
+// #66), packages/ui/src/styles/index.scss. TDD-organization-experience-001 §Visual Language records
+// the copy.
+// Global foundations. The platform's stylesheets (styles.ts) carry its tokens, its scoped reset and
+// base, and every component's rules; component compositions are CSS Modules beside their components.
+// Nothing here styles a component.
 @use 'layers';
+@use 'foundations/fonts';
 @use 'foundations/reset';
-@use 'tokens/ds-temporary';
 @use 'foundations/base';
 @use 'foundations/utilities';

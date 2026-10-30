@@ -1,3 +1,5 @@
+@use './ui/styles/roles' as *;
+
 // The signed-out entry: one floating panel on the canvas, the brand above it, as identity-kernel's
 // hosted login draws its card in the same tokens (TDD-identity-kernel-004 §Visual Language).
 @layer components {
@@ -6,19 +8,19 @@
     display: grid;
     place-items: center;
     min-block-size: 100dvh;
-    padding: var(--ds-spacing-2xl) var(--ds-spacing-md);
+    padding: calc(2 * var(--ds-dimension-spacing-page)) var(--ds-dimension-spacing-inset-default);
   }
 
   .gateTheme {
     position: absolute;
-    inset-block-start: var(--ds-spacing-md);
-    inset-inline-end: var(--ds-spacing-md);
+    inset-block-start: var(--ds-dimension-spacing-stack-comfortable);
+    inset-inline-end: var(--ds-dimension-spacing-inline-comfortable);
   }
 
   .gateMain {
     display: flex;
     flex-direction: column;
-    gap: var(--ds-spacing-lg);
+    gap: var(--ds-dimension-spacing-page);
     inline-size: min(100%, 30rem);
   }
 
@@ -26,41 +28,40 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: var(--ds-spacing-sm);
+    gap: var(--ds-dimension-spacing-control-default);
   }
 
   .gateMark {
     display: grid;
     place-items: center;
-    inline-size: var(--ds-size-control-md);
-    block-size: var(--ds-size-control-md);
-    border: var(--ds-stroke-thin) solid var(--ds-color-primary-border-default-default);
-    border-radius: var(--ds-radius-md);
-    font-size: var(--ds-size-icon-lg);
+    inline-size: var(--ds-dimension-size-control-default);
+    block-size: var(--ds-dimension-size-control-default);
+    border: var(--ds-dimension-border-width-default) solid var(--ds-color-primary-border-default-default);
+    border-radius: var(--ds-dimension-radius-control);
+    font-size: $icon-large;
     color: var(--ds-color-primary-icon-default-default);
     background: var(--ds-color-primary-surface-subtle-default);
-    box-shadow: 0 0 18px -4px var(--ds-color-primary-shadow-default-default);
   }
 
   .gateBrandName {
-    font-size: var(--ds-font-size-lg);
-    font-weight: var(--ds-font-weight-semibold);
-    letter-spacing: var(--ds-letter-spacing-tight);
+    font-size: var(--ds-typography-body-large-font-size);
+    font-weight: var(--ds-typography-weight-semibold);
+    letter-spacing: var(--ds-typography-heading-large-letter-spacing);
     color: var(--ds-color-neutral-text-strong-default);
   }
 
   .gateTitle {
-    font-size: var(--ds-font-size-xl);
-    font-weight: var(--ds-font-weight-semibold);
-    line-height: var(--ds-line-height-tight);
-    letter-spacing: var(--ds-letter-spacing-tight);
+    font-size: var(--ds-typography-heading-medium-font-size);
+    font-weight: var(--ds-typography-weight-semibold);
+    line-height: var(--ds-typography-heading-large-line-height);
+    letter-spacing: var(--ds-typography-heading-large-letter-spacing);
     color: var(--ds-color-neutral-text-strong-default);
   }
 
   .gateBody {
     display: flex;
     flex-direction: column;
-    gap: var(--ds-spacing-lg);
+    gap: var(--ds-dimension-spacing-page);
   }
 
   // The neutral sign-in: its sentence, then the one primary action (TDD-organization-experience-001
@@ -69,11 +70,11 @@
     display: flex;
     flex-direction: column;
     align-items: flex-start;
-    gap: var(--ds-spacing-sm);
+    gap: var(--ds-dimension-spacing-control-default);
   }
 
   .gateLead {
-    font-size: var(--ds-font-size-sm);
+    font-size: var(--ds-typography-body-small-font-size);
     color: var(--ds-color-neutral-text-default-default);
   }
 
@@ -82,8 +83,9 @@
     display: flex;
     flex-direction: column;
     align-items: flex-start;
-    gap: var(--ds-spacing-sm);
-    padding-block-start: var(--ds-spacing-lg);
-    border-block-start: var(--ds-stroke-thin) solid var(--ds-color-neutral-border-subtle-default);
+    gap: var(--ds-dimension-spacing-control-default);
+    padding-block-start: var(--ds-dimension-spacing-inset-comfortable);
+    border-block-start: var(--ds-dimension-border-width-default) solid
+      var(--ds-color-neutral-border-subtle-default);
   }
 }

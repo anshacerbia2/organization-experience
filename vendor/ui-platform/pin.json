@@ -1,0 +1,22 @@
+{
+  "$comment": "The ui-platform release organization-experience builds on (TDD-organization-experience-001 §Visual Language, Intake). Written by scripts/ui-platform.mjs pin; verified in CI by scripts/ui-platform.mjs verify.",
+  "repository": "anshacerbia2/ui-platform",
+  "commit": "21133371b59e1286efad8b255104cae8ae75d4dc",
+  "ref": "refs/heads/main",
+  "run": "https://github.com/anshacerbia2/ui-platform/actions/runs/40547022973",
+  "signerWorkflow": "anshacerbia2/ui-platform/.github/workflows/ci.yml",
+  "packages": [
+    {
+      "name": "@scnx/core-ui",
+      "version": "2.0.0-beta.0",
+      "tarball": "scnx-core-ui-2.0.0-beta.0.tgz",
+      "sha256": "58875be2096addff667573cd084087416631cc1fb401927136e55b09c7276b51"
+    },
+    {
+      "name": "@scnx/system",
+      "version": "2.0.0-beta.0",
+      "tarball": "scnx-system-2.0.0-beta.0.tgz",
+      "sha256": "f28c091ef117a9a030ec060dbf0aba2fb5c43b2f9fd0b69bd834a52460a92bd2"
+    }
+  ]
+}

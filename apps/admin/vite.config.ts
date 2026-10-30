@@ -6,8 +6,9 @@ import { defineConfig } from 'vite';
 // scripts, styles and fonts from 'self' and nothing inline (TDD-identity-experience-001), so an
 // inlined asset would be refused in production and pass in development.
 //
-// The styles are identity-experience's (TDD-organization-experience-001 §Visual Language): SCSS
-// Modules beside their components, inside cascade layers, as its Vite config builds them.
+// The styles are the UI Platform's, as identity-experience builds them (TDD-organization-experience-001
+// §Visual Language): the platform's stylesheets, then SCSS Modules beside their components, inside the
+// platform's cascade layers.
 export default defineConfig({
   plugins: [react()],
   css: {
@@ -22,7 +23,7 @@ export default defineConfig({
         additionalData: (source: string): string =>
           source.includes('@use')
             ? source
-            : `@layer reset, tokens, base, components, utilities, overrides;\n${source}`,
+            : `@layer reset, tokens, base, components, recipes, utilities, overrides;\n${source}`,
       },
     },
   },

@@ -1,7 +1,8 @@
-// Copied from identity-experience at c723e417c0eee97db6b1d5b6dab608fe6a406ac2 (its pull request #54),
-// packages/ui/src/styles/_layers.scss. The same names and values; TDD-organization-experience-001 §Visual Language
-// records the copy and any departure.
-// The one cascade-layer order STD-GLB-FE-005 §3.3 fixes. Loaded first, because the first mention
-// of a layer decides where it sits: were the reset layer emitted before this line, the utilities
-// layer could land ahead of the components layer.
-@layer reset, tokens, base, components, utilities, overrides;
+// Copied from identity-experience at f5424f0ea78dae6db7096f457b54c8894e275c67 (its pull request
+// #66), packages/ui/src/styles/_layers.scss. TDD-organization-experience-001 §Visual Language
+// records the copy.
+// The one cascade-layer order STD-GLB-FE-005 §3.4 fixes for an application that consumes the UI
+// Platform's CSS, the order @scnx/system's own stylesheets declare. Loaded first, because the first
+// mention of a layer decides where it sits: were the reset layer emitted before this line, the
+// utilities layer could land ahead of the components layer.
+@layer reset, tokens, base, components, recipes, utilities, overrides;

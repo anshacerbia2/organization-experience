@@ -1,5 +1,6 @@
-// Ported from identity-experience at c723e417c0eee97db6b1d5b6dab608fe6a406ac2, packages/ui/src/system/status-pill/StatusPill.test.tsx
-// (TDD-organization-experience-001 §Visual Language).
+// Copied from identity-experience at f5424f0ea78dae6db7096f457b54c8894e275c67 (its pull request
+// #66), packages/ui/src/system/status-pill/StatusPill.test.tsx. TDD-organization-experience-001
+// §Visual Language records the copy.
 import { render, screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 

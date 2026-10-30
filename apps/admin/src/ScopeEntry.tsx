@@ -18,7 +18,8 @@ import { Button, Icon } from './ui';
 // a Tenant after it.
 export function SignIn({ returnTo }: { readonly returnTo: string }): ReactElement {
   return (
-    <Button href={signInHref(returnTo)} icon={<Icon name="arrow" />}>
+    <Button href={signInHref(returnTo)}>
+      <Icon name="arrow" />
       {messages.signIn}
     </Button>
   );
@@ -33,7 +34,8 @@ export function ProviderSignIn({
   readonly label: string;
 }): ReactElement {
   return (
-    <Button variant="secondary" href={providerSignInHref(returnTo)} icon={<Icon name="key" />}>
+    <Button variant="secondary" href={providerSignInHref(returnTo)}>
+      <Icon name="key" />
       {label}
     </Button>
   );

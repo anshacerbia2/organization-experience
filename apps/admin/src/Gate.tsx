@@ -2,7 +2,7 @@ import type { ReactElement, ReactNode } from 'react';
 
 import { messages } from './messages';
 import shellStyles from './Shell.module.scss';
-import { Icon, Panel, ThemeToggle, useTheme } from './ui';
+import { Icon, Panel, ThemeToggle } from './ui';
 
 // Gate is the canvas a page stands on alone, outside the administration frame: one floating panel,
 // the brand above it, as identity-kernel's hosted login draws its card in the same tokens
@@ -18,11 +18,10 @@ export function Gate({
   readonly description?: string | undefined;
   readonly children?: ReactNode;
 }): ReactElement {
-  const { theme, choose } = useTheme();
   return (
     <div className={shellStyles['gate']}>
       <div className={shellStyles['gateTheme']}>
-        <ThemeToggle theme={theme} onChoose={choose} />
+        <ThemeToggle />
       </div>
       <main className={shellStyles['gateMain']}>
         <div className={shellStyles['gateBrand']}>

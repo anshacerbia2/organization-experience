@@ -239,7 +239,8 @@ function ProviderModeForm({
 
         {refusal === null ? null : <RefusalMessage refusal={refusal} returnTo={returnTo} />}
         <div className={layout.actions}>
-          <Button type="submit" disabled={sending} icon={<Icon name="shield" />}>
+          <Button type="submit" disabled={sending}>
+            <Icon name="shield" />
             {sending ? messages.requesting : messages.requestProviderMode}
           </Button>
         </div>
@@ -275,7 +276,8 @@ function LeaveProviderMode({
   return (
     <div className={layout.stack}>
       <div className={layout.actions}>
-        <Button variant="secondary" disabled={leaving} onClick={onLeave} icon={<Icon name="logout" />}>
+        <Button variant="secondary" disabled={leaving} onClick={onLeave}>
+          <Icon name="logout" />
           {pending ? messages.withdrawRequest : messages.leaveProviderMode}
         </Button>
       </div>

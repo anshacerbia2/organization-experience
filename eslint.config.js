@@ -84,6 +84,26 @@ export default tseslint.config(
     },
   },
   {
+    // The UI Platform is reached through src/ui/index.ts alone, so an upgrade or a replaced component
+    // changes that file only (TDD-organization-experience-001 §Visual Language). identity-experience
+    // holds the same boundary with its dependency-cruiser rule `platform-through-ui-only`.
+    files: ['apps/admin/src/**/*.{ts,tsx}'],
+    ignores: ['apps/admin/src/ui/**'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            {
+              group: ['@scnx/*'],
+              message: 'Import the UI Platform through src/ui (its index.ts), not directly.',
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
     // Tests state their expectations in literal strings, and render literal children to do it.
     files: ['**/*.test.{ts,tsx}', '**/src/test/**'],
     rules: {

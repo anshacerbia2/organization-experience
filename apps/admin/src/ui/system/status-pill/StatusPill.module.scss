@@ -1,55 +1,23 @@
-// Ported from identity-experience at c723e417c0eee97db6b1d5b6dab608fe6a406ac2, packages/ui/src/system/status-pill/StatusPill.module.scss
-// (TDD-organization-experience-001 §Visual Language).
-@layer components {
+// Copied from identity-experience at f5424f0ea78dae6db7096f457b54c8894e275c67 (its pull request
+// #66), packages/ui/src/system/status-pill/StatusPill.module.scss. TDD-organization-experience-001
+// §Visual Language records the copy.
+// In `overrides` (STD-GLB-FE-005 §3.4), so it holds over the Badge's own `nowrap` whatever order the
+// stylesheets load in.
+@layer overrides {
+  // A status longer than the room it has wraps inside the pill rather than pushing the page sideways
+  // (STD-GLB-FE-005 §3.10, TDD-identity-experience-003 §Layout). `nowrap` "does not allow
+  // wrapping", so a pill's min-content size was its whole text. A wrapped pill keeps a little room
+  // above and below.
   .root {
-    --pill-text: var(--ds-color-neutral-text-default-default);
-    --pill-surface: var(--ds-color-neutral-surface-subtle-default);
-    --pill-border: var(--ds-color-neutral-border-default-default);
-
-    display: inline-flex;
-    align-items: center;
-    gap: var(--ds-spacing-2xs);
-    min-block-size: var(--ds-size-control-xs);
-    padding-inline: var(--ds-spacing-xs);
-    border: var(--ds-stroke-thin) solid var(--pill-border);
-    border-radius: var(--ds-radius-full);
-    font-size: var(--ds-font-size-xs);
-    font-weight: var(--ds-font-weight-medium);
-    color: var(--pill-text);
-    background: var(--pill-surface);
-
-    // This repository's change (STD-GLB-FE-005 2.1.0 §3.10, TDD-organization-experience-001 1.11.0): a
-    // status longer than the room it has wraps inside the pill rather than pushing the page sideways.
     max-inline-size: 100%;
-    padding-block: var(--ds-spacing-3xs);
+    padding-block: var(--ds-dimension-spacing-stack-compact);
+    white-space: normal;
   }
 
-  .root[data-tone='info'] {
-    --pill-text: var(--ds-color-info-text-default-default);
-    --pill-surface: var(--ds-color-info-surface-subtle-default);
-    --pill-border: var(--ds-color-info-border-default-default);
-  }
-
-  .root[data-tone='success'] {
-    --pill-text: var(--ds-color-success-text-default-default);
-    --pill-surface: var(--ds-color-success-surface-subtle-default);
-    --pill-border: var(--ds-color-success-border-default-default);
-  }
-
-  .root[data-tone='warning'] {
-    --pill-text: var(--ds-color-warning-text-default-default);
-    --pill-surface: var(--ds-color-warning-surface-subtle-default);
-    --pill-border: var(--ds-color-warning-border-default-default);
-  }
-
-  .root[data-tone='danger'] {
-    --pill-text: var(--ds-color-danger-text-default-default);
-    --pill-surface: var(--ds-color-danger-surface-subtle-default);
-    --pill-border: var(--ds-color-danger-border-default-default);
-  }
-
+  // The glyph is a text glyph's size, from the label it sits in.
   .glyph {
     display: inline-flex;
-    font-size: var(--ds-size-icon-xs);
+    flex: none;
+    font-size: 0.875em;
   }
 }

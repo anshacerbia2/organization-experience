@@ -42,7 +42,7 @@ export function WithdrawMembership({
     return (
       <Button
         variant="secondary"
-        size="sm"
+        size="small"
         onClick={() => {
           setOpen(true);
         }}
@@ -55,7 +55,7 @@ export function WithdrawMembership({
     <>
       <Button
         variant="secondary"
-        size="sm"
+        size="small"
         pressed
         onClick={() => {
           setOpen(false);

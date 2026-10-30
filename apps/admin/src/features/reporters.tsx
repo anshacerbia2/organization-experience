@@ -250,7 +250,7 @@ function RetireReporter({ reporterId }: { readonly reporterId: string }): ReactE
     return (
       <Button
         variant="danger"
-        size="sm"
+        size="small"
         onClick={() => {
           setOpen(true);
         }}

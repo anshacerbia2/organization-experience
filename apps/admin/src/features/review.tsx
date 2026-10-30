@@ -236,7 +236,7 @@ export function AccessReviewPage(): ReactElement {
               ) : (
                 <Button
                   variant="secondary"
-                  size="sm"
+                  size="small"
                   pressed={selected === actor.actor_id}
                   onClick={() => {
                     setSelected(actor.actor_id);

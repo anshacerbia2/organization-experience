@@ -263,7 +263,7 @@ for (const theme of themes) {
       await page.emulateMedia({ colorScheme: theme });
       await page.setViewportSize({ width: widths[0], height: 900 });
       await page.goto(main.path);
-      await expect(page.locator('html')).toHaveAttribute('data-theme', theme);
+      await expect(page.locator('html')).toHaveAttribute('data-scnx-resolved-mode', theme);
       await expect(main.ready(page).first()).toBeVisible();
       await expect(page.locator('[aria-busy="true"]')).toHaveCount(0);
       if (main.open !== undefined) {

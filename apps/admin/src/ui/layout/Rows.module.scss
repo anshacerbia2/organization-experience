@@ -1,3 +1,5 @@
+@use '../styles/roles' as *;
+
 // This repository's record list: a list whose items read as the rows of a dense table, in
 // identity-experience's table tokens (packages/ui/src/system/table/Table.module.scss). The records stay
 // list items, which is what a screen reader announces them as and what the tests find them by. Each
@@ -7,13 +9,11 @@
   .list {
     display: flex;
     flex-direction: column;
-    border: var(--ds-stroke-thin) solid var(--ds-color-neutral-border-subtle-default);
-    border-radius: var(--ds-radius-lg);
-    font-size: var(--ds-font-size-sm);
+    border: var(--ds-dimension-border-width-default) solid var(--ds-color-neutral-border-subtle-default);
+    border-radius: var(--ds-dimension-radius-panel);
+    font-size: var(--ds-typography-body-small-font-size);
     font-variant-numeric: tabular-nums;
     background: var(--ds-color-neutral-surface-raised-default);
-    box-shadow: var(--ds-shadow-low);
-    backdrop-filter: blur(18px) saturate(140%);
   }
 
   .list:empty {
@@ -24,11 +24,12 @@
     display: flex;
     flex-wrap: wrap;
     align-items: center;
-    gap: var(--ds-spacing-xs) var(--ds-spacing-sm);
-    padding: var(--ds-spacing-sm) var(--ds-spacing-md);
-    border-block-end: var(--ds-stroke-thin) solid var(--ds-color-neutral-border-subtle-default);
+    gap: var(--ds-dimension-spacing-stack-default) var(--ds-dimension-spacing-control-default);
+    padding: var(--ds-dimension-spacing-control-default) var(--ds-dimension-spacing-inset-default);
+    border-block-end: var(--ds-dimension-border-width-default) solid
+      var(--ds-color-neutral-border-subtle-default);
     color: var(--ds-color-neutral-text-default-default);
-    transition: background-color var(--ds-duration-fast) var(--ds-easing-standard);
+    transition: background-color var(--ds-motion-feedback-duration) var(--ds-motion-feedback-easing);
 
     &:last-child {
       border-block-end: 0;
@@ -62,26 +63,26 @@
     flex: 1 1 18rem;
     flex-wrap: wrap;
     align-items: center;
-    gap: var(--ds-spacing-2xs) var(--ds-spacing-sm);
+    gap: var(--ds-dimension-spacing-stack-compact) var(--ds-dimension-spacing-control-default);
     min-inline-size: 0;
   }
 
   .title {
-    font-weight: var(--ds-font-weight-semibold);
+    font-weight: var(--ds-typography-weight-semibold);
     color: var(--ds-color-neutral-text-strong-default);
     overflow-wrap: anywhere;
   }
 
   // An identifier is set in the monospace face, so its characters read unambiguously.
   .title[data-mono] {
-    font-family: var(--ds-font-family-mono);
-    font-size: var(--ds-font-size-xs);
+    font-family: $font-mono;
+    font-size: var(--ds-typography-label-small-font-size);
   }
 
   .select {
-    inline-size: var(--ds-size-icon-md);
-    block-size: var(--ds-size-icon-md);
-    accent-color: var(--ds-color-primary-solid-default-default);
+    inline-size: $icon-nav;
+    block-size: $icon-nav;
+    accent-color: var(--ds-color-primary-surface-solid-default);
     cursor: pointer;
   }
 
@@ -89,7 +90,7 @@
     display: inline-flex;
     flex-wrap: wrap;
     align-items: center;
-    gap: var(--ds-spacing-2xs) var(--ds-spacing-xs);
+    gap: var(--ds-dimension-spacing-stack-compact) var(--ds-dimension-spacing-stack-default);
     color: var(--ds-color-neutral-text-subtle-default);
   }
 
@@ -103,7 +104,7 @@
     display: inline-flex;
     flex-direction: column;
     align-items: flex-start;
-    gap: var(--ds-spacing-xs);
+    gap: var(--ds-dimension-spacing-stack-default);
   }
 
   .row > .action {
@@ -111,7 +112,7 @@
   }
 
   .note {
-    font-size: var(--ds-font-size-sm);
+    font-size: var(--ds-typography-body-small-font-size);
     color: var(--ds-color-neutral-text-subtle-default);
   }
 
@@ -119,17 +120,17 @@
   .state {
     display: flex;
     align-items: center;
-    gap: var(--ds-spacing-sm);
-    padding: var(--ds-spacing-lg) var(--ds-spacing-md);
-    border: var(--ds-stroke-thin) dashed var(--ds-color-neutral-border-default-default);
-    border-radius: var(--ds-radius-lg);
-    font-size: var(--ds-font-size-sm);
+    gap: var(--ds-dimension-spacing-control-default);
+    padding: var(--ds-dimension-spacing-inset-comfortable) var(--ds-dimension-spacing-inset-default);
+    border: var(--ds-dimension-border-width-default) dashed var(--ds-color-neutral-border-default-default);
+    border-radius: var(--ds-dimension-radius-panel);
+    font-size: var(--ds-typography-body-small-font-size);
     color: var(--ds-color-neutral-text-subtle-default);
   }
 
   .stateIcon {
     display: inline-flex;
-    font-size: var(--ds-size-icon-lg);
+    font-size: $icon-large;
     color: var(--ds-color-neutral-icon-default-default);
   }
 
@@ -137,14 +138,14 @@
     display: flex;
     flex: 1;
     flex-direction: column;
-    gap: var(--ds-spacing-xs);
+    gap: var(--ds-dimension-spacing-stack-default);
   }
 
   .bar {
     block-size: 0.75rem;
-    border-radius: var(--ds-radius-full);
+    border-radius: var(--ds-dimension-radius-pill);
     background: var(--ds-color-neutral-surface-default-hover);
-    animation: pulse 1.4s var(--ds-easing-standard) infinite alternate;
+    animation: pulse 1.4s var(--ds-motion-feedback-easing) infinite alternate;
   }
 
   .bar:nth-child(2) {
@@ -168,7 +169,6 @@
   @media (forced-colors: active) {
     .list {
       border-color: CanvasText;
-      backdrop-filter: none;
     }
   }
 }

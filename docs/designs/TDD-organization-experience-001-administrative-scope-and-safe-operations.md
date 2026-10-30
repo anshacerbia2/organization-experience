@@ -3,12 +3,12 @@ doc_meta:
   id: TDD-organization-experience-001
   title: Administrative Scope, Provider Mode, and Safe Bulk Operations
   owner: Core Platform Team
-  version: 1.17.0
+  version: 1.18.0
   status: approved
   classification: restricted
   review_cycle_days: 90
   created_date: 2026-08-11
-  last_reviewed: 2026-10-24
+  last_reviewed: 2026-10-30
   parent_sad: SAD-012
 ---
 
@@ -46,7 +46,8 @@ to visual convention.
   `TDD-organization-control-002`.
 - Row-Level Security and the two database runtime roles — owned by
   `TDD-organization-control-001`.
-- Visual design language and component composition, owned by the UI Platform once it ships
+- Visual design language and component composition, owned by the UI Platform (`@scnx/system` and
+  `@scnx/core-ui`, 1.18.0)
   its primitives; until then by this repository's own components (SAD-012 1.1.0 §7.3).
 
 ## Technical Context
@@ -355,47 +356,101 @@ line there" (2.3.0, 1.13.0).
   under the bar and the full banner that stick there and may wrap, as `STD-GLB-FE-005` 2.3.0 §3.10
   asks: "The same tab check runs once above both thresholds".
 
-### Visual Language (1.9.0)
+### Visual Language (1.9.0, the UI Platform since 1.18.0)
 
 **The administration console looks like Identity Experience's applications.** An operator signs in on
-identity-kernel's hosted login, which since `TDD-identity-kernel-004` 1.7.0 draws Identity Experience's
-tokens, and moves between this console and Identity Experience's Admin Portal. The three read as one
-product. Until 1.9.0 this application had one stylesheet of four rules, the scope banner's, and the
-browser's own form controls everywhere else.
+identity-kernel's hosted login and moves between this console and Identity Experience's Admin Portal.
+The three read as one product. Until 1.9.0 this application had one stylesheet of four rules, the scope
+banner's, and the browser's own form controls everywhere else.
 
-**Source, by copy.** The UI Platform is deferred (SAD-012 1.1.0 §7.3), and this repository keeps its
-own components, under the approved exception `ADR-ORG-008`, which expires on 2027-04-20 (1.12.0; until
-then SAD-012 §7.3's allowance had no end date). It takes Identity Experience's by copying, not by depending on that repository. The
-source is identity-experience at commit `c723e417c0eee97db6b1d5b6dab608fe6a406ac2`, the merge of its
-pull request #54, which fixed the light theme's contrast (`TDD-identity-experience-003` 1.26.0
-§Contrast and Focus). Everything copied lives under `apps/admin/src/ui/`, and `src/ui/index.ts` is the
-one door the surfaces import through, so a component moves to `@scnx/system` by changing its line.
+**The UI Platform (1.18.0).** The console draws with the UI Platform's packages, `@scnx/system` and
+`@scnx/core-ui` 2.0.0-beta.0, in the `scnx-platform` theme: the Scnehaux platform's own look, which
+identity-experience took on in its pull request #66 (`TDD-identity-experience-003` 1.36.0 §Visual
+Language). Its brand book is scnehaux-design `scnx-platform/Brand-Book.html` (`ADR-UIP-VIS-002`). Token
+values and components belong to the packages; this repository writes no token. It meets the exit of
+`ADR-ORG-008` (§5.1, §5.4): `apps/admin/src/ui/index.ts` re-exports `@scnx/system` and
+`@scnx/core-ui`, and the copies are deleted. ROADMAP.md records the proposed status. Until
+1.18.0 this application kept a copy of identity-experience's stand-in, taken at `c723e417` (its pull
+request #54), tokens included.
 
-| Copied from (identity-experience) | Here | What |
-| :-- | :-- | :-- |
-| `packages/ui/src/styles/tokens/_ds-temporary.scss` | `src/ui/styles/tokens/` | Every Tier-2 `--ds-*` token, same names and values, both schemes |
-| `packages/ui/src/styles/foundations/*`, `_layers.scss`, `index.scss` | `src/ui/styles/` | Reset, the canvas with its two auroras and grid, focus as an outline, links underlined, reduced motion, forced colours, the layer order. The utility prefix is `scnx-org-` (STD-GLB-FE-005 §3.2) |
-| `packages/ui/src/styles/contrast.test.ts`, `src/test/contrast.ts` | `src/ui/styles/`, `src/ui/test/` | The contrast measurement, its 40 pairs unchanged, and this application's pairs added (below) |
-| `packages/ui/src/primitives/button-base`, `system/button`, `icon`, `panel`, `status-pill`, `table`, `field` (styles) | `src/ui/primitives/`, `src/ui/system/` | The components, with their tests. `Panel.Title` takes a heading level here, because a page's panels sit under its `h2` |
-| `packages/app-core/src/shell/AppFrame.*`, `preferences/ThemeToggle.tsx`, `session/SignInNotice.module.scss`, `api/MutationError.module.scss` | `src/ui/shell/`, `src/ui/preferences/`, `src/ui/system/notice/` | The frame, the theme toggle, and the notice: a glyph and words on a tint, in each scheme's tone |
-| `apps/admin/vite.config.ts` (`css`), `.stylelintrc.json`, `apps/admin/public/favicon.svg` | `apps/admin/` | SCSS Modules in cascade layers, the style rules stylelint holds, the shield mark |
-| `@fontsource-variable/inter` and `jetbrains-mono` 5.3.0 | `apps/admin/package.json` | The two faces, served as files under the content security policy |
+- **Intake.** The packages are not on npm yet. `vendor/ui-platform/` holds the tarballs of one
+  ui-platform CI run on `main`, at `2113337`, pinned by sha256 in `vendor/ui-platform/pin.json`: the
+  same files and the same pin as identity-experience. `apps/admin/package.json` installs exactly them.
+  `scripts/ui-platform.mjs`, identity-experience's port of ui-platform-docs' (`TDD-ui-platform-docs-001`
+  D2), checks the pin (`pnpm vendor:check`, and its tests in `pnpm test:scripts`). CI's `ui-platform`
+  job verifies each tarball's SLSA provenance with `gh attestation verify`: signed by ui-platform's CI
+  workflow, from `refs/heads/main` at the pinned commit. A new pin is one reviewed change in each
+  repository, with the same files.
+- **One door.** `src/ui/index.ts` re-exports the packages, and nothing outside `src/ui/` imports them:
+  ESLint's `no-restricted-imports` refuses an `@scnx/*` import anywhere else in `apps/admin/src`, as
+  identity-experience's dependency-cruiser rule `platform-through-ui-only` does. An upgrade or a
+  replaced component changes that file only.
+- **The theme.** The platform's theme stylesheet selects its tokens only under
+  `[data-scnx-theme="scnx-platform"][data-scnx-resolved-mode="light|dark"]` (`STD-UIP-TKN-002` §3.4).
+  The platform's `ThemeProvider` writes both on `<html>` (`src/ui/preferences/ThemeRoot.tsx`), in its
+  `system` mode until the viewer chooses (the departure below). `index.html` carries both with the dark
+  mode, so the first paint has tokens: the content security policy allows no inline script that could
+  set them sooner. The first render then takes the stored choice or the system's mode, read before the
+  store connects, so a viewer whose system is dark sees no frame of the store's light default. A browser that answers
+  no `prefers-color-scheme` query opens light, which is how the platform resolves `system` without an
+  answer; until 1.18.0 it opened dark. Every current browser answers the query.
+- **Square, lines, no glass.** The theme sets every radius to 0, keeping `pill` where a round shape
+  carries meaning. A panel is the platform's Surface in the `panel` material, a 1px line. The canvas's
+  two auroras and grid, the translucent surfaces with backdrop blur, the glows on the mark and the
+  current navigation item, and the record list's shadow are gone, with the tokens that drew them.
+- **Two voices.** Inter, which the package ships, speaks the content. IBM Plex Mono 400, 500 and 600,
+  served from this origin with its OFL licence (`src/ui/styles/fonts/`), is the HUD voice: identifiers
+  and figures in a table today. `@fontsource-variable/inter` and `jetbrains-mono` are removed, so
+  JetBrains Mono is no longer drawn.
+- **Layers.** The order is the platform's: `reset, tokens, base, components, recipes, utilities,
+  overrides` (`STD-GLB-FE-005` §3.4). A composition's rules sit in `overrides` and read the platform's
+  tokens or its `--scnx-*` hooks; none selects a platform class.
 
-**No token departs.** Every `--ds-*` value equals the source's in both schemes, and no component reads
-a colour of its own. `pnpm --filter @organization-experience/admin test` compiles the stylesheet and
-holds every pair to WCAG 2.2 AA after alpha composition, over the plain canvas and under each aurora:
-4.5:1 for text, 3:1 for what identifies a component, a state or focus [R5]. This application's own
-pairs, at their worst, light / dark:
+**The component map** is identity-experience's (its `packages/ui/README.md`), component for component,
+and the files are copied from it at `f5424f0e`, the merge of its pull request #66. Each copied file names
+its source in its first lines.
+
+| Export | Kind | Platform | Why it is not a bare re-export |
+| :-- | :-- | :-- | :-- |
+| `ButtonBase`, `Badge`, `Alert`, `useTheme` | re-exported | core-ui / system | |
+| `Button` | composed | `button` | identity-experience's composition: the label wraps at 320 CSS px, and a pressed toggle shows an edge (the platform draws no pressed state) |
+| `Panel` | composed | `surface` (`panel`, `raised`) | The compound parts: Root, Header, Title, Description, Body. `Panel.Title` takes a heading level here, because a page's panels sit under its `h2` |
+| `StatusPill` | composed | `badge` | A glyph per tone, so colour is never the only signal. It wraps |
+| `Table` | composed | `table` | A required caption, and a named, focusable region that scrolls. `Cell mono` |
+| `Icon` | local | none | The platform has no icon set. The brand's grammar: a 24-unit grid, a 1.8 stroke. Ten of its icons are this application's |
+| `fieldClasses` | local | none; drawn as `text-field` | The forms here own their ids, hints and errors, so they take the platform's text field as classes, token for token, rather than identity-experience's `TextField`, `SelectField` and `TextAreaField` (departure below). An invalid field takes `danger.border.strong.selected`, as identity-experience's `TextField` does |
+| `Notice` | local | none; drawn as `alert` | The platform's Alert is always a live region, `status` or `alert`. Ten of this application's 54 notices are standing guidance with no role, so a Notice takes the role its caller gives it and draws the Alert's tokens |
+| `ThemeRoot`, `ThemeToggle` | local | core-ui `ThemeProvider` | The theme root over this application's stored choice; the toggle names the mode it moves to |
+| `AppFrame`, `Page`, `Rows` | local | none | This application's frame, page and record rows, in the platform's tokens. The frame's redraw in the brand book's drawing (cells that share their lines, mono navigation, the ink primary action, the two-bar mark) is the next change to this section |
+
+**Tokens.** Every `--ds-*` name the stylesheets read is the package's. identity-experience's
+`packages/ui/README.md` ("Tokens") maps each stand-in name to the platform's, and the same map renamed
+them here. Three names had no use there:
+
+- `--ds-size-icon-lg` (1.5rem) is `$icon-large` in `src/ui/styles/_roles.scss`, a glyph that stands
+  alone: an empty state's, a stage's marker, the mark in the gate. The platform publishes no icon size
+  token; identity-experience's roles stop at 20px.
+- `--ds-color-{success,warning,info}-solid-default-default`, each drawn as an edge (a bulk outcome, the
+  scope banner), is that scheme's `border-strong-default`, as identity-experience maps `danger`'s.
+
+**Contrast is computed, not assumed.** `src/ui/styles/contrast.test.ts` reads both modes of the
+`scnx-platform` theme from the pinned package's stylesheet, composites every pair over the canvas, and
+holds text to 4.5:1 and what identifies a component, a state or focus to 3:1 [R5]. Its pairs are
+identity-experience's, unchanged (`TDD-identity-experience-003` 1.36.0 §Contrast and Focus), then this
+application's own: 69 a mode, and every one passes. The lowest are a field's edge in a confirmation and
+a pressed toggle's edge, 3.30:1 in light. This application's own pairs, light / dark:
 
 | Pair | Light | Dark |
 | :-- | --: | --: |
-| Scope banner lead, Tenant / provider mode / provider sign-in | 5.38 / 5.25 / 5.25 | 7.66 / 6.12 / 6.65 |
-| Scope banner text and glyph (lowest) | 5.00 | 5.81 |
-| Session pill in the bar | 5.57 | 11.08 |
-| A row's facts under the pointer; selected | 5.17; 5.30 | 6.08; 5.69 |
-| The danger note in a confirmation; a field's edge there | 6.96; 3.18 | 9.03; 4.02 |
-| The current stage's text; its edge; a passed stage's check | 10.44; 4.62; 6.50 | 11.65; 10.93; 13.51 |
-
+| Scope banner lead and glyph, Tenant / provider mode / provider sign-in | 12.25 / 10.86 / 10.28 | 13.70 / 11.99 / 13.16 |
+| Scope banner text (lowest) | 14.32 | 13.49 |
+| Session pill in the bar | 5.39 | 7.81 |
+| A row's facts under the pointer; selected | 4.86; 4.86 | 6.94; 6.94 |
+| A status pill in a selected row | 5.28 | 11.35 |
+| The danger note in a confirmation; a field's edge there | 6.11; 3.30 | 7.97; 3.65 |
+| The current stage's text; its edge; a passed stage's check | 15.56; 4.50; 11.72 | 15.43; 3.99; 14.67 |
+| An invalid field's edge (`danger.border.strong.selected`) | 4.55 | 3.85 |
+| The platform's own invalid edge (`danger.border.strong.default`), not drawn here | 2.38 | 3.26 |
 **The scope banner (§Scope Visibility).** It is drawn in the scheme of the scope it names, with its
 own glyph and its words as well as its colour [R5, SC 1.4.1]: info and a building for a Tenant, danger
 and the shield for provider mode, warning and a key for a session without a Tenant and without provider
@@ -466,7 +521,8 @@ fields in a grid, the filters in a toolbar, then the records.
       §Layout). The fix is ported as made: no `nowrap`, `max-inline-size: 100%`, the text centred.
     - The invitations list held a pending invitation's status, a sentence, on one line in its pill.
       A `StatusPill` takes at most its container's width and wraps at word breaks, so a pill in a
-      table keeps whole words. This is a departure from identity-experience's copy (below).
+      table keeps whole words. identity-experience's `StatusPill` wraps the same way since its 1.36.0, so
+      this is no longer a departure (1.18.0).
     - The scope banner's time left stays on one line, and the banner wraps around it: the sentence
       takes the room left, and at 12rem or less the time left moves under it.
     - The bar's title wraps rather than running past the bar.
@@ -478,14 +534,13 @@ fields in a grid, the filters in a toolbar, then the records.
 
 | Here | Identity Experience | Why |
 | :-- | :-- | :-- |
-| The theme follows the system's `prefers-color-scheme` until the viewer chooses one, and only a choice is stored, in this origin's `localStorage` | Opens dark, and stores the preference | MDN: the feature "is used to detect if a user has requested light or dark color themes" [R6]. Following it needs no storage, so the page still "holds nothing in browser storage" after a sign-in (§End to End). The hosted login follows the system too (`TDD-identity-kernel-004` §Visual Language) |
+| The theme follows the system's `prefers-color-scheme` until the viewer chooses one (the platform `ThemeProvider`'s `system` mode, 1.18.0), and only a choice is stored, in this origin's `localStorage` | Opens dark, and stores the preference | MDN: the feature "is used to detect if a user has requested light or dark color themes" [R6]. Following it needs no storage, so the page still "holds nothing in browser storage" after a sign-in (§End to End). The hosted login follows the system too (`TDD-identity-kernel-004` §Visual Language) |
 | The bar holds the application's `h1` and the session; the scope banner sticks under it | The bar holds the environment, the session, the language and the theme | §Scope Visibility. This application has no environment setting and one locale, so there is no environment pill and no language switch |
 | Below `60rem` wide or `30rem` tall only the one-line scope line is sticky; the bar and the banner scroll with the page (1.12.0) | The bar is sticky at every size | `SAD-012` 1.4.0 §8.4 and `STD-GLB-FE-005` 2.2.0 §3.10; identity-experience applies the same standard on its own change |
 | Under 60rem the rail is a bar with its links in a row | The rail is a column above the page | A tablet reaches the page without scrolling past a column of links |
 | The rail is the page's full height, and what it holds sticks in view at the viewport's height | The rail itself is sticky at `100dvh`, so a full-page rendering of a long page shows its surface and edge ending at the first screen | The column reads as one surface beside the longest page; `behaviour.spec.ts` asserts the rail spans the page and its navigation stays in view after a scroll, on Tenants, an offboarding and Memberships |
-| `Notice`, `Facts`, `Rows`, `Page` and the field classes | `TextField`, `SelectField`, `TextAreaField` own their ids and errors | This application's forms already own the ids, hints and errors their tests read, so they take Identity Experience's field styles as classes rather than its components |
+| `Notice`, `Facts`, `Rows`, `Page` and the field classes | `TextField` (the platform's, composed), `SelectField` and `TextAreaField` own their ids and errors | This application's forms already own the ids, hints and errors their tests read, so they take the platform's text field as classes, drawn token for token, rather than the components |
 | No modal dialog | Has none to port | A confirmation stays in the row it acts on, beside the record it names |
-| A `StatusPill` status longer than its room wraps inside it (1.11.0) | One line, `white-space: nowrap` | `STD-GLB-FE-005` 2.1.0 §3.10: "No page scrolls sideways at 320 CSS px"; a one-line label wider than a phone's panel pushed the page sideways (§Visual Language, What 320 found) |
 
 **Before and after.** The CI artifact `browser-screens` holds a screenshot of every main route, signed
 in, with data, in Tenant scope and in provider mode, light and dark, at desktop and tablet width. The
@@ -493,6 +548,8 @@ run on the change's first commit, before any styling, recorded the interface as 
 (CI run 39153399401) then found one rule violated on 46 of the 48 views (the two signed-out views passed), WCAG 2.2 SC 2.5.8 on the
 navigation links, plain text links under the minimum: "The size of the target for pointer inputs is at
 least 24 by 24 CSS pixels" [R5]. A navigation item is now 40px tall, and a row's button 32px.
+The move to the UI Platform (1.18.0) is recorded the same way: the artifact of its pull request's run, against
+the artifact of `main`'s run before it.
 
 ## Data Model
 
@@ -1107,8 +1164,8 @@ when its session store does not answer (1.5.0); the operator's steps are identit
 | Enterprise constraint | EAD-006 — privileged access is scoped, time-bounded, attributable, and evidenced |
 | Depends on | `organization-control` — the Organization Control API, which reauthorizes every command |
 | Depends on | `identity-kernel` — hosted login and step-up, and a Tenant sign-in on a provider sign-in's kernel session (`TDD-identity-kernel-001` 1.18.0, 1.8.0) |
-| Build-time dependency | `scnehaux-ui-platform` — design system packages, once shipped (SAD-012 1.1.0 §1, §7.3) |
-| Copies | `identity-experience` `packages/ui` and its frame at `c723e417c0eee97db6b1d5b6dab608fe6a406ac2` — the visual language, by copy until the UI Platform ships (1.9.0) |
+| Build-time dependency | `scnehaux-ui-platform` — `@scnx/system` and `@scnx/core-ui` 2.0.0-beta.0, the tarballs of its CI run on `main` at `2113337`, pinned and verified for SLSA provenance (SAD-012 1.1.0 §1, §7.3; 1.18.0) |
+| Copies | `identity-experience` `packages/ui` at `f5424f0ea78dae6db7096f457b54c8894e275c67` — its compositions of the platform's components and its local ones (1.18.0); its frame at `c723e417c0eee97db6b1d5b6dab608fe6a406ac2` (1.9.0) |
 | Conforms to | `TDD-identity-kernel-004` §Visual Language — the hosted login in the same tokens (1.9.0) |
 | Conforms to | SAD-012 1.1.0 — a React SPA built with Vite behind the identity Fastify BFF, as ADR-GLB-FE-003 §5 and ADR-GLB-FE-011 §5.2 place an internal tool |
 | Governed by | ADR-IAM-008 — one client, the privileged form chosen per sign-in (1.2.0) |
@@ -1130,15 +1187,21 @@ when its session store does not answer (1.5.0); the operator's steps are identit
 | Conforms to | `STD-GLB-FE-005` 2.3.0 §3.10 (1.13.0: `60rem` wide or `30rem` tall, the full banner may wrap above both, the tab check runs above both), after 2.2.0 and `SAD-012` 1.4.0 §8.4 — one sticky scope line on a small viewport, `scroll-padding-top`, and the layout test at 320 by 256 with backward tabbing (1.12.0) |
 | Conforms to | `ADR-GLB-010` §5.1 (amended 2026-10-20) — the hand-written client contract-tested in CI against organization-control's `api/openapi.yaml` at a pinned commit (1.12.0) |
 | Conforms to | `STD-IAM-001` 3.0.0 §3.4 — the session record is deleted by an expiry on the record; the store is excluded from backup and restore and is not an authority; this BFF's store is identity-experience's (1.13.0) |
-| Governed by | `ADR-ORG-008` — the local components under `apps/admin/src/ui/`, an exception that expires 2027-04-20 (1.12.0) |
+| Governed by | `ADR-ORG-008` — the local components under `apps/admin/src/ui/`, an exception that expires 2027-04-20 (1.12.0); its exit met in 1.18.0, the status change proposed in ROADMAP.md |
+| Conforms to | `STD-UIP-TKN-002` §3.4 — the theme's tokens resolve under `data-scnx-theme` and `data-scnx-resolved-mode` on the theme root (1.18.0) |
+| Conforms to | `STD-GLB-FE-005` §3.4 — the platform's cascade-layer order, a composition in `overrides` (1.18.0) |
+| Follows | `ADR-UIP-VIS-002` and scnehaux-design `scnx-platform/Brand-Book.html` — the `scnx-platform` theme, Inter and IBM Plex Mono (1.18.0) |
+| Follows | `TDD-ui-platform-docs-001` D2 — vendored tarballs, a pin, and provenance verified in CI (1.18.0) |
+| Follows | `TDD-identity-experience-003` 1.36.0 §Visual Language, §Contrast and Focus — the same packages, pin, component map and contrast pairs (1.18.0) |
 | Governed by | `ADR-IAM-011` §5.1, §5.6 — `GET /auth/identity-experience` and `ORGANIZATION_EXPERIENCE_IDENTITY_EXPERIENCE_ORIGIN`, for the acceptance page's **I do not have an account** (1.15.0) |
 
 ### Standalone Operation
 
 This repository requires no Scnehaux platform other than the five it shares this
 foundation with. It has no dependency on Notification, Audit, Software Catalog, or
-Subscription & Entitlement. `scnehaux-ui-platform` becomes its build-time dependency once
-UI Platform ships its primitives (SAD-012 1.1.0 §7.3).
+Subscription & Entitlement. `scnehaux-ui-platform` is its build-time dependency since 1.18.0, as
+vendored tarballs pinned in this repository: nothing is fetched from it at build or run time
+(SAD-012 1.1.0 §7.3).
 
 ## References
 

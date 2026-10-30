@@ -1,24 +1,19 @@
-// Ported from identity-experience at c723e417c0eee97db6b1d5b6dab608fe6a406ac2, packages/ui/src/system/panel/Panel.module.scss
-// (TDD-organization-experience-001 §Visual Language).
+// Copied from identity-experience at f5424f0ea78dae6db7096f457b54c8894e275c67 (its pull request
+// #66), packages/ui/src/system/panel/Panel.module.scss. TDD-organization-experience-001 §Visual
+// Language records the copy.
+// The Surface draws the panel's fill, line and radius; this file lays out what is inside it.
 @layer components {
   .root {
-    position: relative;
     display: flex;
     flex-direction: column;
-    gap: var(--ds-spacing-md);
-    padding: var(--ds-spacing-lg);
-    border: var(--ds-stroke-thin) solid var(--ds-color-neutral-border-subtle-default);
-    border-radius: var(--ds-radius-lg);
-    background: var(--ds-color-neutral-surface-raised-default);
-    box-shadow: var(--ds-shadow-low);
-    backdrop-filter: blur(18px) saturate(140%);
+    gap: var(--ds-dimension-spacing-stack-comfortable);
+    padding: var(--ds-dimension-spacing-inset-comfortable);
 
     // A panel is sized by its content wherever it is not stretched: a confirmation inside another
     // panel's body, which aligns its children to the start. It has no size containment, which would
     // size it as if it had no content, to its padding, with its text one character per line. A long
     // table inside it scrolls in its own container instead (Table), so it may shrink below its
-    // content in a grid or flex row. Ported from identity-experience#57 (TDD-identity-experience-003
-    // 1.29.0 §Layout; TDD-organization-experience-001 1.11.0 §Visual Language).
+    // content in a grid or flex row (STD-GLB-FE-005 §3.10).
     min-inline-size: 0;
 
     // A long identifier or address in a panel's text breaks rather than overflowing it, and does not
@@ -27,43 +22,23 @@
     :where(p, h2, h3, h4, dd, li, label) {
       overflow-wrap: anywhere;
     }
-
-    // A hairline of light along the top edge: the one detail that makes glass read as glass.
-    &::before {
-      position: absolute;
-      inset-block-start: 0;
-      inset-inline: var(--ds-spacing-lg);
-      block-size: 1px;
-      content: '';
-      background: linear-gradient(
-        90deg,
-        transparent,
-        var(--ds-color-primary-border-default-default),
-        transparent
-      );
-    }
-  }
-
-  .root[data-elevation='floating'] {
-    background: var(--ds-color-neutral-surface-floating-default);
-    box-shadow: var(--ds-shadow-medium);
   }
 
   .header {
     display: flex;
     flex-direction: column;
-    gap: var(--ds-spacing-2xs);
+    gap: var(--ds-dimension-spacing-stack-compact);
   }
 
   .title {
-    font-size: var(--ds-font-size-md);
-    font-weight: var(--ds-font-weight-semibold);
-    letter-spacing: var(--ds-letter-spacing-tight);
+    font-size: var(--ds-typography-heading-xsmall-font-size);
+    font-weight: var(--ds-typography-weight-semibold);
+    line-height: var(--ds-typography-heading-xsmall-line-height);
     color: var(--ds-color-neutral-text-strong-default);
   }
 
   .description {
-    font-size: var(--ds-font-size-sm);
+    font-size: var(--ds-typography-body-small-font-size);
     color: var(--ds-color-neutral-text-subtle-default);
   }
 
@@ -71,13 +46,12 @@
     display: flex;
     flex-direction: column;
     align-items: flex-start;
-    gap: var(--ds-spacing-sm);
+    gap: var(--ds-dimension-spacing-control-default);
   }
 
   @media (forced-colors: active) {
     .root {
       border-color: CanvasText;
-      backdrop-filter: none;
     }
   }
 }

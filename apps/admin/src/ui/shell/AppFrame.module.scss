@@ -1,3 +1,5 @@
+@use '../styles/roles' as *;
+
 // Ported from identity-experience at c723e417c0eee97db6b1d5b6dab608fe6a406ac2, packages/app-core/src/shell/AppFrame.module.scss
 // (TDD-organization-experience-001 §Visual Language).
 @layer components {
@@ -13,19 +15,19 @@
 
     @media (width >= 60rem) {
       grid-template-rows: none;
-      grid-template-columns: var(--ds-layout-sidebar-width) 1fr;
+      grid-template-columns: $layout-rail 1fr;
     }
   }
 
   .skip {
     position: absolute;
-    inset-block-start: var(--ds-spacing-xs);
-    inset-inline-start: var(--ds-spacing-xs);
-    z-index: var(--ds-z-overlay);
-    padding: var(--ds-spacing-xs) var(--ds-spacing-sm);
-    border-radius: var(--ds-radius-md);
+    inset-block-start: var(--ds-dimension-spacing-stack-default);
+    inset-inline-start: var(--ds-dimension-spacing-inline-default);
+    z-index: var(--ds-dimension-z-index-overlay);
+    padding: var(--ds-dimension-spacing-inset-compact) var(--ds-dimension-spacing-control-default);
+    border-radius: var(--ds-dimension-radius-control);
     color: var(--ds-color-primary-text-contrast-default);
-    background: var(--ds-color-primary-solid-default-default);
+    background: var(--ds-color-primary-surface-solid-default);
     transform: translateY(-200%);
 
     &:focus-visible {
@@ -38,63 +40,63 @@
   // page scrolls. identity-experience makes the rail itself sticky at 100dvh, so the column's surface
   // ends at the first screen's height in a full-page rendering of a long page.
   .rail {
-    border-block-end: var(--ds-stroke-thin) solid var(--ds-color-neutral-border-subtle-default);
+    border-block-end: var(--ds-dimension-border-width-default) solid
+      var(--ds-color-neutral-border-subtle-default);
     background: var(--ds-color-neutral-surface-sunken-default);
-    backdrop-filter: blur(20px);
 
     @media (width >= 60rem) {
       border-block-end: 0;
-      border-inline-end: var(--ds-stroke-thin) solid var(--ds-color-neutral-border-subtle-default);
+      border-inline-end: var(--ds-dimension-border-width-default) solid
+        var(--ds-color-neutral-border-subtle-default);
     }
   }
 
   .railInner {
     display: flex;
     flex-direction: column;
-    gap: var(--ds-spacing-lg);
-    padding: var(--ds-spacing-md);
+    gap: var(--ds-dimension-spacing-page);
+    padding: var(--ds-dimension-spacing-inset-default);
 
     @media (width >= 60rem) {
       position: sticky;
       inset-block-start: 0;
       max-block-size: 100dvh;
       overflow-y: auto;
-      padding: var(--ds-spacing-lg) var(--ds-spacing-md);
+      padding: var(--ds-dimension-spacing-inset-comfortable) var(--ds-dimension-spacing-inset-default);
     }
   }
 
   .brand {
     display: flex;
     align-items: center;
-    gap: var(--ds-spacing-sm);
-    padding-inline: var(--ds-spacing-xs);
-    border-radius: var(--ds-radius-md);
+    gap: var(--ds-dimension-spacing-control-default);
+    padding-inline: var(--ds-dimension-spacing-inset-compact);
+    border-radius: var(--ds-dimension-radius-control);
   }
 
   .brandMark {
     display: grid;
     place-items: center;
-    inline-size: var(--ds-size-control-sm);
-    block-size: var(--ds-size-control-sm);
-    border: var(--ds-stroke-thin) solid var(--ds-color-primary-border-default-default);
-    border-radius: var(--ds-radius-md);
-    font-size: var(--ds-size-icon-md);
+    inline-size: var(--ds-dimension-size-control-compact);
+    block-size: var(--ds-dimension-size-control-compact);
+    border: var(--ds-dimension-border-width-default) solid var(--ds-color-primary-border-default-default);
+    border-radius: var(--ds-dimension-radius-control);
+    font-size: $icon-nav;
     color: var(--ds-color-primary-icon-default-default);
     background: var(--ds-color-primary-surface-subtle-default);
-    box-shadow: 0 0 18px -4px var(--ds-color-primary-shadow-default-default);
   }
 
   .brandName {
-    font-size: var(--ds-font-size-sm);
-    font-weight: var(--ds-font-weight-semibold);
-    letter-spacing: var(--ds-letter-spacing-tight);
+    font-size: var(--ds-typography-body-small-font-size);
+    font-weight: var(--ds-typography-weight-semibold);
+    letter-spacing: var(--ds-typography-heading-large-letter-spacing);
     color: var(--ds-color-neutral-text-strong-default);
   }
 
   .nav {
     display: flex;
     flex-direction: column;
-    gap: var(--ds-spacing-md);
+    gap: var(--ds-dimension-spacing-stack-comfortable);
   }
 
   // One labelled group of the navigation: its label, then its links (TDD-identity-experience-003
@@ -102,14 +104,14 @@
   .navGroup {
     display: flex;
     flex-direction: column;
-    gap: var(--ds-spacing-xs);
+    gap: var(--ds-dimension-spacing-stack-default);
   }
 
   .navSection {
-    padding-inline: var(--ds-spacing-sm);
-    font-size: var(--ds-font-size-xs);
-    font-weight: var(--ds-font-weight-medium);
-    letter-spacing: var(--ds-letter-spacing-wide);
+    padding-inline: var(--ds-dimension-spacing-control-default);
+    font-size: var(--ds-typography-label-small-font-size);
+    font-weight: var(--ds-typography-weight-medium);
+    letter-spacing: $hud-tracking;
     text-transform: uppercase;
     color: var(--ds-color-neutral-text-subtle-default);
   }
@@ -117,20 +119,20 @@
   .navList {
     display: flex;
     flex-direction: column;
-    gap: var(--ds-spacing-3xs);
+    gap: var(--ds-dimension-spacing-stack-compact);
   }
 
   .navItem {
     position: relative;
     display: flex;
     align-items: center;
-    gap: var(--ds-spacing-sm);
-    min-block-size: var(--ds-size-control-md);
-    padding-inline: var(--ds-spacing-sm);
-    border-radius: var(--ds-radius-md);
-    font-size: var(--ds-font-size-sm);
+    gap: var(--ds-dimension-spacing-control-default);
+    min-block-size: var(--ds-dimension-size-control-default);
+    padding-inline: var(--ds-dimension-spacing-control-default);
+    border-radius: var(--ds-dimension-radius-control);
+    font-size: var(--ds-typography-body-small-font-size);
     color: var(--ds-color-neutral-text-default-default);
-    transition: background-color var(--ds-duration-fast) var(--ds-easing-standard);
+    transition: background-color var(--ds-motion-feedback-duration) var(--ds-motion-feedback-easing);
 
     &:hover {
       background: var(--ds-color-neutral-surface-default-hover);
@@ -141,16 +143,15 @@
       background: var(--ds-color-neutral-surface-default-selected);
     }
 
-    // The active item's edge glows: position is shown by a marker and a weight as well as a colour.
+    // The current item's edge is marked: position is shown by a marker and a weight as well as a colour.
     &[aria-current='page']::before {
       position: absolute;
-      inset-block: var(--ds-spacing-xs);
+      inset-block: var(--ds-dimension-spacing-stack-default);
       inset-inline-start: 0;
       inline-size: 3px;
-      border-radius: var(--ds-radius-full);
+      border-radius: var(--ds-dimension-radius-pill);
       content: '';
-      background: var(--ds-color-primary-solid-default-default);
-      box-shadow: 0 0 12px var(--ds-color-primary-shadow-default-default);
+      background: var(--ds-color-primary-surface-solid-default);
     }
   }
 
@@ -165,7 +166,7 @@
   .top {
     position: sticky;
     inset-block-start: 0;
-    z-index: var(--ds-z-sticky);
+    z-index: var(--ds-dimension-z-index-sticky);
   }
 
   // The one-line scope, shown and sticky only on a small viewport (below).
@@ -195,7 +196,7 @@
     .line {
       position: sticky;
       inset-block-start: 0;
-      z-index: var(--ds-z-sticky);
+      z-index: var(--ds-dimension-z-index-sticky);
       display: block;
       grid-column: 1 / -1;
 
@@ -212,16 +213,16 @@
 
   .bar {
     flex-wrap: wrap;
-    padding-block: var(--ds-spacing-xs);
+    padding-block: var(--ds-dimension-spacing-inset-compact);
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: var(--ds-spacing-md);
-    min-block-size: var(--ds-layout-navbar-height);
-    padding-inline: var(--ds-spacing-lg);
-    border-block-end: var(--ds-stroke-thin) solid var(--ds-color-neutral-border-subtle-default);
+    gap: var(--ds-dimension-spacing-stack-comfortable);
+    min-block-size: $layout-bar;
+    padding-inline: var(--ds-dimension-spacing-inset-comfortable);
+    border-block-end: var(--ds-dimension-border-width-default) solid
+      var(--ds-color-neutral-border-subtle-default);
     background: var(--ds-color-neutral-surface-sunken-default);
-    backdrop-filter: blur(20px) saturate(140%);
   }
 
   // This repository's change: a title longer than the bar wraps rather than pushing the page sideways
@@ -229,9 +230,9 @@
   .title {
     min-inline-size: 0;
     overflow-wrap: anywhere;
-    font-size: var(--ds-font-size-md);
-    font-weight: var(--ds-font-weight-semibold);
-    letter-spacing: var(--ds-letter-spacing-tight);
+    font-size: var(--ds-typography-body-default-font-size);
+    font-weight: var(--ds-typography-weight-semibold);
+    letter-spacing: var(--ds-typography-heading-large-letter-spacing);
     color: var(--ds-color-neutral-text-strong-default);
   }
 
@@ -239,23 +240,24 @@
     display: flex;
     flex-wrap: wrap;
     align-items: center;
-    gap: var(--ds-spacing-xs);
+    gap: var(--ds-dimension-spacing-stack-default);
   }
 
   .navIcon {
     display: inline-flex;
-    font-size: var(--ds-size-icon-md);
+    font-size: $icon-nav;
     color: var(--ds-color-neutral-icon-default-default);
   }
 
   .main {
     display: flex;
     flex-direction: column;
-    gap: var(--ds-spacing-lg);
+    gap: var(--ds-dimension-spacing-page);
     inline-size: 100%;
-    max-inline-size: var(--ds-layout-container-wide);
+    max-inline-size: $layout-page;
     margin-inline: auto;
-    padding: var(--ds-spacing-xl) var(--ds-spacing-lg) var(--ds-spacing-3xl);
+    padding: var(--ds-dimension-spacing-section) var(--ds-dimension-spacing-inset-comfortable)
+      calc(2 * var(--ds-dimension-spacing-section));
 
     &:focus {
       outline: none;
@@ -269,12 +271,12 @@
     .railInner {
       flex-flow: row wrap;
       align-items: center;
-      gap: var(--ds-spacing-sm) var(--ds-spacing-lg);
+      gap: var(--ds-dimension-spacing-control-default) var(--ds-dimension-spacing-page);
     }
 
     .nav {
       flex-flow: row wrap;
-      gap: var(--ds-spacing-3xs) var(--ds-spacing-sm);
+      gap: var(--ds-dimension-spacing-stack-compact) var(--ds-dimension-spacing-control-default);
     }
 
     .navGroup {
@@ -296,7 +298,8 @@
     }
 
     .main {
-      padding: var(--ds-spacing-lg) var(--ds-spacing-md) var(--ds-spacing-2xl);
+      padding: var(--ds-dimension-spacing-inset-comfortable) var(--ds-dimension-spacing-inset-default)
+        calc(2 * var(--ds-dimension-spacing-page));
     }
   }
 }

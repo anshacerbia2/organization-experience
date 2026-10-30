@@ -1,6 +1,6 @@
-// Copied from identity-experience at c723e417c0eee97db6b1d5b6dab608fe6a406ac2 (its pull request #54),
-// packages/ui/src/styles/foundations/_utilities.scss. The same names and values; TDD-organization-experience-001 §Visual Language
-// records the copy and any departure.
+// Ported from identity-experience at f5424f0ea78dae6db7096f457b54c8894e275c67 (its pull request
+// #66), packages/ui/src/styles/foundations/_utilities.scss. TDD-organization-experience-001 §Visual
+// Language records the copy; the prefix is `scnx-org-`.
 // Global utilities carry the application prefix (STD-GLB-FE-005 §3.2): `scnx-org-` rather than
 // the bare `scnx-`, which is reserved for the platform itself.
 @layer utilities {

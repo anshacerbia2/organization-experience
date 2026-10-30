@@ -1,10 +1,12 @@
+@use '../ui/styles/roles' as *;
+
 // The offboarding views (TDD-organization-experience-003) in identity-experience's tokens: the stage
 // timeline as steps, the legal hold as a warning that names what it blocks.
 @layer components {
   .recordLink {
-    font-family: var(--ds-font-family-mono);
-    font-size: var(--ds-font-size-xs);
-    font-weight: var(--ds-font-weight-semibold);
+    font-family: $font-mono;
+    font-size: var(--ds-typography-label-small-font-size);
+    font-weight: var(--ds-typography-weight-semibold);
     color: var(--ds-color-primary-text-default-default);
     text-decoration: underline;
     text-underline-offset: 0.2em;
@@ -17,7 +19,7 @@
   .stages {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(min(100%, 12rem), 1fr));
-    gap: var(--ds-spacing-sm);
+    gap: var(--ds-dimension-spacing-control-default);
     padding: 0;
     list-style: none;
   }
@@ -27,11 +29,11 @@
   .stage {
     display: flex;
     flex-direction: column;
-    gap: var(--ds-spacing-2xs);
-    padding: var(--ds-spacing-sm) var(--ds-spacing-md);
-    border: var(--ds-stroke-thin) solid var(--ds-color-neutral-border-subtle-default);
-    border-radius: var(--ds-radius-md);
-    font-size: var(--ds-font-size-sm);
+    gap: var(--ds-dimension-spacing-stack-compact);
+    padding: var(--ds-dimension-spacing-control-default) var(--ds-dimension-spacing-inset-default);
+    border: var(--ds-dimension-border-width-default) solid var(--ds-color-neutral-border-subtle-default);
+    border-radius: var(--ds-dimension-radius-control);
+    font-size: var(--ds-typography-body-small-font-size);
     color: var(--ds-color-neutral-text-subtle-default);
     background: var(--ds-color-neutral-surface-sunken-default);
 
@@ -41,7 +43,7 @@
   }
 
   .stage[aria-current='step'] {
-    border: var(--ds-stroke-default) solid var(--ds-color-primary-solid-default-default);
+    border: var(--ds-dimension-border-width-strong) solid var(--ds-color-primary-surface-solid-default);
     color: var(--ds-color-neutral-text-default-default);
     background: var(--ds-color-primary-surface-subtle-default);
   }
@@ -49,29 +51,29 @@
   .marker {
     display: grid;
     place-items: center;
-    inline-size: var(--ds-size-icon-lg);
-    block-size: var(--ds-size-icon-lg);
-    border: var(--ds-stroke-thin) solid var(--ds-color-neutral-border-strong-default);
-    border-radius: var(--ds-radius-full);
-    font-size: var(--ds-size-icon-xs);
+    inline-size: $icon-large;
+    block-size: $icon-large;
+    border: var(--ds-dimension-border-width-default) solid var(--ds-color-neutral-border-strong-default);
+    border-radius: var(--ds-dimension-radius-pill);
+    font-size: $icon-glyph;
     color: var(--ds-color-success-icon-default-default);
   }
 
   .stage[aria-current='step'] .marker {
-    border-color: var(--ds-color-primary-solid-default-default);
-    background: var(--ds-color-primary-solid-default-default);
+    border-color: var(--ds-color-primary-surface-solid-default);
+    background: var(--ds-color-primary-surface-solid-default);
   }
 
   .holdList {
     display: flex;
     flex-direction: column;
-    gap: var(--ds-spacing-3xs);
-    padding-inline-start: var(--ds-spacing-md);
+    gap: var(--ds-dimension-spacing-stack-compact);
+    padding-inline-start: var(--ds-dimension-spacing-inset-default);
     list-style: disc;
   }
 
   .holdList > [data-blocks='true'] {
-    font-weight: var(--ds-font-weight-semibold);
+    font-weight: var(--ds-typography-weight-semibold);
   }
 
   .when {

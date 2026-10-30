@@ -1,11 +1,14 @@
-// Contrast measured the way WCAG 2.2 measures it, from the tokens the compiled stylesheet declares
-// (TDD-identity-experience-003 §Contrast and Focus). The surfaces are translucent over a gradient
-// canvas, so no pair can be read off the stylesheet: the colour behind a word is a surface composited
-// over whatever part of the canvas it sits on. STD-GLB-FE-009 §3.3: "Tests use actual
-// foreground/background pairs after alpha composition in each supported theme and state."
+// Copied from identity-experience at f5424f0ea78dae6db7096f457b54c8894e275c67 (its pull request
+// #66), packages/ui/src/test/contrast.ts. TDD-organization-experience-001 §Visual Language records
+// the copy.
+// Contrast measured the way WCAG 2.2 measures it, from the tokens the platform's theme stylesheet
+// declares (TDD-identity-experience-003 §Contrast and Focus). A colour behind a word is a stack of
+// surfaces, some with alpha, over the canvas, so pairs are composited, not read off the stylesheet.
+// STD-GLB-FE-009 §3.3: "Tests use actual foreground/background pairs after alpha composition in each
+// supported theme and state."
 //
 // The same computation as identity-kernel's internal/themecontrast, which measures the login theme
-// that copies these tokens, so the two report the same ratio for the same pair.
+// that takes these tokens, so the two report the same ratio for the same pair.
 
 // An sRGB colour with straight alpha, each channel in [0, 1].
 export interface Colour {
@@ -67,28 +70,28 @@ function declarations(body: string): Map<string, string> {
   return out;
 }
 
-// schemes reads each theme's custom properties as the cascade resolves them on <html>: the rules on
-// :root, then the rules on :root[data-theme=<theme>]. Rules inside @media are not read.
-export function schemes(css: string): { readonly light: Scheme; readonly dark: Scheme } {
+// The selector the platform's theme stylesheet declares each mode under (STD-UIP-TKN-002 §3.4):
+// [data-scnx-theme="scnx-platform"][data-scnx-resolved-mode="light"], and the same for dark.
+const modeSelector = /^\[data-scnx-theme=([a-z0-9-]+)\]\[data-scnx-resolved-mode=(light|dark)\]$/;
+
+// schemes reads each mode's custom properties as the cascade resolves them on the theme root, for one
+// theme. Rules inside @media are not read; @layer blocks are read through.
+export function schemes(css: string, theme: string): { readonly light: Scheme; readonly dark: Scheme } {
   const flat = stripMedia(css.replace(/\/\*[\s\S]*?\*\//g, ''));
-  const base = new Map<string, string>();
   const light = new Map<string, string>();
   const dark = new Map<string, string>();
   for (const match of flat.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
     const selector = (match[1] ?? '').trim().replace(/['"]/g, '');
-    const target =
-      selector === ':root'
-        ? base
-        : selector === ':root[data-theme=light]'
-          ? light
-          : selector === ':root[data-theme=dark]'
-            ? dark
-            : undefined;
+    const mode = modeSelector.exec(selector);
+    if (mode === null || mode[1] !== theme) {
+      continue;
+    }
+    const target = mode[2] === 'light' ? light : dark;
     for (const [name, value] of declarations(match[2] ?? '')) {
-      target?.set(name, value);
+      target.set(name, value);
     }
   }
-  return { light: new Map([...base, ...light]), dark: new Map([...base, ...dark]) };
+  return { light, dark };
 }
 
 // colour resolves a custom property to a colour, following var() references.

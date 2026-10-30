@@ -1,15 +1,20 @@
-// Ported from identity-experience at c723e417c0eee97db6b1d5b6dab608fe6a406ac2, packages/ui/src/system/panel/Panel.tsx
-// (TDD-organization-experience-001 §Visual Language).
+// Ported from identity-experience at f5424f0ea78dae6db7096f457b54c8894e275c67 (its pull request
+// #66), packages/ui/src/system/panel/Panel.tsx. TDD-organization-experience-001 §Visual Language
+// records the copy; `Panel.Title` takes a heading level here.
+import { Surface } from '@scnx/system/components/surface';
 import type { ComponentPropsWithRef, ReactElement } from 'react';
 
 import styles from './Panel.module.scss';
 
-// Panel is the application's surface: a translucent card over the canvas. It is a compound
-// component (STD-GLB-FE-006): Panel.Root holds Panel.Header, Panel.Title, Panel.Description and
-// Panel.Body, and each renders the element its meaning calls for.
+// Panel is a section of a page on the platform's Surface, in the `panel` material: in scnx-platform
+// a 1px line and no radius. It composes Surface into the compound the applications use
+// (STD-GLB-FE-006): Panel.Root holds Panel.Header, Panel.Title, Panel.Description and Panel.Body, and
+// each renders the element its meaning calls for. Surface is one element; the parts are this file's.
 
 const join = (...names: readonly (string | undefined)[]): string => names.filter(Boolean).join(' ');
 
+// raised is a section of the page; floating is what is raised above one (a confirmation, a result),
+// the platform's `raised` material.
 type Elevation = 'raised' | 'floating';
 
 function Root({
@@ -17,7 +22,15 @@ function Root({
   elevation = 'raised',
   ...rest
 }: ComponentPropsWithRef<'section'> & { readonly elevation?: Elevation }): ReactElement {
-  return <section {...rest} className={join(styles['root'], className)} data-elevation={elevation} />;
+  return (
+    <Surface
+      {...rest}
+      as="section"
+      material={elevation === 'floating' ? 'raised' : 'panel'}
+      className={join(styles['root'], className)}
+      data-elevation={elevation}
+    />
+  );
 }
 
 function Header({ className, ...rest }: ComponentPropsWithRef<'header'>): ReactElement {

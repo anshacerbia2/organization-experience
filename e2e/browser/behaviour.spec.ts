@@ -17,7 +17,7 @@ async function open(
   await page.context().addCookies([{ name: 'persona', value: persona, url: origin }]);
   await page.emulateMedia({ colorScheme: theme === 'light' ? 'light' : 'dark' });
   await page.goto(path);
-  await expect(page.locator('html')).toHaveAttribute('data-theme', theme);
+  await expect(page.locator('html')).toHaveAttribute('data-scnx-resolved-mode', theme);
 }
 
 for (const theme of themes) {
@@ -50,13 +50,21 @@ for (const theme of themes) {
         .toBeGreaterThanOrEqual(height - 1);
       await page.evaluate('window.scrollTo(0, document.documentElement.scrollHeight)');
       await expect.poll(() => page.evaluate('window.scrollY')).toBeGreaterThan(200);
-      // At the bottom of the page, the rail's surface and its edge still reach the viewport's bottom.
+      // At the bottom of the page, the rail's surface and its edge still reach the viewport's bottom, or
+      // the page's end where that comes first: a page whose height ends on a fraction of a pixel scrolls
+      // to a whole pixel, so its end can sit half a pixel above the viewport's bottom.
       await expect
-        .poll(async () => {
-          const box = await rail.boundingBox();
-          return box === null ? 0 : box.y + box.height;
-        })
-        .toBeGreaterThanOrEqual(600);
+        .poll(() =>
+          page.evaluate(`(() => {
+            const rail = document.querySelector('aside');
+            const end = Math.min(document.documentElement.getBoundingClientRect().bottom, window.innerHeight);
+            return rail === null ? -1 : rail.getBoundingClientRect().bottom - end;
+          })()`),
+        )
+        .toBeGreaterThanOrEqual(0);
+      expect(
+        Number(await page.evaluate('document.documentElement.getBoundingClientRect().bottom')),
+      ).toBeGreaterThan(599);
       await expect(rail).toHaveCSS('border-inline-end-style', 'solid');
       await expect(rail).not.toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
       await expect(page.getByRole('navigation', { name: 'Sections' })).toBeInViewport();

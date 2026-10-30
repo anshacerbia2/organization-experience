@@ -285,11 +285,11 @@ export function AcceptInvitationPage(): ReactElement {
           {/* A sign-in with no Tenant, returning here without the fragment: the token waits in this
               tab's session storage, never in a URL the BFF sees (ADR-ORG-007 §5.6). */}
           <Button
-            icon={<Icon name="arrow" />}
             onClick={() => {
               navigation.assign(signInHref(acceptancePath));
             }}
           >
+            <Icon name="arrow" />
             {messages.acceptSignIn}
           </Button>
         </div>
@@ -311,7 +311,8 @@ export function AcceptInvitationPage(): ReactElement {
           <Refused error={accept.error} onRetry={send} />
         ) : (
           <div className={layout.actions}>
-            <Button icon={<Icon name="check" />} disabled={accept.isPending} onClick={send}>
+            <Button disabled={accept.isPending} onClick={send}>
+              <Icon name="check" />
               {accept.isPending ? messages.accepting : messages.acceptAction}
             </Button>
           </div>
