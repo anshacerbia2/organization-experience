@@ -1,34 +1,94 @@
 @use '../styles/roles' as *;
+@use '../shell/frame' as *;
+
+// The cross's colour: text at 72%, where a rule meets a line of the frame (the brand book's 03 Lines).
+$cross: color-mix(in oklab, #{$text} 72%, transparent);
 
 // This repository's page layout, in identity-experience's tokens: a page heading, the panels under it,
 // a form's fields in a grid, a toolbar of filters. identity-experience lays its pages out in each
 // page's own module; this application's surfaces share one shape, so they share these.
 @layer components {
+  // A page is drawn as a sheet, as identity-experience's Sheet and the documentation site draw one
+  // (since 1.19.0): a rule across the page at its top, a cross where the rule meets each of the frame's
+  // lines once the frame has them, its number read out over its heading, then its parts, padded. The
+  // first page under the bar has no rule of its own: the bar's line, or the banner's edge, is its top.
   .page {
+    position: relative;
     display: flex;
     flex-direction: column;
     gap: var(--ds-dimension-spacing-page);
     min-inline-size: 0;
+    padding: 0 $pad 3rem;
+    border-block-start: var(--ds-dimension-border-width-default) solid $line;
+    counter-increment: page;
+
+    &:first-child {
+      border-block-start: 0;
+    }
+
+    @include narrow {
+      padding-inline: $pad-narrow;
+    }
+
+    @include framed {
+      &:not(:first-child)::after {
+        position: absolute;
+        inset-block-start: -6px;
+        inset-inline: -6px;
+        block-size: 11px;
+        content: '';
+        pointer-events: none;
+        background:
+          linear-gradient($cross, $cross) 5px 0 / 1px 11px no-repeat,
+          linear-gradient($cross, $cross) 0 5px / 11px 1px no-repeat,
+          linear-gradient($cross, $cross) right 5px top 0 / 1px 11px no-repeat,
+          linear-gradient($cross, $cross) right 0 top 5px / 11px 1px no-repeat;
+      }
+    }
   }
 
+  // The page's head: its number in the HUD voice, drawn and not read, then its heading and its lede.
   .header {
     display: flex;
     flex-direction: column;
-    gap: var(--ds-dimension-spacing-stack-default);
+    align-items: flex-start;
+    gap: var(--ds-dimension-spacing-inset-default);
+    padding-block-start: 2.75rem;
+
+    &::before {
+      content: counter(page, decimal-leading-zero) / '';
+      color: $muted;
+
+      @include hud;
+    }
+
+    @include narrow {
+      padding-block-start: 1.75rem;
+    }
   }
 
+  // The documentation site's page heading, a step under it here, where the application's heading is
+  // in the bar: Inter 500, tight.
   .title {
-    font-size: var(--ds-typography-heading-medium-font-size);
-    font-weight: var(--ds-typography-weight-semibold);
-    line-height: var(--ds-typography-heading-large-line-height);
-    letter-spacing: var(--ds-typography-heading-large-letter-spacing);
+    max-inline-size: 100%;
+    font-size: clamp(1.875rem, 3.4vw, 2.75rem);
+    font-weight: var(--ds-typography-weight-medium);
+    line-height: 1.04;
+    letter-spacing: -0.035em;
+    overflow-wrap: anywhere;
     color: var(--ds-color-neutral-text-strong-default);
   }
 
+  // A lead under a page's heading is the brand book's lede; anywhere else it is a quieter paragraph.
   .lead {
     max-inline-size: 72ch;
-    font-size: var(--ds-typography-body-small-font-size);
-    color: var(--ds-color-neutral-text-subtle-default);
+    font-size: 0.9375rem;
+    line-height: 1.6;
+    color: $muted;
+  }
+
+  .header > .lead {
+    @include lede;
   }
 
   .subtitle {

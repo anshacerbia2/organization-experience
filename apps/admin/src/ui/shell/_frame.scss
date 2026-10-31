@@ -1,0 +1,44 @@
+@use '../styles/roles' as *;
+
+// The frame's widths and paddings, shared by the frame and the parts drawn on it (Page, the bar's
+// cells), as identity-experience's app-core shell/_frame.scss shares them, so one change moves them
+// together.
+
+// The inline padding of a page's head and body: the brand book's 40px, and the frame's narrow inset
+// under the wide layout, which leaves a 320 CSS px screen its room.
+$pad: 2.5rem;
+$pad-narrow: var(--ds-dimension-spacing-inset-default);
+
+// The frame's margins once it is bounded by its two lines: from 16px to 160px, 4% of the screen.
+$margin: clamp(1rem, 4vw, 10rem);
+
+// The wide layout: the rail beside the page.
+@mixin wide {
+  @media (width >= 60rem) {
+    @content;
+  }
+}
+
+@mixin narrow {
+  @media (width < 60rem) {
+    @content;
+  }
+}
+
+// The frame takes its two lines and its margins: the brand book's centre column.
+@mixin framed {
+  @media (width >= 75rem) {
+    @content;
+  }
+}
+
+// A cell of the frame's bar: one line before it, as the brand book's nav strip draws one line between
+// any two cells. Under the wide layout the bar's cells wrap into rows, where a line would start a row,
+// so it is dropped there.
+@mixin cell {
+  border-inline-start: var(--ds-dimension-border-width-default) solid $line;
+
+  @include narrow {
+    border-inline-start: 0;
+  }
+}

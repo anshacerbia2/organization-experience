@@ -4,8 +4,19 @@
 // The composition's rules sit in `overrides`, the layer STD-GLB-FE-005 §3.4 names for "explicit
 // consumer composition overrides", so they hold over the platform's `components` layer whatever
 // order the stylesheets load in. Each reads a platform token; none selects a platform class.
+@use '../../styles/roles' as *;
+
 @layer overrides {
   .root {
+    // The brand book sets buttons in the HUD voice (02 Principles, 06 Type): the platform's own hooks
+    // take the mono face, its size and a little tracking. A label keeps the case it is written in, not
+    // the HUD's upper case: some name what they act on, and an identifier is case-sensitive, so upper
+    // case would show a value that is not the one acted on (identity-experience's, since 1.19.0).
+    --scnx-button-font-family: #{$font-mono};
+    --scnx-button-font-size: 0.75rem;
+    --scnx-button-font-weight: var(--ds-typography-weight-medium);
+    --scnx-button-letter-spacing: 0.02em;
+
     // A label wraps between its words: with `nowrap` its min-content size is its whole label, and
     // neither a panel nor a flex row can narrow it. The button grows with a wrapped label, from the
     // platform's height for its size.

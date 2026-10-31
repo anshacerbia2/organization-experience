@@ -1,0 +1,23 @@
+@use '../styles/roles' as *;
+
+@layer components {
+  // A square as tall as the frame's bar, its glyph muted until the pointer is over it.
+  .toggle {
+    display: grid;
+    place-items: center;
+    inline-size: $layout-bar;
+    min-block-size: $layout-bar;
+    font-size: $icon-text;
+    color: $muted;
+    transition: color var(--ds-motion-feedback-duration) var(--ds-motion-feedback-easing);
+
+    &:hover {
+      color: $text;
+      background: $hover;
+    }
+
+    &:focus-visible {
+      outline-offset: -4px;
+    }
+  }
+}

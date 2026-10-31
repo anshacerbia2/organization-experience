@@ -6,12 +6,26 @@
 @layer components {
   // The region that scrolls a table too wide for the screen. Its one column is at least the table's
   // min-content width and otherwise the region's own, so the platform's frame inside it grows with
-  // the table rather than scrolling itself, and the region, which takes focus, is what scrolls.
+  // the table rather than scrolling itself, and the region, which takes focus, is what scrolls. The
+  // brand book draws a table as rows of lines (07 Components, 09 Do and don't: never a box in a box),
+  // so through the platform's own hooks the table drops its frame and its header's fill, its heads
+  // speak in the HUD voice, and its lines are the drawing's line (identity-experience's, since 1.19.0).
   .scroll {
+    --scnx-table-frame-background: transparent;
+    --scnx-table-frame-border-width: 0;
+    --scnx-table-header-background: transparent;
+    --scnx-table-header-font-family: #{$font-mono};
+    --scnx-table-header-font-size: 0.625rem;
+    --scnx-table-header-font-weight: var(--ds-typography-weight-medium);
+    --scnx-table-header-letter-spacing: #{$hud-tracking};
+    --scnx-table-border-color: #{$line};
+    --scnx-table-row-background-hover: #{$hover};
+
     display: grid;
     grid-template-columns: minmax(min-content, 100%);
     inline-size: 100%;
     overflow-x: auto;
+    border-block-start: var(--ds-dimension-border-width-default) solid $line;
 
     // A column narrows to its widest word, not to one character: a table too wide for the screen
     // scrolls here rather than squeezing its text, whatever wrapping the panel around it sets

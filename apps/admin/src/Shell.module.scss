@@ -31,16 +31,12 @@
     gap: var(--ds-dimension-spacing-control-default);
   }
 
+  // The two-bar mark, wider than tall (21:9), in the ink role.
   .gateMark {
-    display: grid;
-    place-items: center;
-    inline-size: var(--ds-dimension-size-control-default);
-    block-size: var(--ds-dimension-size-control-default);
-    border: var(--ds-dimension-border-width-default) solid var(--ds-color-primary-border-default-default);
-    border-radius: var(--ds-dimension-radius-control);
-    font-size: $icon-large;
-    color: var(--ds-color-primary-icon-default-default);
-    background: var(--ds-color-primary-surface-subtle-default);
+    flex: none;
+    inline-size: 2.75rem;
+    aspect-ratio: 21 / 9;
+    fill: var(--ds-color-neutral-surface-solid-default);
   }
 
   .gateBrandName {
