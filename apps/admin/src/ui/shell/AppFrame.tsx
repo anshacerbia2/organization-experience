@@ -3,7 +3,17 @@ import { useLayoutEffect, useMemo, useRef, type ReactElement, type ReactNode } f
 
 import styles from './AppFrame.module.scss';
 import { messages } from '../../messages';
-import { Icon } from '../system/icon/Icon';
+import { PLATFORM_THEME } from '../preferences/ThemeRoot';
+
+// The Scnehaux mark: two slanted bars, the upper one set right, in its own 21 × 9 box (scnehaux-design
+// brand/Brand.html), in the ink role, so it is light on the dark mode and dark on the light one.
+export function BrandMark({ className }: { readonly className?: string | undefined }): ReactElement {
+  return (
+    <svg className={className} viewBox="2 8 21 9" aria-hidden="true" focusable="false">
+      <path d="M23 8L20 12L9 12L12 8ZM16 13L13 17L2 17L5 13Z" />
+    </svg>
+  );
+}
 
 // The classes the application's navigation uses inside the frame's rail: a group, its label, its list,
 // and an item whose aria-current marks the page.
@@ -13,7 +23,14 @@ export const navClasses = {
   section: styles['navSection'],
   list: styles['navList'],
   item: styles['navItem'],
-  icon: styles['navIcon'],
+} as const;
+
+// The classes the session's cells take in the frame's bar: a cell around a control, who is signed in,
+// and an action.
+export const barClasses = {
+  cell: styles['cell'],
+  who: styles['who'],
+  action: styles['action'],
 } as const;
 
 // AppFrame is identity-experience's frame (packages/app-core/src/shell/AppFrame.tsx at
@@ -86,9 +103,7 @@ export function AppFrame({
       <aside className={styles['rail']}>
         <div className={styles['railInner']}>
           <Link to="/" className={styles['brand']} activeProps={{ 'aria-current': undefined }}>
-            <span className={styles['brandMark']} aria-hidden="true">
-              <Icon name="shield" />
-            </span>
+            <BrandMark className={styles['brandMark']} />
             <span className={styles['brandName']}>{messages.brand}</span>
           </Link>
           {nav}
@@ -107,6 +122,28 @@ export function AppFrame({
         <main id="main" className={styles['main']} tabIndex={-1}>
           {children}
         </main>
+
+        {/* The page's title block, as a drawing's: what this console is and what holds it to account. */}
+        <footer className={styles['titleBlock']}>
+          <dl className={styles['titleCells']}>
+            <div>
+              <dt>{messages.titleBlockApplication}</dt>
+              <dd>{messages.brand}</dd>
+            </div>
+            <div>
+              <dt>{messages.titleBlockAuthority}</dt>
+              <dd>{messages.titleBlockAuthorityValue}</dd>
+            </div>
+            <div>
+              <dt>{messages.titleBlockSession}</dt>
+              <dd>{messages.titleBlockSessionValue}</dd>
+            </div>
+            <div>
+              <dt>{messages.titleBlockDrawing}</dt>
+              <dd>{PLATFORM_THEME}</dd>
+            </div>
+          </dl>
+        </footer>
       </div>
     </div>
   );

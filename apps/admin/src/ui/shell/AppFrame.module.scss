@@ -1,7 +1,11 @@
 @use '../styles/roles' as *;
+@use 'frame' as *;
 
 // Ported from identity-experience at c723e417c0eee97db6b1d5b6dab608fe6a406ac2, packages/app-core/src/shell/AppFrame.module.scss
-// (TDD-organization-experience-001 §Visual Language).
+// (TDD-organization-experience-001 §Visual Language), and drawn since 1.19.0 as identity-experience's
+// frame and the documentation site draw theirs (scnehaux-design scnx-platform/Brand-Book.html, 03 Lines
+// and 04 Layout): one line between any two areas, never a box in a box. From 75rem the frame is a
+// centre column bounded by two lines, between margins.
 @layer components {
   // Mobile first: the rail sits above the page, and becomes a fixed column once there is room.
   // This repository's change (TDD-organization-experience-001 1.11.0): under 60rem the rail's bar keeps
@@ -13,9 +17,16 @@
     grid-template-columns: 1fr;
     min-block-size: 100dvh;
 
-    @media (width >= 60rem) {
+    @include wide {
       grid-template-rows: none;
-      grid-template-columns: $layout-rail 1fr;
+      grid-template-columns: $layout-rail minmax(0, 1fr);
+    }
+
+    @include framed {
+      inline-size: calc(100% - 2 * #{$margin});
+      max-inline-size: 96rem;
+      margin-inline: auto;
+      border-inline: var(--ds-dimension-border-width-default) solid $line;
     }
   }
 
@@ -25,10 +36,11 @@
     inset-inline-start: var(--ds-dimension-spacing-inline-default);
     z-index: var(--ds-dimension-z-index-overlay);
     padding: var(--ds-dimension-spacing-inset-compact) var(--ds-dimension-spacing-control-default);
-    border-radius: var(--ds-dimension-radius-control);
-    color: var(--ds-color-primary-text-contrast-default);
-    background: var(--ds-color-primary-surface-solid-default);
+    color: var(--ds-color-neutral-text-contrast-default);
+    background: var(--ds-color-neutral-surface-solid-default);
     transform: translateY(-200%);
+
+    @include hud;
 
     &:focus-visible {
       transform: none;
@@ -37,66 +49,70 @@
 
   // This repository's change: the rail is the full height of the page, so its surface and its edge
   // run beside the longest page, and what it holds sticks in view at the viewport's height while the
-  // page scrolls. identity-experience makes the rail itself sticky at 100dvh, so the column's surface
-  // ends at the first screen's height in a full-page rendering of a long page.
+  // page scrolls. Its surface is the page's ground, opaque, and one line parts it from the page.
   .rail {
-    border-block-end: var(--ds-dimension-border-width-default) solid
-      var(--ds-color-neutral-border-subtle-default);
-    background: var(--ds-color-neutral-surface-sunken-default);
+    border-block-end: var(--ds-dimension-border-width-default) solid $line;
+    background: var(--ds-color-neutral-surface-canvas-default);
 
-    @media (width >= 60rem) {
+    @include wide {
       border-block-end: 0;
-      border-inline-end: var(--ds-dimension-border-width-default) solid
-        var(--ds-color-neutral-border-subtle-default);
+      border-inline-end: var(--ds-dimension-border-width-default) solid $line;
     }
   }
 
   .railInner {
     display: flex;
     flex-direction: column;
-    gap: var(--ds-dimension-spacing-page);
-    padding: var(--ds-dimension-spacing-inset-default);
 
-    @media (width >= 60rem) {
+    @include wide {
       position: sticky;
       inset-block-start: 0;
       max-block-size: 100dvh;
       overflow-y: auto;
-      padding: var(--ds-dimension-spacing-inset-comfortable) var(--ds-dimension-spacing-inset-default);
     }
   }
 
+  // The brand's cell is as tall as the bar beside it, so the line under it runs on as the bar's.
   .brand {
     display: flex;
+    flex: none;
     align-items: center;
-    gap: var(--ds-dimension-spacing-control-default);
-    padding-inline: var(--ds-dimension-spacing-inset-compact);
-    border-radius: var(--ds-dimension-radius-control);
+    gap: 0.625rem;
+    min-block-size: $layout-bar;
+    padding-inline: 1.25rem;
+    font-size: var(--ds-typography-body-small-font-size);
+    font-weight: var(--ds-typography-weight-semibold);
+    letter-spacing: -0.01em;
+    color: var(--ds-color-neutral-text-strong-default);
+
+    &:focus-visible {
+      outline-offset: -4px;
+    }
+
+    @include wide {
+      border-block-end: var(--ds-dimension-border-width-default) solid $line;
+    }
   }
 
+  // The mark is wider than tall, 21:9, and drawn in the ink role.
   .brandMark {
-    display: grid;
-    place-items: center;
-    inline-size: var(--ds-dimension-size-control-compact);
-    block-size: var(--ds-dimension-size-control-compact);
-    border: var(--ds-dimension-border-width-default) solid var(--ds-color-primary-border-default-default);
-    border-radius: var(--ds-dimension-radius-control);
-    font-size: $icon-nav;
-    color: var(--ds-color-primary-icon-default-default);
-    background: var(--ds-color-primary-surface-subtle-default);
+    flex: none;
+    inline-size: 2.25rem;
+    aspect-ratio: 21 / 9;
+    fill: var(--ds-color-neutral-surface-solid-default);
   }
 
   .brandName {
-    font-size: var(--ds-typography-body-small-font-size);
-    font-weight: var(--ds-typography-weight-semibold);
-    letter-spacing: var(--ds-typography-heading-large-letter-spacing);
-    color: var(--ds-color-neutral-text-strong-default);
+    min-inline-size: 0;
   }
 
+  // The navigation, as the documentation site's sidebar: group labels in the HUD voice, items in Inter,
+  // muted, the current page a faint ink fill with a 2px marker in the signal.
   .nav {
     display: flex;
     flex-direction: column;
-    gap: var(--ds-dimension-spacing-stack-comfortable);
+    gap: var(--ds-dimension-spacing-inset-comfortable);
+    padding: 1.75rem 0.75rem;
   }
 
   // One labelled group of the navigation: its label, then its links (TDD-identity-experience-003
@@ -104,22 +120,21 @@
   .navGroup {
     display: flex;
     flex-direction: column;
-    gap: var(--ds-dimension-spacing-stack-default);
+    gap: 0.375rem;
   }
 
   .navSection {
-    padding-inline: var(--ds-dimension-spacing-control-default);
-    font-size: var(--ds-typography-label-small-font-size);
-    font-weight: var(--ds-typography-weight-medium);
-    letter-spacing: $hud-tracking;
-    text-transform: uppercase;
-    color: var(--ds-color-neutral-text-subtle-default);
+    padding-inline: 0.625rem;
+    color: $muted;
+
+    @include hud(0.625rem);
   }
 
+  // 2px between items, so two backgrounds, under the pointer or current, never touch. An item is 40px
+  // tall, over the 24px minimum target (WCAG 2.2 SC 2.5.8).
   .navList {
-    display: flex;
-    flex-direction: column;
-    gap: var(--ds-dimension-spacing-stack-compact);
+    display: grid;
+    gap: 2px;
   }
 
   .navItem {
@@ -128,30 +143,36 @@
     align-items: center;
     gap: var(--ds-dimension-spacing-control-default);
     min-block-size: var(--ds-dimension-size-control-default);
-    padding-inline: var(--ds-dimension-spacing-control-default);
-    border-radius: var(--ds-dimension-radius-control);
+    padding-inline: 0.625rem;
     font-size: var(--ds-typography-body-small-font-size);
-    color: var(--ds-color-neutral-text-default-default);
-    transition: background-color var(--ds-motion-feedback-duration) var(--ds-motion-feedback-easing);
+    color: $muted;
+    transition:
+      background-color var(--ds-motion-feedback-duration) var(--ds-motion-feedback-easing),
+      color var(--ds-motion-feedback-duration) var(--ds-motion-feedback-easing);
 
     &:hover {
-      background: var(--ds-color-neutral-surface-default-hover);
+      color: $text;
+      background: $hover;
     }
 
+    &:focus-visible {
+      outline-offset: -2px;
+    }
+
+    // The current page: position is shown by a marker and a weight as well as a colour.
     &[aria-current='page'] {
+      font-weight: var(--ds-typography-weight-medium);
       color: var(--ds-color-neutral-text-strong-default);
-      background: var(--ds-color-neutral-surface-default-selected);
+      background: $current;
     }
 
-    // The current item's edge is marked: position is shown by a marker and a weight as well as a colour.
     &[aria-current='page']::before {
       position: absolute;
-      inset-block: var(--ds-dimension-spacing-stack-default);
+      inset-block: 0.625rem;
       inset-inline-start: 0;
-      inline-size: 3px;
-      border-radius: var(--ds-dimension-radius-pill);
+      inline-size: 2px;
       content: '';
-      background: var(--ds-color-primary-surface-solid-default);
+      background: $signal;
     }
   }
 
@@ -184,7 +205,7 @@
     .root {
       grid-template-rows: auto auto 1fr;
 
-      @media (width >= 60rem) {
+      @include wide {
         grid-template-rows: auto 1fr;
       }
     }
@@ -211,72 +232,174 @@
     }
   }
 
+  // The bar: a strip of cells, one line between any two, as the documentation site's nav strip: the
+  // application's heading, then the session and the theme, each a cell (frame.cell).
   .bar {
-    flex-wrap: wrap;
-    padding-block: var(--ds-dimension-spacing-inset-compact);
     display: flex;
-    align-items: center;
+    flex-wrap: wrap;
+    align-items: stretch;
     justify-content: space-between;
-    gap: var(--ds-dimension-spacing-stack-comfortable);
     min-block-size: $layout-bar;
-    padding-inline: var(--ds-dimension-spacing-inset-comfortable);
-    border-block-end: var(--ds-dimension-border-width-default) solid
-      var(--ds-color-neutral-border-subtle-default);
-    background: var(--ds-color-neutral-surface-sunken-default);
+    border-block-end: var(--ds-dimension-border-width-default) solid $line;
+    background: var(--ds-color-neutral-surface-canvas-default);
   }
 
   // This repository's change: a title longer than the bar wraps rather than pushing the page sideways
   // at 320 CSS px (STD-GLB-FE-005 §3.10, TDD-organization-experience-001 1.11.0).
   .title {
+    display: flex;
+    align-items: center;
     min-inline-size: 0;
+    padding: 0.5rem $pad;
     overflow-wrap: anywhere;
-    font-size: var(--ds-typography-body-default-font-size);
+    font-size: var(--ds-typography-body-small-font-size);
     font-weight: var(--ds-typography-weight-semibold);
-    letter-spacing: var(--ds-typography-heading-large-letter-spacing);
+    letter-spacing: -0.01em;
     color: var(--ds-color-neutral-text-strong-default);
+
+    @include narrow {
+      padding-inline: $pad-narrow;
+    }
   }
 
   .barEnd {
     display: flex;
     flex-wrap: wrap;
+    align-items: stretch;
+  }
+
+  // The bar's cells (barClasses): one that holds a control as it is, who is signed in read out in the
+  // HUD face, and an action whose target is as tall as the bar.
+  .cell {
+    @include cell;
+
+    display: flex;
     align-items: center;
-    gap: var(--ds-dimension-spacing-stack-default);
   }
 
-  .navIcon {
-    display: inline-flex;
-    font-size: $icon-nav;
-    color: var(--ds-color-neutral-icon-default-default);
+  // In the case it is written in: without a display name it is the principal's identifier, which upper
+  // case would misstate.
+  .who {
+    @include cell;
+
+    display: flex;
+    align-items: center;
+    max-inline-size: 18rem;
+    padding-inline: var(--ds-dimension-spacing-inset-default);
+    overflow-wrap: anywhere;
+    font: var(--ds-typography-weight-medium) 0.75rem / 1.4 $font-mono;
+    letter-spacing: 0.02em;
+    color: $text;
   }
 
+  .action {
+    @include cell;
+
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    min-block-size: $layout-bar;
+    padding-inline: var(--ds-dimension-spacing-inset-default);
+    color: $muted;
+    transition: color var(--ds-motion-feedback-duration) var(--ds-motion-feedback-easing);
+
+    @include hud(0.6875rem, 0.12em);
+
+    &:hover {
+      color: $text;
+      background: $hover;
+    }
+
+    &:focus-visible {
+      outline-offset: -4px;
+    }
+
+    &:disabled {
+      cursor: progress;
+    }
+  }
+
+  // The page counts its sheets (Page). Each part draws its own padding, so a page's rule runs from the
+  // rail's line to the frame's; what is not a page (a notice, the home's picker) takes the page's inset.
   .main {
     display: flex;
+    flex: 1;
     flex-direction: column;
-    gap: var(--ds-dimension-spacing-page);
-    inline-size: 100%;
-    max-inline-size: $layout-page;
-    margin-inline: auto;
-    padding: var(--ds-dimension-spacing-section) var(--ds-dimension-spacing-inset-comfortable)
-      calc(2 * var(--ds-dimension-spacing-section));
+    min-inline-size: 0;
+    padding-block-end: 3rem;
+    counter-reset: page;
 
     &:focus {
       outline: none;
+    }
+
+    > :not([data-page]) {
+      margin: var(--ds-dimension-spacing-inset-comfortable) $pad 0;
+
+      @include narrow {
+        margin-inline: $pad-narrow;
+      }
+    }
+  }
+
+  // The title block: a row of cells under the page, a term in the HUD voice over its value.
+  .titleBlock {
+    border-block-start: var(--ds-dimension-border-width-default) solid $line;
+  }
+
+  .titleCells {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 14rem), 1fr));
+    overflow: clip;
+
+    > div {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+      min-inline-size: 0;
+      margin: -1px 0 0 -1px;
+      padding: 1.125rem 1.25rem 1.5rem $pad;
+      border-block-start: var(--ds-dimension-border-width-default) solid $line;
+      border-inline-start: var(--ds-dimension-border-width-default) solid $line;
+
+      @include narrow {
+        padding-inline-start: $pad-narrow;
+      }
+    }
+
+    dt {
+      color: $muted;
+
+      @include hud(0.625rem);
+    }
+
+    dd {
+      margin: 0;
+      font-size: var(--ds-typography-label-small-font-size);
+      line-height: 1.45;
+      overflow-wrap: anywhere;
+      color: $text;
     }
   }
 
   // This repository's: under the wide layout the rail is a bar above the page, its links in a row,
   // so a tablet reaches the page without scrolling past a column of links. The section labels stay
   // in the accessibility tree, naming their lists.
-  @media (width < 60rem) {
+  @include narrow {
     .railInner {
       flex-flow: row wrap;
       align-items: center;
-      gap: var(--ds-dimension-spacing-control-default) var(--ds-dimension-spacing-page);
+      column-gap: var(--ds-dimension-spacing-page);
+    }
+
+    .brand {
+      padding-inline: $pad-narrow;
     }
 
     .nav {
       flex-flow: row wrap;
-      gap: var(--ds-dimension-spacing-stack-compact) var(--ds-dimension-spacing-control-default);
+      gap: 2px var(--ds-dimension-spacing-control-default);
+      padding: var(--ds-dimension-spacing-stack-default) var(--ds-dimension-spacing-inset-compact);
     }
 
     .navGroup {
@@ -285,6 +408,7 @@
     }
 
     .navList {
+      display: flex;
       flex-flow: row wrap;
     }
 
@@ -295,11 +419,6 @@
       overflow: hidden;
       clip-path: inset(50%);
       white-space: nowrap;
-    }
-
-    .main {
-      padding: var(--ds-dimension-spacing-inset-comfortable) var(--ds-dimension-spacing-inset-default)
-        calc(2 * var(--ds-dimension-spacing-page));
     }
   }
 }

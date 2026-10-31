@@ -24,7 +24,39 @@ $icon-nav: 1.25rem;
 $icon-large: 1.5rem;
 
 // The frame's local geometry, values with no reusable semantic role: the rail's width, the bar's
-// height and the widest a page's column runs.
+// height (the brand book's nav strip, 48px) and the widest a page's column runs.
 $layout-rail: 16.5rem;
-$layout-bar: 3.75rem;
+$layout-bar: 3rem;
 $layout-page: 80rem;
+
+// The brand book's drawing (03 Lines, 05 Colour), as identity-experience's packages/ui roles draw it:
+// roles, not colours. Each is a token or a mix of one, made in OKLab: the neutral tokens have so little
+// chroma that an OKLCH mix loses their hue and turns a grey warm.
+$text: var(--ds-color-neutral-text-default-default);
+$muted: var(--ds-color-neutral-text-subtle-default);
+
+// Every divider: text at 16%. One line, never two: areas share it.
+$line: color-mix(in oklab, #{$text} 16%, transparent);
+
+// Blue means here: the current place, a selection. Never a button's fill.
+$signal: var(--ds-color-primary-surface-solid-default);
+
+// A navigation item under the pointer, and the current one, a little stronger.
+$hover: color-mix(in oklab, #{$text} 6%, transparent);
+$current: color-mix(in oklab, #{$text} 7%, transparent);
+
+// The HUD voice: IBM Plex Mono 500, 10 to 11px, tracked, upper case, for labels, numbers and
+// readouts. The platform has no type token for it, so the size is the brand book's (06 Type).
+@mixin hud($size: 0.6875rem, $tracking: $hud-tracking) {
+  font: var(--ds-typography-weight-medium) #{$size} / 1.4 $font-mono;
+  letter-spacing: $tracking;
+  text-transform: uppercase;
+}
+
+// The paragraph under a heading, the brand book's lede: 17px, line 1.6, muted.
+@mixin lede {
+  max-inline-size: 44rem;
+  font-size: 1.0625rem;
+  line-height: 1.6;
+  color: $muted;
+}

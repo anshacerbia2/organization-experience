@@ -35,7 +35,7 @@ export { ThemeRoot, PLATFORM_THEME } from './preferences/ThemeRoot';
 export { ThemeToggle } from './preferences/ThemeToggle';
 
 // This application's layout, local by design: the frame, the page and the record rows.
-export { AppFrame, navClasses } from './shell/AppFrame';
+export { AppFrame, barClasses, BrandMark, navClasses } from './shell/AppFrame';
 export { layout, Page, PageHeader, PageTitle } from './layout/Page';
 export { EmptyState, Facts, Loading, Row, RowMain, Rows, RowTitle, rowClasses, toneOf } from './layout/Rows';
 export type { Fact, StatusFact } from './layout/Rows';

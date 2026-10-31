@@ -3,12 +3,12 @@ doc_meta:
   id: TDD-organization-experience-001
   title: Administrative Scope, Provider Mode, and Safe Bulk Operations
   owner: Core Platform Team
-  version: 1.18.0
+  version: 1.19.0
   status: approved
   classification: restricted
   review_cycle_days: 90
   created_date: 2026-08-11
-  last_reviewed: 2026-10-30
+  last_reviewed: 2026-10-31
   parent_sad: SAD-012
 ---
 
@@ -421,7 +421,7 @@ its source in its first lines.
 | `fieldClasses` | local | none; drawn as `text-field` | The forms here own their ids, hints and errors, so they take the platform's text field as classes, token for token, rather than identity-experience's `TextField`, `SelectField` and `TextAreaField` (departure below). An invalid field takes `danger.border.strong.selected`, as identity-experience's `TextField` does |
 | `Notice` | local | none; drawn as `alert` | The platform's Alert is always a live region, `status` or `alert`. Ten of this application's 54 notices are standing guidance with no role, so a Notice takes the role its caller gives it and draws the Alert's tokens |
 | `ThemeRoot`, `ThemeToggle` | local | core-ui `ThemeProvider` | The theme root over this application's stored choice; the toggle names the mode it moves to |
-| `AppFrame`, `Page`, `Rows` | local | none | This application's frame, page and record rows, in the platform's tokens. The frame's redraw in the brand book's drawing (cells that share their lines, mono navigation, the ink primary action, the two-bar mark) is the next change to this section |
+| `AppFrame`, `Page`, `Rows` | local | none | This application's frame, page and record rows, in the platform's tokens, drawn since 1.19.0 as identity-experience's and the documentation site's are (**The drawing**, below) |
 
 **Tokens.** Every `--ds-*` name the stylesheets read is the package's. identity-experience's
 `packages/ui/README.md` ("Tokens") maps each stand-in name to the platform's, and the same map renamed
@@ -465,6 +465,37 @@ push the page sideways; the sticky line never wraps.
 The time left is set apart at the end of the banner in tabular figures. The banner reads the same
 sentence it always has, word for word: the parts are styled, not reworded. The one sentence 1.11.0
 rewords is the session without a Tenant's.
+
+**The drawing (1.19.0).** The console is drawn as identity-experience's applications are since their
+`TDD-identity-experience-003` 1.37.0, and as the documentation site draws its pages (scnehaux-design
+`scnx-platform/Brand-Book.html`): one line between any two areas, never a box in a box; blue only for here;
+Inter for the content and the mono HUD voice for labels, numbers and readouts. The frame keeps its structure,
+its sticky regions and its tests (§Scope Visibility); only the drawing changes.
+
+- **The frame.** From `75rem` it is a centre column bounded by two lines, between margins of 1rem to 10rem,
+  at most 96rem wide. The rail's surface is the page's ground, opaque, with one line beside the page. Its
+  brand cell carries the two-bar mark in the ink role and is as tall as the bar, so the line under it runs
+  on as the bar's. The navigation has no icons: group labels in the HUD voice, items in Inter, muted, the
+  current page a faint ink fill with a 2px marker in the signal. The bar is a 48px strip of cells: the
+  application's `h1`, then who is signed in (a readout in the HUD face, in the case it is written in, no
+  longer a success badge, since a name is not a status), sign out, and the theme in a square cell. Every
+  page ends on a title block: the application, the authority that decides every request, where the session
+  is held, and the drawing.
+- **A page is a sheet.** `Page` draws a rule across the page at its top, a cross where it meets each of the
+  frame's lines once the frame has them, and the page's number in the HUD voice over its `h2`
+  (Inter 500, tight, 1.875rem to 2.75rem); the first page under the bar has no rule of its own. A lead under
+  the heading is the brand book's lede. What `main` holds that is not a page, a notice or the home's
+  picker, takes the page's inset.
+- **Records and tables are rows of lines.** `Rows` has no frame and no fill; loading and empty states sit
+  between two lines. The platform's Table drops its frame and its header's fill and sets its heads in the HUD
+  voice through its own `--scnx-table-*` hooks. The platform's Button takes the HUD face through
+  `--scnx-button-font-*`, in its label's own case: some labels name an identifier, which upper case would
+  misstate.
+- **What stays.** The scope banner keeps its schemes, glyphs and words (§Scope Visibility); its words now
+  start where the page's do. Panels, the confirmations in a row, the notices and every component render as
+  they did.
+- `e2e/browser` holds it unchanged: the layout at every width and both themes, the banner in view, the
+  rail's full height and opaque surface, the one sticky line at 320 by 256, focus never hidden, and axe.
 
 **Information design.** The surfaces share one shape: the page's `h2`, a panel per create form with its
 fields in a grid, the filters in a toolbar, then the records.

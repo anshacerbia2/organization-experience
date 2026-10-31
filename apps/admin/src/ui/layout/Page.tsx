@@ -21,8 +21,10 @@ export const layout = {
   confirm: styles['confirm'],
 } as const;
 
+// A page is drawn as a sheet (Page.module.scss); `data-page` tells the frame's main which of its parts
+// are pages, so what is not one takes the page's inset.
 export function Page({ className, ...rest }: ComponentPropsWithRef<'section'>): ReactElement {
-  return <section {...rest} className={join(styles['page'], className)} />;
+  return <section {...rest} className={join(styles['page'], className)} data-page="" />;
 }
 
 export function PageHeader({ className, ...rest }: ComponentPropsWithRef<'header'>): ReactElement {

@@ -19,6 +19,13 @@ export const messages = {
   skipToContent: 'Skip to content',
   themeToDark: 'Switch to the dark theme',
   themeToLight: 'Switch to the light theme',
+  // The page's title block, as a drawing's: what this console is and what holds it to account.
+  titleBlockApplication: 'Application',
+  titleBlockAuthority: 'Authority',
+  titleBlockAuthorityValue: 'The Organization Control API decides every request',
+  titleBlockSession: 'Session',
+  titleBlockSessionValue: 'Held by the server: no token reaches this browser',
+  titleBlockDrawing: 'Drawing',
   navGroupTenant: 'This Tenant',
   navGroupProviderMode: 'Provider mode',
   navGroupProvider: 'Provider',

@@ -4,16 +4,15 @@
 // identity-experience's table tokens (packages/ui/src/system/table/Table.module.scss). The records stay
 // list items, which is what a screen reader announces them as and what the tests find them by. Each
 // row's head holds what names it and its facts, its actions after; what a row says beneath it (a
-// note, a status, a confirmation) takes the full width under the head, in document order.
+// note, a status, a confirmation) takes the full width under the head, in document order. Since 1.19.0
+// it is drawn as the brand book draws a table: rows of lines, with no frame around them and no fill.
 @layer components {
   .list {
     display: flex;
     flex-direction: column;
-    border: var(--ds-dimension-border-width-default) solid var(--ds-color-neutral-border-subtle-default);
-    border-radius: var(--ds-dimension-radius-panel);
+    border-block-start: var(--ds-dimension-border-width-default) solid $line;
     font-size: var(--ds-typography-body-small-font-size);
     font-variant-numeric: tabular-nums;
-    background: var(--ds-color-neutral-surface-raised-default);
   }
 
   .list:empty {
@@ -25,9 +24,8 @@
     flex-wrap: wrap;
     align-items: center;
     gap: var(--ds-dimension-spacing-stack-default) var(--ds-dimension-spacing-control-default);
-    padding: var(--ds-dimension-spacing-control-default) var(--ds-dimension-spacing-inset-default);
-    border-block-end: var(--ds-dimension-border-width-default) solid
-      var(--ds-color-neutral-border-subtle-default);
+    padding: var(--ds-dimension-spacing-control-default) var(--ds-dimension-spacing-inset-compact);
+    border-block-end: var(--ds-dimension-border-width-default) solid $line;
     color: var(--ds-color-neutral-text-default-default);
     transition: background-color var(--ds-motion-feedback-duration) var(--ds-motion-feedback-easing);
 
@@ -121,9 +119,8 @@
     display: flex;
     align-items: center;
     gap: var(--ds-dimension-spacing-control-default);
-    padding: var(--ds-dimension-spacing-inset-comfortable) var(--ds-dimension-spacing-inset-default);
-    border: var(--ds-dimension-border-width-default) dashed var(--ds-color-neutral-border-default-default);
-    border-radius: var(--ds-dimension-radius-panel);
+    padding: var(--ds-dimension-spacing-inset-default) var(--ds-dimension-spacing-inset-compact);
+    border-block: var(--ds-dimension-border-width-default) solid $line;
     font-size: var(--ds-typography-body-small-font-size);
     color: var(--ds-color-neutral-text-subtle-default);
   }

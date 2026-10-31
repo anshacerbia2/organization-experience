@@ -15,6 +15,8 @@ import { providerModePath, signInOutcome, signOut } from './session';
 import { SignedInProvider, useSessionQuery, useSignedIn } from './SessionContext';
 import {
   AppFrame,
+  barClasses,
+  ButtonBase,
   Button,
   Icon,
   layout,
@@ -24,9 +26,7 @@ import {
   PageHeader,
   PageTitle,
   Panel,
-  StatusPill,
   ThemeToggle,
-  type IconName,
 } from './ui';
 
 // here is the path a sign-in returns to: where the browser is, on this origin.
@@ -133,14 +133,13 @@ export function Shell(): ReactElement {
           line={<ScopeLine />}
           session={
             <>
-              <StatusPill tone="success">
+              <span className={barClasses.who}>
                 {signedIn.displayName ?? signedIn.principalId ?? messages.signedIn}
-              </StatusPill>{' '}
-              <Button variant="ghost" size="small" disabled={signingOut} onClick={onSignOut}>
-                <Icon name="logout" />
+              </span>
+              <ButtonBase className={barClasses.action ?? ''} disabled={signingOut} onClick={onSignOut}>
                 {messages.signOut}
-              </Button>
-              {themeToggle}
+              </ButtonBase>
+              <span className={barClasses.cell}>{themeToggle}</span>
             </>
           }
         >
@@ -160,7 +159,6 @@ export function Shell(): ReactElement {
 interface NavLink {
   readonly to: string;
   readonly label: string;
-  readonly icon: IconName;
 }
 
 // The navigation offers what the active scope allows, grouped by the scope each section acts in
@@ -173,17 +171,17 @@ function Navigation(): ReactElement | null {
     return null;
   }
   const groups: { id: string; label: string | null; links: NavLink[] }[] = [
-    { id: 'home', label: null, links: [{ to: '/', label: messages.overview, icon: 'grid' }] },
+    { id: 'home', label: null, links: [{ to: '/', label: messages.overview }] },
   ];
   if (state.scope.scope === 'tenant') {
     groups.push({
       id: 'tenant',
       label: messages.navGroupTenant,
       links: [
-        { to: '/workspaces', label: messages.workspaces, icon: 'layers' },
-        { to: '/memberships', label: messages.memberships, icon: 'users' },
-        { to: '/invitations', label: messages.invitations, icon: 'mail' },
-        { to: '/provider-access', label: messages.providerAccess, icon: 'eye' },
+        { to: '/workspaces', label: messages.workspaces },
+        { to: '/memberships', label: messages.memberships },
+        { to: '/invitations', label: messages.invitations },
+        { to: '/provider-access', label: messages.providerAccess },
       ],
     });
   } else {
@@ -192,19 +190,19 @@ function Navigation(): ReactElement | null {
         id: 'provider-mode',
         label: messages.navGroupProviderMode,
         links: [
-          { to: '/organizations', label: messages.organizations, icon: 'building' },
-          { to: '/tenants', label: messages.tenants, icon: 'globe' },
-          { to: '/offboardings', label: messages.offboardings, icon: 'archive' },
-          { to: '/projections', label: messages.projectionHealth, icon: 'pulse' },
-          { to: '/reporters', label: messages.reporters, icon: 'inbox' },
-          { to: '/access-review', label: messages.accessReview, icon: 'review' },
+          { to: '/organizations', label: messages.organizations },
+          { to: '/tenants', label: messages.tenants },
+          { to: '/offboardings', label: messages.offboardings },
+          { to: '/projections', label: messages.projectionHealth },
+          { to: '/reporters', label: messages.reporters },
+          { to: '/access-review', label: messages.accessReview },
         ],
       });
     }
     groups.push({
       id: 'provider',
       label: messages.navGroupProvider,
-      links: [{ to: '/approvals', label: messages.approvals, icon: 'key' }],
+      links: [{ to: '/approvals', label: messages.approvals }],
     });
   }
   return (
@@ -228,9 +226,6 @@ function Navigation(): ReactElement | null {
                   activeProps={{ 'aria-current': 'page' }}
                   activeOptions={{ exact: link.to === '/' }}
                 >
-                  <span className={navClasses.icon}>
-                    <Icon name={link.icon} />
-                  </span>
                   {link.label}
                 </Link>
               </li>

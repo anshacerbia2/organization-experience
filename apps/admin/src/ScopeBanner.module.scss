@@ -1,4 +1,5 @@
 @use './ui/styles/roles' as *;
+@use './ui/shell/frame' as *;
 
 // The scope banner (TDD-organization-experience-001 §Scope Visibility), in identity-experience's
 // schemes. It sits under the frame's bar and sticks with it. Its surface is the bar's sunken one with
@@ -16,12 +17,18 @@
     gap: var(--ds-dimension-spacing-control-default);
     min-block-size: var(--ds-dimension-size-control-comfortable);
     margin: 0;
-    padding: var(--ds-dimension-spacing-inset-compact) var(--ds-dimension-spacing-inset-comfortable);
+
+    // Its words start where the page's do (frame.$pad).
+    padding: var(--ds-dimension-spacing-inset-compact) $pad;
     border-block-end: 3px solid var(--banner-edge);
     font-size: var(--ds-typography-body-small-font-size);
     color: var(--ds-color-neutral-text-strong-default);
     background-color: var(--ds-color-neutral-surface-canvas-default);
     background-image: linear-gradient(var(--banner-surface), var(--banner-surface));
+
+    @include narrow {
+      padding-inline: $pad-narrow;
+    }
   }
 
   // The one-line scope on a small viewport (TDD-organization-experience-001 1.12.0): the banner's
