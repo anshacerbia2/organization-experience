@@ -113,6 +113,24 @@ export const messages = {
   correlation: (id: string): string => `Reference ${id}`,
   leaveProviderMode: 'Leave provider mode',
   withdrawRequest: 'Withdraw the request',
+
+  // Activating an eligible grant for the Identity Control API (TDD-organization-experience-001 1.20.0
+  // §Activating Identity Control Access). It is not a provider window here: the authority is the
+  // Identity Control API's, used in identity-experience's Admin Portal.
+  identityAccess: 'Identity Control provider access',
+  identityAccessExplained:
+    'For the Identity Control API, used in the Admin Portal. An eligible grant confers nothing until it is activated: state a reason and a duration, then another provider approves it in Activation requests.',
+  requestIdentityAccess: 'Request Identity Control access',
+  noIdentityGrant: 'You hold no Identity Control provider grant. A provider grants one in Provider grants.',
+  identityGrantEmergency:
+    'Your Identity Control grant is an emergency grant: it is in force without an activation.',
+  identityAccessPending: (activation: string): string =>
+    `Requested: awaiting approval by another provider in Activation requests. Activation ${activation}.`,
+  identityAccessInForce: (until: string): string => `In force until ${until}. Use it in the Admin Portal.`,
+  identityAccessClosed: (decision: string): string =>
+    `The request is ${decision}. Ask again if you still need it.`,
+  identityAccessGone: 'The request is no longer listed. Ask again if you still need it.',
+  identityAccessRead: 'Read the status again',
   // The administration surfaces (TDD-organization-experience-002 1.2.0).
   navigation: 'Sections',
   separator: ' · ',
