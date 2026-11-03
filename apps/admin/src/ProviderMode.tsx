@@ -1,5 +1,6 @@
 import { useId, useState, type ReactElement, type SyntheticEvent } from 'react';
 
+import { IdentityAccess } from './IdentityAccess';
 import { messages } from './messages';
 import {
   leaveProviderMode,
@@ -18,7 +19,8 @@ import { Button, fieldClasses, Icon, layout, Notice, Panel } from './ui';
 // ProviderModeGate is the entry ceremony (TDD-organization-experience-001 1.2.0 §Provider Mode
 // Entry): the reason, the duration and the Tenants are stated before anything opens, and the BFF
 // asks for a fresh sign-in first when the last one is not recent. Once a window exists it offers
-// the one action that applies: withdraw it while it awaits approval, or leave it.
+// the one action that applies: withdraw it while it awaits approval, or leave it. Without a window it
+// also offers activating an eligible Identity Control grant (IdentityAccess), which opens no window.
 
 type ProviderScope = Extract<Scope, { scope: 'provider' }>;
 
@@ -316,7 +318,10 @@ export function ProviderModeGate({
     <>
       <ProviderClosed scope={scope} />
       {scope.window === null ? (
-        <ProviderModeForm scope={scope} csrfToken={csrfToken} returnTo={returnTo} />
+        <>
+          <ProviderModeForm scope={scope} csrfToken={csrfToken} returnTo={returnTo} />
+          <IdentityAccess scope={scope} csrfToken={csrfToken} />
+        </>
       ) : (
         <LeaveProviderMode pending={scope.window.state === 'pending'} csrfToken={csrfToken} />
       )}

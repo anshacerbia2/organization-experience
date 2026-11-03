@@ -3,12 +3,12 @@ doc_meta:
   id: TDD-organization-experience-001
   title: Administrative Scope, Provider Mode, and Safe Bulk Operations
   owner: Core Platform Team
-  version: 1.19.0
+  version: 1.20.0
   status: approved
   classification: restricted
   review_cycle_days: 90
   created_date: 2026-08-11
-  last_reviewed: 2026-10-31
+  last_reviewed: 2026-11-03
   parent_sad: SAD-012
 ---
 
@@ -309,6 +309,54 @@ outlives the session that asked for it.
   a request naming any other Tenant, in its path or in its body's `tenant_id`.
 - **This prevents mistakes, not attacks** (§Security Notes). It is what keeps an operator who meant
   one Tenant from acting on another.
+
+### Activating Identity Control Access (1.20.0)
+
+Organization Control records every provider grant, for both scopes (`ADR-ORG-002`), and its
+activations. A grant of `provider:identity-control` is used in identity-experience's Admin Portal, which
+calls the Identity Control API. An eligible holder of one still asks for its activation here, because the
+activation is Organization Control's record, and identity-control honours an activation in force from
+its projection of it (`TDD-identity-control-006`).
+
+Until 1.19.0 nothing offered that request. Provider mode's `POST /auth/scope/provider` picks the grant
+of `provider:organization-control`, the scope this application administers under, so a holder of only
+`provider:identity-control` was refused, and the Admin Portal has no activation surface. On a server
+built from zero that stopped the bootstrap ceremony's review (`STD-IAM-001` §3.10; the development
+server runbook, step 10.6): the reviewer holds an eligible `provider:identity-control` grant and must
+have it in force to record the review.
+
+**The provider mode page offers it, below the provider mode form, when no window is open.**
+
+- **The person states a reason and a duration**, the same fields and limits as provider mode
+  (§Provider Mode Entry). The reason is sent as `X-Administrative-Reason` on every call.
+- **The application reads the person's own grants** (`GET /v1/provider-activations/grants`) and asks
+  for the activation of the eligible `provider:identity-control` grant
+  (`POST /v1/provider-activations`, with an `Idempotency-Key` and the session's CSRF token).
+  - No such grant: it says so, and asks for nothing.
+  - An emergency grant: it says the grant is in force without an activation, and asks for nothing.
+- **Another provider approves it** in Activation requests, which lists pending activations of every
+  scope (§Provider Mode Entry, item 4). The API refuses a self-approval, and an approver who holds no
+  grant of the activation's scope.
+- **The person reads its status again** (`GET /v1/provider-activations`, with the same reason): awaiting
+  approval, in force until `ends_at`, or decided otherwise.
+
+**It opens no window.** A window is this application's own authority over Organization Control, with
+its targets and its banner. An Identity Control activation gives this application nothing: its own
+requests stay refused, and the authority is used in the Admin Portal. The activation ends at its
+`ends_at`, as every activation does.
+
+**The BFF needs no change.** Its scope guard admits the activation routes to a provider session with
+no window (§The Scope Guard and the BFF's Scope Endpoints), and Organization Control admits a holder of
+any provider grant to them as an eligible caller.
+
+**Rejected.**
+
+- **A scope choice in the provider mode form.** It would open a window that grants this application
+  nothing, under a banner that says provider mode is active.
+- **An activation surface in the Admin Portal.** It would be a second place to request what
+  Organization Control records, for one of its two scopes only.
+- **An emergency grant for the reviewer.** It is standing authority, reported on every use, and the
+  runbook asks for an eligible grant.
 
 ### Scope Visibility
 
@@ -942,6 +990,13 @@ procedure.
   - in the stack, a person signs in with no Tenant, chooses the Tenant from the list, and is in its
     scope on the same kernel session, with no identifier typed (§End to End).
 
+- 1.20.0, Identity Control access:
+  - from the provider mode page with no window, a reason and a duration ask for the activation of the
+    eligible `provider:identity-control` grant, with the reason on the read and the command, the CSRF
+    token and an `Idempotency-Key`, and no provider window request;
+  - its status is read again with the same reason: awaiting approval, then in force until `ends_at`;
+  - no Identity Control grant, or an emergency one, asks for nothing and says why;
+  - no reason sends nothing, and the API's refusal is shown in its own words.
 ### Bulk Operations
 
 - A preview reports per-item resulting state and per-item refusal reasons.
